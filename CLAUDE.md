@@ -44,6 +44,15 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 - **Especificación completa del cuestionario** de las cuatro familias
   (Proyecto, B2B, Profesional, Catálogo), con su lógica.
 
+## 3.1. Estado actual del código
+
+No hay código todavía: ni `package.json`, ni proyecto Next.js inicializado en
+`apps/diagnostico` ni `apps/panel`, ni stack elegido en `api`. Cada carpeta
+solo tiene un README con su pendiente. Por lo tanto no hay comandos de
+build/lint/test que ejecutar todavía — no los inventes ni asumas convenciones
+estándar de Next.js hasta que alguna app se inicialice. Cuando eso ocurra,
+esta sección debe actualizarse con los comandos reales de cada app.
+
 ## 4. Cómo se organiza el repo
 
 ```
@@ -80,3 +89,14 @@ Mismo criterio que `score-sitio`, aunque hoy lo trabajes tú solo:
   (sin valores reales)
 - Nombres de archivos y componentes: `PascalCase` para componentes,
   `kebab-case` para el resto
+
+## 7. Relación con score-sitio
+
+Este repo es **independiente** de `score-sitio`. No asumas acceso ni
+visibilidad sobre ese código — es otro repo, con otro dueño de cambios (el
+compañero no-developer), y no debe tener acceso a este repo.
+
+El único punto de contacto entre los dos es el endpoint que consume el
+formulario de precalificación del sitio, dentro de `api`. Si cambias su
+forma (campos, tipos, códigos de respuesta), coordínalo con José antes de
+mergear — el cambio afecta al otro repo y él es quien ve los dos lados.

@@ -1,0 +1,82 @@
+# SCORE — App, Panel y API (P2, P4, P5) · Guía de trabajo del repo
+
+Este archivo lo lee tanto una persona como Claude Code cuando trabajas en este
+repo. El sitio público (P1) vive en otro repo: `score-sitio`.
+
+## 1. Qué estamos construyendo aquí
+
+Monorepo con las tres piezas de SCORE que no son el sitio público:
+
+- **`apps/diagnostico`** (P2 + P3) — la app donde el cliente final de Music
+  Finance Pro responde el cuestionario, por enlace único, sin crear
+  contraseña. El modo de voz (P3, opcional) es parte de esta misma app, no
+  una app aparte.
+- **`apps/panel`** (P5) — el panel interno donde el equipo de Music Finance
+  Pro revisa cada caso, corrige con trazabilidad, aprueba y genera el
+  informe. Tiene login y permisos — nunca comparte código ni build con
+  `apps/diagnostico`.
+- **`api`** (P4) — la base de datos, la integración con el motor de cálculo
+  de SCORE, el CRM, los pagos y la bitácora de auditoría. La consumen
+  `diagnostico` y `panel` por HTTP.
+
+El alcance detallado de cada producto (qué incluye y qué no) está en
+`Propuesta_MVP_SCORE.docx`, sección 02. Si algo pedido no aparece ahí, es
+señal de alcance — se le avisa a José antes de construirlo.
+
+## 2. Quién hace qué
+
+Por ahora este repo lo lleva **José en solitario** (diagnóstico, API, motor
+de cálculo, base de datos y despliegue). El sitio (`score-sitio`) lo lleva el
+compañero no-developer, en su propio repo — no tiene acceso a este.
+
+Si en algún momento se suma alguien más a este repo, sigue el mismo reparto
+de responsabilidades del proyecto: nadie decide alcance ni stack nuevo por su
+cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
+
+## 3. Pendientes que bloquean empezar a programar
+
+- **Stack de `api` (P4):** todavía sin decidir (Laravel vs Node). Hasta que
+  se decida, esa carpeta solo tiene un README con el pendiente.
+- **Escenario del motor de cálculo:** confirmar si es software ejecutable,
+  una hoja de cálculo, está solo documentado, o parcialmente definido (ver
+  `Alcance_Preliminar_MVP_SCORE.docx`, sección 03). Esto cambia cómo se
+  construye `api` desde el primer día.
+- **Especificación completa del cuestionario** de las cuatro familias
+  (Proyecto, B2B, Profesional, Catálogo), con su lógica.
+
+## 4. Cómo se organiza el repo
+
+```
+score-app/
+  apps/
+    diagnostico/   # P2 + P3 — Next.js
+    panel/         # P5 — Next.js
+  api/             # P4 — stack por definir
+  CLAUDE.md
+```
+
+Cada pieza se despliega por separado. No se usan herramientas de monorepo
+(Turborepo, pnpm workspaces) por ahora — con un MVP y tres despliegues
+independientes, carpetas simples alcanzan. Si más adelante `diagnostico` y
+`panel` terminan compartiendo mucho código (tipos, componentes de
+resultados), se evalúa introducir un `packages/` compartido — no antes.
+
+## 5. Flujo de trabajo
+
+Mismo criterio que `score-sitio`, aunque hoy lo trabajes tú solo:
+
+1. Rama nueva desde `main` actualizado (`feature/`, `fix/`).
+2. Commits pequeños, en español, en modo instrucción.
+3. PR hacia `main` con 2-3 líneas de qué cambió y por qué — aunque te
+   apruebes a ti mismo, deja el registro. Es el mismo hábito que le pides a
+   tu compañero en `score-sitio`, y te sirve de bitácora si más adelante se
+   suma alguien a este repo.
+4. Nunca push directo a `main`.
+
+## 6. Convenciones rápidas
+
+- Idioma de commits, PRs y comentarios de código: **español**
+- Variables de entorno nuevas van en el `.env.example` de cada app/API
+  (sin valores reales)
+- Nombres de archivos y componentes: `PascalCase` para componentes,
+  `kebab-case` para el resto

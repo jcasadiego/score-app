@@ -35,23 +35,46 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 
 ## 3. Pendientes que bloquean empezar a programar
 
-- **Stack de `api` (P4):** todavía sin decidir (Laravel vs Node). Hasta que
-  se decida, esa carpeta solo tiene un README con el pendiente.
 - **Escenario del motor de cálculo:** confirmar si es software ejecutable,
   una hoja de cálculo, está solo documentado, o parcialmente definido (ver
-  `Alcance_Preliminar_MVP_SCORE.docx`, sección 03). Esto cambia cómo se
-  construye `api` desde el primer día.
+  `Alcance_Preliminar_MVP_SCORE.docx`, sección 03). En `api`, el motor
+  queda detrás de `MotorCalculoPort` (`api/src/motor-calculo/`) para no
+  bloquear el resto por esto — hoy solo hay un adaptador de ejemplo.
 - **Especificación completa del cuestionario** de las cuatro familias
-  (Proyecto, B2B, Profesional, Catálogo), con su lógica.
+  (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
+  dominio real de `api` (modelos de caso/respuestas, detección de
+  contradicciones) y el flujo de `apps/diagnostico`.
+- **Modelo de login/permisos de `apps/panel`:** todavía sin definir.
 
 ## 3.1. Estado actual del código
 
-No hay código todavía: ni `package.json`, ni proyecto Next.js inicializado en
-`apps/diagnostico` ni `apps/panel`, ni stack elegido en `api`. Cada carpeta
-solo tiene un README con su pendiente. Por lo tanto no hay comandos de
-build/lint/test que ejecutar todavía — no los inventes ni asumas convenciones
-estándar de Next.js hasta que alguna app se inicialice. Cuando eso ocurra,
-esta sección debe actualizarse con los comandos reales de cada app.
+Las tres piezas ya están inicializadas como scaffold — sin la lógica de
+negocio que depende de los pendientes de la sección 3. Gestor de paquetes:
+`pnpm` en las tres, cada una con su propio lockfile (sin workspaces).
+
+**`api`** — NestJS 10 + TypeScript + Prisma 7 sobre PostgreSQL:
+
+```bash
+pnpm install
+docker compose up -d       # Postgres local
+pnpm prisma migrate dev
+pnpm start:dev              # http://localhost:3000
+pnpm build
+pnpm lint
+pnpm test:e2e
+```
+
+**`apps/diagnostico`** y **`apps/panel`** — Next.js 16 (App Router) +
+TypeScript + Tailwind:
+
+```bash
+pnpm install
+pnpm dev     # diagnostico: :3001 · panel: :3002 (3000 lo usa la api)
+pnpm build
+pnpm lint
+```
+
+Detalle de cada pieza en su propio README.
 
 ## 4. Cómo se organiza el repo
 
@@ -60,7 +83,7 @@ score-app/
   apps/
     diagnostico/   # P2 + P3 — Next.js
     panel/         # P5 — Next.js
-  api/             # P4 — stack por definir
+  api/             # P4 — NestJS + Prisma + PostgreSQL
   CLAUDE.md
 ```
 

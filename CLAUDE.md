@@ -44,6 +44,15 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 - **Especificación completa del cuestionario** de las cuatro familias
   (Proyecto, B2B, Profesional, Catálogo), con su lógica.
 
+## 3.1. Estado actual del código
+
+No hay código todavía: ni `package.json`, ni proyecto Next.js inicializado en
+`apps/diagnostico` ni `apps/panel`, ni stack elegido en `api`. Cada carpeta
+solo tiene un README con su pendiente. Por lo tanto no hay comandos de
+build/lint/test que ejecutar todavía — no los inventes ni asumas convenciones
+estándar de Next.js hasta que alguna app se inicialice. Cuando eso ocurra,
+esta sección debe actualizarse con los comandos reales de cada app.
+
 ## 4. Cómo se organiza el repo
 
 ```
@@ -63,15 +72,25 @@ resultados), se evalúa introducir un `packages/` compartido — no antes.
 
 ## 5. Flujo de trabajo
 
-Mismo criterio que `score-sitio`, aunque hoy lo trabajes tú solo:
+Mismo criterio que `score-sitio`, aunque hoy lo trabajes tú solo. El repo
+tiene dos ramas largas con roles distintos:
 
-1. Rama nueva desde `main` actualizado (`feature/`, `fix/`).
+- **`main`** — estrictamente producción. Solo recibe merges desde `develop`
+  cuando se hace un release.
+- **`develop`** — rama de integración, es lo que corre en QA. Aquí llegan
+  los PR de todo el trabajo en curso.
+
+Flujo del día a día:
+
+1. Rama nueva desde `develop` actualizado (`feature/`, `fix/`).
 2. Commits pequeños, en español, en modo instrucción.
-3. PR hacia `main` con 2-3 líneas de qué cambió y por qué — aunque te
+3. PR hacia `develop` con 2-3 líneas de qué cambió y por qué — aunque te
    apruebes a ti mismo, deja el registro. Es el mismo hábito que le pides a
    tu compañero en `score-sitio`, y te sirve de bitácora si más adelante se
    suma alguien a este repo.
-4. Nunca push directo a `main`.
+4. Nunca push directo a `main` ni a `develop`.
+5. `develop` → `main` es un paso aparte, deliberado, para subir a prod — no
+   ocurre como consecuencia automática de mergear a `develop`.
 
 ## 6. Convenciones rápidas
 
@@ -80,3 +99,14 @@ Mismo criterio que `score-sitio`, aunque hoy lo trabajes tú solo:
   (sin valores reales)
 - Nombres de archivos y componentes: `PascalCase` para componentes,
   `kebab-case` para el resto
+
+## 7. Relación con score-sitio
+
+Este repo es **independiente** de `score-sitio`. No asumas acceso ni
+visibilidad sobre ese código — es otro repo, con otro dueño de cambios (el
+compañero no-developer), y no debe tener acceso a este repo.
+
+El único punto de contacto entre los dos es el endpoint que consume el
+formulario de precalificación del sitio, dentro de `api`. Si cambias su
+forma (campos, tipos, códigos de respuesta), coordínalo con José antes de
+mergear — el cambio afecta al otro repo y él es quien ve los dos lados.

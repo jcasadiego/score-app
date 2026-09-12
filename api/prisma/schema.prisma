@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Bitácora de auditoría: registra toda acción de escritura hecha a través
+/// de la API (requisito duro de P4). El detalle de qué se cambió va en
+/// `datos`, ya que la forma exacta depende de cada entidad.
+model RegistroAuditoria {
+  id         String   @id @default(cuid())
+  accion     String
+  entidad    String
+  entidadId  String?
+  usuarioId  String?
+  datos      Json?
+  creadoEn   DateTime @default(now())
+
+  @@index([entidad, entidadId])
+  @@index([creadoEn])
+}
+
+/// Versión de reglas aplicada a un diagnóstico (requisito duro de P4).
+/// El contenido de las reglas es configuración, no código — vive en
+/// `contenido` mientras se define la especificación completa del
+/// cuestionario y su lógica.
+model VersionReglas {
+  id         String   @id @default(cuid())
+  numero     Int      @unique @default(autoincrement())
+  contenido  Json
+  activa     Boolean  @default(false)
+  creadoEn   DateTime @default(now())
+}

@@ -2,11 +2,14 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
+import { Prisma } from '../../generated/prisma/client';
 import { AuditoriaService } from './auditoria.service';
+import { redactarDatosSensibles } from './redactar-datos-sensibles';
 
 const METODOS_AUDITABLES = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -18,6 +21,8 @@ const METODOS_AUDITABLES = ['POST', 'PUT', 'PATCH', 'DELETE'];
  */
 @Injectable()
 export class AuditoriaInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditoriaInterceptor.name);
+
   constructor(private readonly auditoria: AuditoriaService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -29,16 +34,20 @@ export class AuditoriaInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
-        void this.auditoria.registrar({
-          accion: request.method,
-          entidad: request.path,
-          usuarioId: (request as { usuarioId?: string }).usuarioId,
-          datos: {
-            body: request.body,
-            params: request.params,
-            query: request.query,
-          },
-        });
+        this.auditoria
+          .registrar({
+            accion: request.method,
+            entidad: request.path,
+            usuarioId: (request as { usuarioId?: string }).usuarioId,
+            datos: {
+              body: redactarDatosSensibles(request.body),
+              params: redactarDatosSensibles(request.params),
+              query: redactarDatosSensibles(request.query),
+            } as Prisma.InputJsonValue,
+          })
+          .catch((err: unknown) =>
+            this.logger.error('No se pudo registrar la auditoría', err),
+          );
       }),
     );
   }

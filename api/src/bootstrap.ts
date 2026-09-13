@@ -1,9 +1,11 @@
 import {
+  ClassSerializerInterceptor,
   INestApplication,
   RequestMethod,
   ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { parsearCorsOrigins } from './config/cors';
@@ -16,11 +18,19 @@ import { FiltroExcepcionesGlobal } from './common/filtro-excepciones-global.filt
  * validación de DTOs ni versionado.
  */
 export function configurarApp(app: INestApplication): void {
+  // Necesario para que el throttler (y cualquier lectura de IP) vea la IP
+  // real del cliente y no la del proxy/balanceador, una vez desplegado
+  // detrás de uno (Vercel, nginx, etc.) — sin esto, el rate limiting
+  // termina agrupando a todos los clientes bajo una sola IP.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.use(helmet());
 
   app.enableCors({
     origin: parsearCorsOrigins(process.env.CORS_ORIGINS),
     credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(
@@ -32,6 +42,11 @@ export function configurarApp(app: INestApplication): void {
   );
 
   app.useGlobalFilters(new FiltroExcepcionesGlobal());
+
+  // Defensa en profundidad: si algún controller de dominio futuro
+  // devuelve una instancia con campos @Exclude() (ej. un passwordHash),
+  // no se filtra en la respuesta aunque nadie lo haga a propósito.
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'health', method: RequestMethod.GET }],

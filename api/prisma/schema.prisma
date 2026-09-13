@@ -12,15 +12,19 @@ datasource db {
 
 /// Bitácora de auditoría: registra toda acción de escritura hecha a través
 /// de la API (requisito duro de P4). El detalle de qué se cambió va en
-/// `datos`, ya que la forma exacta depende de cada entidad.
+/// `datos`, ya que la forma exacta depende de cada entidad. La relación
+/// hacia la entidad afectada es por referencia (`entidad` + `entidadId`),
+/// no una llave foránea, para no acoplar este modelo a las tablas de cada
+/// módulo que use el servicio de auditoría.
 model RegistroAuditoria {
-  id         String   @id @default(cuid())
+  id         String          @id @default(cuid())
+  actorTipo  ActorAuditoria
+  actorId    String?
   accion     String
   entidad    String
   entidadId  String?
-  usuarioId  String?
   datos      Json?
-  creadoEn   DateTime @default(now())
+  creadoEn   DateTime        @default(now())
 
   @@index([entidad, entidadId])
   @@index([creadoEn])
@@ -44,6 +48,16 @@ enum RolUsuario {
   // definido (ver CLAUDE.md sección 3, pendiente "modelo de login/
   // permisos de apps/panel") — confirmar con José antes de agregar más
   // valores o de asumir que este enum es la forma final.
+}
+
+/// Tipo de actor que ejecuta una acción auditada: usuario autenticado de
+/// `apps/panel`, cliente final de `apps/diagnostico` (vía token de
+/// enlace), o el propio sistema cuando no hay actor autenticado (ej. antes
+/// de un login).
+enum ActorAuditoria {
+  USUARIO_PANEL
+  CLIENTE_FINAL
+  SISTEMA
 }
 
 /// Placeholder de autenticación para apps/panel. TODO: el modelo real de

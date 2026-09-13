@@ -52,11 +52,15 @@ con todos los endpoints documentados.
   cuando se confirme el escenario real del motor (API ya ejecutable,
   hoja de cálculo a portar, o construir desde cero; ver `CLAUDE.md`
   sección 3).
-- `src/auditoria/` — bitácora de auditoría (requisito duro). El
+- `src/auditoria/` — bitácora de auditoría (requisito duro). Cada evento
+  guarda actor tipado (`USUARIO_PANEL` / `CLIENTE_FINAL` / `SISTEMA` +
+  id cuando aplica), acción, entidad afectada por referencia (tipo + id,
+  sin llave foránea) y un detalle libre en `datos`. El
   `AuditoriaInterceptor` registra automáticamente toda request mutante
-  (POST/PUT/PATCH/DELETE); los servicios de dominio pueden llamar a
-  `AuditoriaService.registrar(...)` directamente para un registro más
-  específico.
+  (POST/PUT/PATCH/DELETE) resolviendo el actor desde `request.user`
+  (JWT de panel) o `request.enlace` (token de enlace de diagnóstico); los
+  servicios de dominio pueden llamar a `AuditoriaService.registrar(...)`
+  directamente para un registro más específico.
 - `src/reglas/` — versión de reglas aplicada a cada caso (requisito
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.

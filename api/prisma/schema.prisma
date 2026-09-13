@@ -37,3 +37,24 @@ model VersionReglas {
   activa     Boolean  @default(false)
   creadoEn   DateTime @default(now())
 }
+
+enum RolUsuario {
+  ADMIN
+  // TODO: el modelo real de roles/permisos de apps/panel todavía no está
+  // definido (ver CLAUDE.md sección 3, pendiente "modelo de login/
+  // permisos de apps/panel") — confirmar con José antes de agregar más
+  // valores o de asumir que este enum es la forma final.
+}
+
+/// Placeholder de autenticación para apps/panel. TODO: el modelo real de
+/// permisos (roles múltiples, alcance por caso, etc.) es un pendiente
+/// explícito del proyecto — este modelo solo existe para que el
+/// mecanismo de login JWT tenga contra qué autenticar mientras tanto.
+model Usuario {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  rol           RolUsuario @default(ADMIN)
+  creadoEn      DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
+}

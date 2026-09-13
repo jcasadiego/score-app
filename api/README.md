@@ -23,7 +23,14 @@ vivos (fuera del prefijo `/api` y del versionado, a propósito — es la
 ruta que usa cualquier orquestador/healthcheck de infraestructura).
 
 Con `NODE_ENV` distinto de `production`, `GET /docs` sirve Swagger UI
-con todos los endpoints documentados.
+con todos los endpoints documentados automáticamente — rutas, DTOs de
+entrada (tipos, campos requeridos, tal como los valida
+`class-validator`) y seguridad, sin decorar nada a mano por endpoint;
+el plugin de compilación `@nestjs/swagger` (`nest-cli.json`) es lo que
+genera esa documentación a partir del código en cada build. Tiene el
+botón "Authorize" para pegar un JWT (de `POST /auth/login`) y probar
+también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
+`/docs-json` devuelven 404 — no queda expuesto.
 
 ## Scripts
 

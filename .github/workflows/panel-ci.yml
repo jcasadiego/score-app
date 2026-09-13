@@ -1,0 +1,33 @@
+name: panel CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'apps/panel/**'
+      - '.github/workflows/panel-ci.yml'
+
+jobs:
+  panel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/panel
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/panel/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build

@@ -14,6 +14,7 @@ pnpm install
 cp .env.example .env         # ajustar si hace falta
 docker compose up -d         # levanta Postgres local
 pnpm prisma migrate dev      # aplica el schema
+pnpm prisma db seed          # crea el primer usuario ADMIN (ver ADMIN_* en .env)
 pnpm start:dev                # http://localhost:3000
 ```
 
@@ -65,7 +66,14 @@ con todos los endpoints documentados.
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
 - `src/usuarios/` + `src/auth/` — login JWT y guards de roles para
-  `apps/panel`. `Usuario.rol` es un placeholder de un solo valor
+  `apps/panel`. `UsuariosController` (`/usuarios`) es el CRUD interno de
+  cuentas (nombre, email, `activo`) — sin autoservicio, lo administra el
+  propio equipo y exige estar ya autenticado como ADMIN. `activo: false`
+  revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
+  usuario ni su historial. `prisma/seed.ts` (`pnpm prisma db seed`) crea
+  el primer ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/
+  `ADMIN_NOMBRE`, porque sin un usuario ya autenticado no se puede llegar
+  a `POST /usuarios`. `Usuario.rol` es un placeholder de un solo valor
   (`ADMIN`) hasta que se defina el modelo real de permisos (ver
   "Pendiente a propósito" abajo).
 - `src/token-enlace/` — token de vida corta para `apps/diagnostico`

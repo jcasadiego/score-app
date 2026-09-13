@@ -1,0 +1,33 @@
+name: diagnostico CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'apps/diagnostico/**'
+      - '.github/workflows/diagnostico-ci.yml'
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/diagnostico
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/diagnostico/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build

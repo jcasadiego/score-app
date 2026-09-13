@@ -18,19 +18,32 @@ pnpm start:dev                # http://localhost:3000
 ```
 
 `GET /health` confirma que el servicio y la conexión a Postgres están
-vivos.
+vivos (fuera del prefijo `/api` y del versionado, a propósito — es la
+ruta que usa cualquier orquestador/healthcheck de infraestructura).
+
+Con `NODE_ENV` distinto de `production`, `GET /docs` sirve Swagger UI
+con todos los endpoints documentados.
 
 ## Scripts
 
 - `pnpm start:dev` — servidor con recarga en caliente.
 - `pnpm build` — compila a `dist/`.
 - `pnpm lint` — ESLint + Prettier.
+- `pnpm test` — pruebas unitarias.
 - `pnpm test:e2e` — pruebas end-to-end (requieren Postgres corriendo).
 - `pnpm prisma migrate dev` — aplica cambios de `prisma/schema.prisma`.
 - `pnpm prisma studio` — explorador visual de la base de datos.
 
 ## Estructura
 
+- `src/bootstrap.ts` — configuración transversal de la app (helmet,
+  CORS, `ValidationPipe`, filtro de errores, prefijo `/api` +
+  versionado por URI, Swagger). La usan tanto `main.ts` como el e2e test,
+  para que las pruebas ejerciten la misma configuración que producción.
+- `src/config/` — validación de variables de entorno al boot (Zod) y
+  parseo de `CORS_ORIGINS`.
+- `src/common/` — `FiltroExcepcionesGlobal`, forma de error única para
+  toda la API.
 - `src/prisma/` — `PrismaService` global, conecta vía driver adapter
   (`@prisma/adapter-pg`), requerido por Prisma 7.
 - `src/motor-calculo/` — el motor de cálculo de SCORE queda detrás de
@@ -47,6 +60,13 @@ vivos.
 - `src/reglas/` — versión de reglas aplicada a cada caso (requisito
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
+- `src/usuarios/` + `src/auth/` — login JWT y guards de roles para
+  `apps/panel`. `Usuario.rol` es un placeholder de un solo valor
+  (`ADMIN`) hasta que se defina el modelo real de permisos (ver
+  "Pendiente a propósito" abajo).
+- `src/token-enlace/` — token de vida corta para `apps/diagnostico`
+  (firmar/verificar, sin persistencia). Ver TODO en
+  `token-enlace.service.ts`.
 - `src/health/` — `GET /health`.
 
 ## Pendiente a propósito (no construir todavía)
@@ -54,10 +74,20 @@ vivos.
 - Modelos de dominio del cuestionario (`Caso`, respuestas, etc.) y la
   detección de contradicciones — dependen de la especificación completa
   del cuestionario de las 4 familias (Proyecto, B2B, Profesional,
-  Catálogo), que todavía no existe.
+  Catálogo), que todavía no existe. Mientras tanto, `TokenEnlaceService`
+  no persiste enlaces ni los invalida tras un solo uso — eso depende de
+  la forma de `Caso`.
 - El motor de cálculo real detrás de `MotorCalculoPort`.
-- Auth y permisos para `apps/panel` — el modelo de roles todavía no
-  está definido.
+- El modelo real de roles/permisos de `apps/panel` — `RolUsuario` hoy
+  solo tiene `ADMIN` (ver TODO en `prisma/schema.prisma`); el mecanismo
+  de auth (`JwtAuthGuard`, `RolesGuard`, `@Roles()`) ya está listo para
+  cuando existan más roles.
+- Aislamiento de datos por caso a nivel de Postgres (RLS): la convención
+  acordada es que toda tabla de dominio nueva lleve una columna
+  `casoId`/`tenantId` y que el filtrado se resuelva primero a nivel de
+  aplicación (servicio), ya que `diagnostico`/`panel` nunca tocan
+  Postgres directamente. Evaluar RLS como segunda capa de defensa recién
+  cuando exista el dominio real.
 
 ## Nota de versiones
 

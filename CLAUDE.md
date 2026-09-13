@@ -44,13 +44,25 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
   dominio real de `api` (modelos de caso/respuestas, detección de
   contradicciones) y el flujo de `apps/diagnostico`.
-- **Modelo de login/permisos de `apps/panel`:** todavía sin definir.
+- **Modelo de login/permisos de `apps/panel`:** el modelo real de roles y
+  permisos todavía no está definido. Ya existe un esqueleto de auth (JWT +
+  `RolesGuard`/`@Roles()`) contra un modelo `Usuario` placeholder de un
+  solo rol (`ADMIN`), para no bloquear el resto de la API mientras se
+  define — ver TODO en `api/prisma/schema.prisma` y detalle en
+  `api/README.md`.
 
 ## 3.1. Estado actual del código
 
 Las tres piezas ya están inicializadas como scaffold — sin la lógica de
 negocio que depende de los pendientes de la sección 3. Gestor de paquetes:
 `pnpm` en las tres, cada una con su propio lockfile (sin workspaces).
+
+`api` ya tiene, además, la plomería transversal que no depende de esos
+pendientes: seguridad HTTP (helmet, CORS con allowlist por entorno,
+validación global, rate limiting), versionado de rutas (`/api/v1`,
+Swagger en `/docs` fuera de producción), el esqueleto de auth JWT de
+`apps/panel` y el token de enlace stateless de `apps/diagnostico`.
+Detalle completo en `api/README.md`.
 
 **`api`** — NestJS 10 + TypeScript + Prisma 7 sobre PostgreSQL:
 
@@ -114,6 +126,10 @@ Flujo del día a día:
 4. Nunca push directo a `main` ni a `develop`.
 5. `develop` → `main` es un paso aparte, deliberado, para subir a prod — no
    ocurre como consecuencia automática de mergear a `develop`.
+6. Cada PR corre CI automático (GitHub Actions, `.github/workflows/`):
+   lint + build en las tres piezas, y tests unitarios/e2e en `api`
+   (contra un Postgres de servicio). Un workflow por pieza, filtrado por
+   `paths`, para no correr los tres en cada PR.
 
 ## 6. Convenciones rápidas
 

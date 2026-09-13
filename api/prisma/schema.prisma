@@ -66,8 +66,10 @@ enum ActorAuditoria {
 /// mecanismo de login JWT tenga contra qué autenticar mientras tanto.
 model Usuario {
   id            String     @id @default(cuid())
+  nombre        String
   email         String     @unique
   passwordHash  String
+  activo        Boolean    @default(true)
   rol           RolUsuario @default(ADMIN)
   creadoEn      DateTime   @default(now())
   actualizadoEn DateTime   @updatedAt

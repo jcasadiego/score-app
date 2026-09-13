@@ -27,7 +27,10 @@ export class AuthService {
       password,
     );
 
-    if (!usuario || !passwordValido) {
+    // Mismo mensaje genérico también cuando la cuenta existe pero está
+    // desactivada, por la misma razón que HASH_DUMMY: no delatar el
+    // estado de una cuenta a quien no logró autenticarse.
+    if (!usuario || !passwordValido || !usuario.activo) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 

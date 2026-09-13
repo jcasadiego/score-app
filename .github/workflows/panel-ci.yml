@@ -3,12 +3,25 @@ name: panel CI
 on:
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'apps/panel/**'
-      - '.github/workflows/panel-ci.yml'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      panel: ${{ steps.filter.outputs.panel }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            panel:
+              - 'apps/panel/**'
+              - '.github/workflows/panel-ci.yml'
+
   panel:
+    needs: changes
+    if: needs.changes.outputs.panel == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

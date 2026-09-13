@@ -41,6 +41,7 @@ describe('AuthService', () => {
       email: 'admin@test.local',
       passwordHash: 'hash-real',
       rol: 'ADMIN',
+      activo: true,
     });
     argon2VerifyMock.mockResolvedValue(false);
 
@@ -51,12 +52,28 @@ describe('AuthService', () => {
     expect(argon2VerifyMock).toHaveBeenCalledWith('hash-real', 'incorrecta');
   });
 
+  it('rechaza si el usuario existe, el password es correcto, pero está desactivado', async () => {
+    usuarios.buscarPorEmail.mockResolvedValue({
+      id: '1',
+      email: 'admin@test.local',
+      passwordHash: 'hash-real',
+      rol: 'ADMIN',
+      activo: false,
+    });
+    argon2VerifyMock.mockResolvedValue(true);
+
+    await expect(
+      service.iniciarSesion('admin@test.local', 'correcta'),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
   it('devuelve un accessToken si las credenciales son válidas', async () => {
     usuarios.buscarPorEmail.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
       rol: 'ADMIN',
+      activo: true,
     });
     argon2VerifyMock.mockResolvedValue(true);
 

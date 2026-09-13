@@ -29,5 +29,6 @@ jobs:
           cache-dependency-path: apps/diagnostico/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
       - run: pnpm lint
       - run: pnpm build

@@ -31,9 +31,9 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://score:score@localhost:5432/score_test?schema=public
       CORS_ORIGINS: http://localhost:3001,http://localhost:3002
-      JWT_SECRET: ci-secret-panel
+      JWT_SECRET: ci-secret-panel-de-al-menos-32-caracteres
       JWT_EXPIRACION: 1d
-      ENLACE_JWT_SECRET: ci-secret-enlace
+      ENLACE_JWT_SECRET: ci-secret-enlace-de-al-menos-32-caracteres
       ENLACE_JWT_EXPIRACION: 24h
       THROTTLE_TTL: 60000
       THROTTLE_LIMIT: 100
@@ -51,6 +51,13 @@ jobs:
           cache-dependency-path: api/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      # No bloqueante: Prisma empaqueta drivers de otros motores (ej.
+      # mysql2) que este proyecto no usa (solo Postgres vía @prisma/adapter-pg)
+      # y que hoy arrastran CVEs sin parche disponible en pnpm. Se deja
+      # visible en el log del PR sin frenar el merge por código que nunca
+      # se ejecuta.
+      - run: pnpm audit --audit-level=high
+        continue-on-error: true
       - run: pnpm lint
       - run: pnpm build
       - run: pnpm prisma migrate deploy

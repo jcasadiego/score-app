@@ -3,12 +3,25 @@ name: diagnostico CI
 on:
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'apps/diagnostico/**'
-      - '.github/workflows/diagnostico-ci.yml'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      diagnostico: ${{ steps.filter.outputs.diagnostico }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            diagnostico:
+              - 'apps/diagnostico/**'
+              - '.github/workflows/diagnostico-ci.yml'
+
   diagnostico:
+    needs: changes
+    if: needs.changes.outputs.diagnostico == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

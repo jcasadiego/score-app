@@ -19,8 +19,7 @@ export function AppShell({ usuario, children }: AppShellProps) {
 
   const itemsMenu = [
     { key: "/", label: <Link href="/">Inicio</Link> },
-    // Próximo módulo a implementar — se habilita cuando exista la pantalla.
-    { key: "usuarios", label: "Usuarios", disabled: true },
+    { key: "/usuarios", label: <Link href="/usuarios">Usuarios</Link> },
   ];
 
   return (

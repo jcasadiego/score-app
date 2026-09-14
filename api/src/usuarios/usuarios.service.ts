@@ -96,7 +96,13 @@ export class UsuariosService {
     }
   }
 
-  async desactivar(id: string): Promise<UsuarioPublico> {
+  async desactivar(
+    id: string,
+    solicitanteId?: string,
+  ): Promise<UsuarioPublico> {
+    if (solicitanteId && solicitanteId === id) {
+      throw new ConflictException('No puedes desactivar tu propia cuenta.');
+    }
     return this.cambiarActivo(id, false);
   }
 

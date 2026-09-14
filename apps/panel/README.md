@@ -32,7 +32,8 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   `api`).
 - Todas las pantallas autenticadas cuelgan de `app/(panel)/layout.tsx`,
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
-  pantallas de cada módulo (la siguiente es Usuarios) se agregan ahí.
+  pantallas de cada módulo se agregan ahí — la primera es Usuarios
+  (`app/(panel)/usuarios/`), que consume `UsuariosController` de `api`.
 
 ## Pendiente a propósito (no construido todavía)
 

@@ -16,8 +16,7 @@ export function PanelHome({ email }: PanelHomeProps) {
         Sesión iniciada como <strong>{email}</strong>.
       </Typography.Paragraph>
       <Typography.Paragraph type="secondary">
-        Los módulos de revisión de casos se irán agregando aquí. El
-        siguiente es Usuarios.
+        Los módulos de revisión de casos se irán agregando aquí.
       </Typography.Paragraph>
     </div>
   );

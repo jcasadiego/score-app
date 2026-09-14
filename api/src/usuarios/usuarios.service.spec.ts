@@ -133,5 +133,12 @@ describe('UsuariosService', () => {
         NotFoundException,
       );
     });
+
+    it('lanza ConflictException si el usuario intenta desactivarse a sí mismo', async () => {
+      await expect(service.desactivar('1', '1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.usuario.update).not.toHaveBeenCalled();
+    });
   });
 });

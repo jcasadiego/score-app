@@ -77,7 +77,12 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   cuentas (nombre, email, `activo`) — sin autoservicio, lo administra el
   propio equipo y exige estar ya autenticado como ADMIN. `activo: false`
   revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
-  usuario ni su historial. `prisma/seed.ts` (`pnpm prisma db seed`) crea
+  usuario ni su historial. `GET /usuarios` está paginado en el servidor
+  (`?pagina=1&tamano=20&q=`, máx. 100 por página) y devuelve
+  `{ datos, total, pagina, tamano }`: página y conteo salen de una sola
+  transacción, y la búsqueda (`q`, por nombre o email, sin distinguir
+  mayúsculas) se resuelve en la consulta. Los DTOs normalizan espacios y
+  limitan `nombre` a 120 y `email` a 254 caracteres. `prisma/seed.ts` (`pnpm prisma db seed`) crea
   el primer ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/
   `ADMIN_NOMBRE`, porque sin un usuario ya autenticado no se puede llegar
   a `POST /usuarios`. `Usuario.rol` es un placeholder de un solo valor

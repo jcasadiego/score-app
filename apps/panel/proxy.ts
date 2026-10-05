@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { NOMBRE_COOKIE_SESION } from "@/lib/auth/constants";
+import { NOMBRE_COOKIE_SESION, RUTA_INICIO } from "@/lib/auth/constants";
 import { decodificarToken } from "@/lib/auth/jwt";
 
 const RUTAS_PUBLICAS = ["/login"];
@@ -29,7 +29,7 @@ export default function proxy(request: NextRequest) {
   }
 
   if (esRutaPublica(pathname) && haySesionValida) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL(RUTA_INICIO, request.url));
   }
 
   return NextResponse.next();

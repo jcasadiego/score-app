@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { obtenerSesion } from "@/lib/auth/session";
+import { RUTA_INICIO } from "@/lib/auth/constants";
 import { FormularioLogin } from "./login-form";
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default async function LoginPage() {
   const sesion = await obtenerSesion();
   if (sesion) {
-    redirect("/");
+    redirect(RUTA_INICIO);
   }
 
   return (

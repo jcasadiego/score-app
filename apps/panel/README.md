@@ -22,7 +22,9 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   el navegador) y lo guarda como cookie de sesión `httpOnly` — ver
   `lib/auth/session.ts`.
 - `proxy.ts` hace un chequeo optimista (solo lee la cookie) para
-  redirigir a `/login` sin sesión, o a `/` si ya hay una. La
+  redirigir a `/login` sin sesión, o a `RUTA_INICIO`
+  (`lib/auth/constants.ts`, hoy `/usuarios`) si ya hay una. `/` también
+  redirige ahí mientras no exista la bandeja de casos. La
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verificarSesion`) es el punto único para exigirla
   en Server Components de este repo.
@@ -34,6 +36,29 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
   pantallas de cada módulo se agregan ahí — la primera es Usuarios
   (`app/(panel)/usuarios/`), que consume `UsuariosController` de `api`.
+- Tema único en `lib/tema.ts` (colores, radio, fuente) aplicado por
+  `components/proveedor-antd.tsx`, que además da `message`/`modal` vía
+  `App.useApp()` y apaga las animaciones si el sistema pide reducir
+  movimiento. Nada de colores sueltos en `style`: usar `theme.useToken()`.
+- `app/(panel)/loading.tsx` muestra un esqueleto al navegar entre
+  módulos mientras el Server Component trae los datos.
+
+### Datos y rendimiento
+
+- Las listas se paginan en la API; la página y la búsqueda viven en la
+  URL (`?pagina=&q=`) y el Server Component pide solo esa página.
+- Las pantallas no copian los datos a `useState`: las Server Actions
+  llaman a `revalidatePath` y el RSC actualizado llega en la misma
+  respuesta de la acción — una sola petición del navegador por cambio.
+
+### Datos de prueba (solo desarrollo)
+
+En `pnpm dev`, la pantalla de Usuarios acepta `?data=peor|vacio|uno|mil`
+para renderizar con datos del peor caso (nombres largos, emails sin
+cortes, CJK/RTL/emoji, 1.284 filas) en vez de la API, con un selector
+fijo abajo al centro. Sirve de prueba de regresión visual cada vez que
+se toque la tabla. En producción el parámetro se ignora. En ese modo
+las acciones de fila llaman a la API real con ids falsos (404).
 
 ## Pendiente a propósito (no construido todavía)
 

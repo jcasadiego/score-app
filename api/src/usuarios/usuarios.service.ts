@@ -27,6 +27,19 @@ interface CrearUsuarioParams {
   password: string;
 }
 
+interface ListarUsuariosParams {
+  pagina: number;
+  tamano: number;
+  q?: string;
+}
+
+export interface PaginaUsuarios {
+  datos: UsuarioPublico[];
+  total: number;
+  pagina: number;
+  tamano: number;
+}
+
 interface ActualizarUsuarioParams {
   nombre?: string;
   email?: string;
@@ -61,11 +74,37 @@ export class UsuariosService {
     }
   }
 
-  listar(): Promise<UsuarioPublico[]> {
-    return this.prisma.usuario.findMany({
-      select: SELECT_PUBLICO,
-      orderBy: { creadoEn: 'asc' },
-    });
+  /**
+   * Página de usuarios + total en una sola transacción (dos queries, un
+   * round trip lógico), con el filtro aplicado en la base y no en memoria.
+   * `id` desempata el orden para que la paginación sea estable.
+   */
+  async listar({
+    pagina,
+    tamano,
+    q,
+  }: ListarUsuariosParams): Promise<PaginaUsuarios> {
+    const where: Prisma.UsuarioWhereInput = q
+      ? {
+          OR: [
+            { nombre: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [datos, total] = await this.prisma.$transaction([
+      this.prisma.usuario.findMany({
+        where,
+        select: SELECT_PUBLICO,
+        orderBy: [{ creadoEn: 'asc' }, { id: 'asc' }],
+        skip: (pagina - 1) * tamano,
+        take: tamano,
+      }),
+      this.prisma.usuario.count({ where }),
+    ]);
+
+    return { datos, total, pagina, tamano };
   }
 
   async obtener(id: string): Promise<UsuarioPublico> {

@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RolUsuario } from '../../generated/prisma/enums';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
+import { ListarUsuariosDto } from './dto/listar-usuarios.dto';
 import { UsuariosService } from './usuarios.service';
 
 interface RequestConUsuario extends Request {
@@ -43,8 +45,8 @@ export class UsuariosController {
 
   @Get()
   @Roles(RolUsuario.ADMIN)
-  listar() {
-    return this.usuarios.listar();
+  listar(@Query() query: ListarUsuariosDto) {
+    return this.usuarios.listar(query);
   }
 
   @Get(':id')

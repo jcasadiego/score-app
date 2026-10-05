@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { iniciarSesion } from "@/lib/api/auth";
 import { ErrorApi } from "@/lib/api/errors";
 import { crearSesion } from "@/lib/auth/session";
+import { RUTA_INICIO } from "@/lib/auth/constants";
 
 export interface EstadoLogin {
   error?: string;
@@ -32,5 +33,5 @@ export async function accionLogin(
   }
 
   await crearSesion(accessToken);
-  redirect("/");
+  redirect(RUTA_INICIO);
 }

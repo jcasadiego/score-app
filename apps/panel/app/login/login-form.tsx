@@ -30,8 +30,9 @@ export function FormularioLogin() {
             </Form.Item>
           )}
 
-          <Form.Item label="Correo" required>
+          <Form.Item label="Correo" htmlFor="login-email" required>
             <Input
+              id="login-email"
               name="email"
               type="email"
               required
@@ -42,8 +43,9 @@ export function FormularioLogin() {
             />
           </Form.Item>
 
-          <Form.Item label="Contraseña" required>
+          <Form.Item label="Contraseña" htmlFor="login-password" required>
             <Input.Password
+              id="login-password"
               name="password"
               required
               autoComplete="current-password"

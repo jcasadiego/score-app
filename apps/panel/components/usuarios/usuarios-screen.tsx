@@ -1,30 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
+  App,
   Button,
+  Dropdown,
+  Empty,
+  Flex,
   Form,
   Input,
   Modal,
-  Popconfirm,
-  Space,
   Table,
   Tag,
-  Tooltip,
   Typography,
+  type MenuProps,
+  type TableColumnsType,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
-import type { Usuario } from "@/lib/api/usuarios";
+import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
+import type { PaginaUsuarios, Usuario } from "@/lib/api/usuarios";
+import { EMAIL_MAX, NOMBRE_MAX } from "@/lib/usuarios/limites";
 import {
   accionActivarUsuario,
   accionActualizarUsuario,
   accionCrearUsuario,
   accionDesactivarUsuario,
+  type ResultadoAccionUsuario,
 } from "@/app/(panel)/usuarios/actions";
 
 interface UsuariosScreenProps {
-  usuariosIniciales: Usuario[];
+  pagina: PaginaUsuarios;
+  busqueda: string;
   usuarioActualId: string;
 }
 
@@ -34,11 +41,30 @@ interface ValoresFormulario {
   password?: string;
 }
 
+const pluralUsuarios = new Intl.PluralRules("es");
+
+function textoTotal(total: number): string {
+  const cantidad = new Intl.NumberFormat("es").format(total);
+  return `${cantidad} ${pluralUsuarios.select(total) === "one" ? "usuario" : "usuarios"}`;
+}
+
+/**
+ * Los datos llegan siempre del Server Component (página actual + total).
+ * Las Server Actions llaman a `revalidatePath`, que devuelve el RSC
+ * actualizado en la misma respuesta de la acción: no hay copia local de
+ * la lista ni un segundo fetch para refrescarla.
+ */
 export function UsuariosScreen({
-  usuariosIniciales,
+  pagina,
+  busqueda,
   usuarioActualId,
 }: UsuariosScreenProps) {
-  const [usuarios, setUsuarios] = useState(usuariosIniciales);
+  const { message, modal } = App.useApp();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [navegando, iniciarNavegacion] = useTransition();
+
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioEnEdicion, setUsuarioEnEdicion] = useState<Usuario | null>(
     null,
@@ -46,8 +72,24 @@ export function UsuariosScreen({
   const [guardando, setGuardando] = useState(false);
   const [idEnProceso, setIdEnProceso] = useState<string | null>(null);
   const [errorModal, setErrorModal] = useState<string | null>(null);
-  const [errorTabla, setErrorTabla] = useState<string | null>(null);
   const [form] = Form.useForm<ValoresFormulario>();
+
+  /** Cambia página/búsqueda en la URL (conserva el resto, p. ej. `data`). */
+  function navegar(cambios: { pagina?: number; q?: string }) {
+    const params = new URLSearchParams(searchParams);
+    if (cambios.q !== undefined) {
+      if (cambios.q) params.set("q", cambios.q);
+      else params.delete("q");
+    }
+    const nuevaPagina = cambios.pagina ?? 1;
+    if (nuevaPagina > 1) params.set("pagina", String(nuevaPagina));
+    else params.delete("pagina");
+
+    const query = params.toString();
+    iniciarNavegacion(() => {
+      router.push(query ? `${pathname}?${query}` : pathname);
+    });
+  }
 
   function abrirCrear() {
     setUsuarioEnEdicion(null);
@@ -68,16 +110,6 @@ export function UsuariosScreen({
     setModalAbierto(false);
   }
 
-  function reemplazarUsuario(usuario: Usuario) {
-    setUsuarios((actual) => {
-      const existe = actual.some((u) => u.id === usuario.id);
-      if (existe) {
-        return actual.map((u) => (u.id === usuario.id ? usuario : u));
-      }
-      return [...actual, usuario];
-    });
-  }
-
   async function enviarFormulario(valores: ValoresFormulario) {
     setGuardando(true);
     setErrorModal(null);
@@ -95,127 +127,206 @@ export function UsuariosScreen({
 
     setGuardando(false);
 
-    if (!resultado.ok || !resultado.usuario) {
+    if (!resultado.ok) {
       setErrorModal(resultado.error ?? "Ocurrió un error inesperado.");
       return;
     }
 
-    reemplazarUsuario(resultado.usuario);
     setModalAbierto(false);
+    message.success(
+      usuarioEnEdicion ? "Cambios guardados." : "Usuario creado.",
+    );
   }
 
-  async function cambiarActivo(usuario: Usuario) {
+  async function ejecutarCambioActivo(
+    usuario: Usuario,
+    accion: (id: string) => Promise<ResultadoAccionUsuario>,
+    exito: string,
+  ) {
     setIdEnProceso(usuario.id);
-    setErrorTabla(null);
-
-    const resultado = usuario.activo
-      ? await accionDesactivarUsuario(usuario.id)
-      : await accionActivarUsuario(usuario.id);
-
+    const resultado = await accion(usuario.id);
     setIdEnProceso(null);
 
-    if (!resultado.ok || !resultado.usuario) {
-      setErrorTabla(resultado.error ?? "Ocurrió un error inesperado.");
+    if (!resultado.ok) {
+      message.error(resultado.error ?? "Ocurrió un error inesperado.");
       return;
     }
-
-    reemplazarUsuario(resultado.usuario);
+    message.success(exito);
   }
 
-  const columnas = [
-    { title: "Nombre", dataIndex: "nombre", key: "nombre" },
-    { title: "Correo", dataIndex: "email", key: "email" },
-    { title: "Rol", dataIndex: "rol", key: "rol" },
+  function activar(usuario: Usuario) {
+    // Reversible y sin efecto sobre nadie más: no pide confirmación.
+    void ejecutarCambioActivo(
+      usuario,
+      accionActivarUsuario,
+      `${usuario.nombre} puede volver a entrar al panel.`,
+    );
+  }
+
+  function confirmarDesactivar(usuario: Usuario) {
+    modal.confirm({
+      title: `¿Desactivar a ${usuario.nombre}?`,
+      content:
+        "Pierde acceso al panel de inmediato, incluida cualquier sesión ya iniciada. Puedes volver a activarlo después.",
+      okText: "Desactivar",
+      okButtonProps: { danger: true },
+      cancelText: "Cancelar",
+      onOk: () =>
+        ejecutarCambioActivo(
+          usuario,
+          accionDesactivarUsuario,
+          `${usuario.nombre} ya no tiene acceso.`,
+        ),
+    });
+  }
+
+  function accionesDe(usuario: Usuario): MenuProps["items"] {
+    const esUsuarioActual = usuario.id === usuarioActualId;
+    return [
+      { key: "editar", label: "Editar", onClick: () => abrirEditar(usuario) },
+      usuario.activo
+        ? {
+            key: "desactivar",
+            label: esUsuarioActual
+              ? "No puedes desactivar tu propia cuenta"
+              : "Desactivar",
+            danger: !esUsuarioActual,
+            disabled: esUsuarioActual,
+            onClick: () => confirmarDesactivar(usuario),
+          }
+        : {
+            key: "activar",
+            label: "Activar",
+            onClick: () => activar(usuario),
+          },
+    ];
+  }
+
+  const columnas: TableColumnsType<Usuario> = [
+    {
+      title: "Nombre",
+      dataIndex: "nombre",
+      key: "nombre",
+      render: (nombre: string, usuario) => (
+        <Flex gap={8} align="baseline">
+          <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+            {nombre}
+          </span>
+          {usuario.id === usuarioActualId && (
+            <Tag style={{ flexShrink: 0, marginInlineEnd: 0 }}>Tú</Tag>
+          )}
+        </Flex>
+      ),
+    },
+    {
+      title: "Correo",
+      dataIndex: "email",
+      key: "email",
+      render: (email: string) => (
+        <span style={{ overflowWrap: "anywhere" }}>{email}</span>
+      ),
+    },
     {
       title: "Estado",
       dataIndex: "activo",
       key: "activo",
+      width: 110,
       render: (activo: boolean) =>
         activo ? (
           <Tag color="green">Activo</Tag>
         ) : (
-          <Tag color="red">Inactivo</Tag>
+          <Tag>Inactivo</Tag>
         ),
     },
     {
-      title: "Acciones",
+      title: <span className="sr-only">Acciones</span>,
       key: "acciones",
-      render: (_: unknown, usuario: Usuario) => {
-        const esUsuarioActual = usuario.id === usuarioActualId;
-
-        return (
-          <Space>
-            <Button size="small" onClick={() => abrirEditar(usuario)}>
-              Editar
-            </Button>
-            {esUsuarioActual ? (
-              <Tooltip title="No puedes desactivar tu propia cuenta.">
-                <Button size="small" disabled>
-                  Desactivar
-                </Button>
-              </Tooltip>
-            ) : (
-              <Popconfirm
-                title={
-                  usuario.activo ? "¿Desactivar usuario?" : "¿Activar usuario?"
-                }
-                description={
-                  usuario.activo
-                    ? "Pierde acceso al panel de inmediato, incluida cualquier sesión ya iniciada."
-                    : "Recupera acceso al panel de inmediato."
-                }
-                okText={usuario.activo ? "Desactivar" : "Activar"}
-                okButtonProps={{ danger: usuario.activo }}
-                cancelText="Cancelar"
-                onConfirm={() => cambiarActivo(usuario)}
-              >
-                <Button
-                  size="small"
-                  danger={usuario.activo}
-                  loading={idEnProceso === usuario.id}
-                >
-                  {usuario.activo ? "Desactivar" : "Activar"}
-                </Button>
-              </Popconfirm>
-            )}
-          </Space>
-        );
-      },
+      width: 64,
+      align: "right",
+      render: (_, usuario) => (
+        <Dropdown
+          menu={{ items: accionesDe(usuario) }}
+          trigger={["click"]}
+          placement="bottomRight"
+        >
+          <Button
+            type="text"
+            icon={<MoreOutlined />}
+            aria-label={`Acciones para ${usuario.nombre}`}
+            loading={idEnProceso === usuario.id}
+          />
+        </Dropdown>
+      ),
     },
   ];
 
+  const vacio = busqueda ? (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={`Ningún usuario coincide con “${busqueda}”.`}
+    >
+      <Button onClick={() => navegar({ q: "" })}>Limpiar búsqueda</Button>
+    </Empty>
+  ) : (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description="Aún no hay usuarios."
+    >
+      <Button type="primary" icon={<PlusOutlined />} onClick={abrirCrear}>
+        Nuevo usuario
+      </Button>
+    </Empty>
+  );
+
   return (
     <div>
-      <Space
-        style={{
-          marginBottom: 16,
-          width: "100%",
-          justifyContent: "space-between",
-        }}
+      <Flex
+        justify="space-between"
+        align="center"
+        gap={16}
+        wrap
+        style={{ marginBottom: 16 }}
       >
-        <Typography.Title level={3} style={{ margin: 0 }}>
+        <Typography.Title
+          level={3}
+          style={{ margin: 0, letterSpacing: "-0.01em" }}
+        >
           Usuarios
         </Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={abrirCrear}>
           Nuevo usuario
         </Button>
-      </Space>
+      </Flex>
 
-      {errorTabla && (
-        <Alert
-          type="error"
-          showIcon
-          title={errorTabla}
-          closable={{ onClose: () => setErrorTabla(null) }}
-          style={{ marginBottom: 16 }}
-        />
-      )}
+      <Input.Search
+        key={busqueda}
+        defaultValue={busqueda}
+        placeholder="Buscar por nombre o correo"
+        aria-label="Buscar usuarios"
+        allowClear
+        maxLength={100}
+        loading={navegando}
+        onSearch={(valor) => navegar({ q: valor.trim() })}
+        style={{ maxWidth: 360, marginBottom: 16 }}
+      />
 
       <Table<Usuario>
         rowKey="id"
-        dataSource={usuarios}
+        size="middle"
+        dataSource={pagina.datos}
         columns={columnas}
-        pagination={false}
+        loading={navegando}
+        scroll={{ x: 640 }}
+        locale={{ emptyText: vacio }}
+        pagination={{
+          current: pagina.pagina,
+          pageSize: pagina.tamano,
+          total: pagina.total,
+          showSizeChanger: false,
+          hideOnSinglePage: true,
+          showTotal: textoTotal,
+          onChange: (nueva) => navegar({ pagina: nueva }),
+        }}
       />
 
       <Modal
@@ -245,9 +356,12 @@ export function UsuariosScreen({
           <Form.Item
             name="nombre"
             label="Nombre"
-            rules={[{ required: true, message: "Ingresa el nombre." }]}
+            rules={[
+              { required: true, whitespace: true, message: "Ingresa el nombre." },
+              { min: 2, message: "Debe tener al menos 2 caracteres." },
+            ]}
           >
-            <Input autoFocus />
+            <Input autoFocus maxLength={NOMBRE_MAX} />
           </Form.Item>
 
           <Form.Item
@@ -258,7 +372,7 @@ export function UsuariosScreen({
               { type: "email", message: "Ingresa un correo válido." },
             ]}
           >
-            <Input />
+            <Input maxLength={EMAIL_MAX} autoComplete="off" />
           </Form.Item>
 
           {!usuarioEnEdicion && (

@@ -13,6 +13,19 @@ export interface Usuario {
   actualizadoEn: string;
 }
 
+export interface PaginaUsuarios {
+  datos: Usuario[];
+  total: number;
+  pagina: number;
+  tamano: number;
+}
+
+export interface FiltroUsuarios {
+  pagina: number;
+  tamano: number;
+  q?: string;
+}
+
 export interface DatosCrearUsuario {
   nombre: string;
   email: string;
@@ -89,8 +102,17 @@ async function construirError(respuesta: Response): Promise<ErrorApi> {
   return new ErrorApi(respuesta.status, MENSAJE_ERROR_GENERICO);
 }
 
-export function listarUsuarios(token: string): Promise<Usuario[]> {
-  return llamarApi<Usuario[]>(token, "/usuarios");
+/** Una página de usuarios; el filtro y el conteo los resuelve la API. */
+export function listarUsuarios(
+  token: string,
+  { pagina, tamano, q }: FiltroUsuarios,
+): Promise<PaginaUsuarios> {
+  const params = new URLSearchParams({
+    pagina: String(pagina),
+    tamano: String(tamano),
+  });
+  if (q) params.set("q", q);
+  return llamarApi<PaginaUsuarios>(token, `/usuarios?${params}`);
 }
 
 export function crearUsuario(

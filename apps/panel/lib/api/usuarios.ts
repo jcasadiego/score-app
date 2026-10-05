@@ -130,20 +130,20 @@ export function actualizarUsuario(
   id: string,
   datos: DatosActualizarUsuario,
 ): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${id}`, {
+  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(datos),
   });
 }
 
 export function activarUsuario(token: string, id: string): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${id}/activar`, {
+  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}/activar`, {
     method: "PATCH",
   });
 }
 
 export function desactivarUsuario(token: string, id: string): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${id}/desactivar`, {
+  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}/desactivar`, {
     method: "PATCH",
   });
 }

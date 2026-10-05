@@ -71,7 +71,21 @@
   "pnpm": {
     "overrides": {
       "multer": ">=2.3.0",
-      "js-yaml": ">=4.3.2"
+      "js-yaml": ">=4.3.2",
+      "brace-expansion@<1.1.20": "^1.1.20",
+      "brace-expansion@>=2 <2.1.6": "^2.1.6",
+      "brace-expansion@>=5 <5.0.11": "^5.0.11",
+      "glob@>=10 <10.5.0": "^10.5.0",
+      "picomatch@>=4 <4.0.4": "^4.0.4",
+      "lodash@<4.18.0": "^4.18.0",
+      "tmp@<0.2.6": "^0.2.6",
+      "mysql2@<3.22.0": "^3.22.0",
+      "deepmerge-ts@<8.0.0": "^8.0.0"
+    },
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-93687"
+      ]
     }
   },
   "jest": {

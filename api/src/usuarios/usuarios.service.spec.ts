@@ -16,7 +16,9 @@ function crearErrorPrisma(code: string) {
 describe('UsuariosService', () => {
   const argon2HashMock = argon2.hash as jest.Mock;
   let prisma: {
+    $transaction: jest.Mock;
     usuario: {
+      count: jest.Mock;
       create: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -28,7 +30,12 @@ describe('UsuariosService', () => {
   beforeEach(() => {
     argon2HashMock.mockReset().mockResolvedValue('hash-generado');
     prisma = {
+      // El servicio usa la forma de arreglo: resuelve las promesas en orden.
+      $transaction: jest.fn((consultas: Promise<unknown>[]) =>
+        Promise.all(consultas),
+      ),
       usuario: {
+        count: jest.fn(),
         create: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -77,6 +84,44 @@ describe('UsuariosService', () => {
           password: 'password123',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('listar', () => {
+    it('pagina con skip/take y devuelve el total en la misma transacción', async () => {
+      prisma.usuario.findMany.mockResolvedValue([{ id: '21' }]);
+      prisma.usuario.count.mockResolvedValue(41);
+
+      const resultado = await service.listar({ pagina: 2, tamano: 20 });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {}, skip: 20, take: 20 }),
+      );
+      expect(resultado).toEqual({
+        datos: [{ id: '21' }],
+        total: 41,
+        pagina: 2,
+        tamano: 20,
+      });
+    });
+
+    it('filtra por nombre o email sin distinguir mayúsculas, también en el conteo', async () => {
+      prisma.usuario.findMany.mockResolvedValue([]);
+      prisma.usuario.count.mockResolvedValue(0);
+
+      await service.listar({ pagina: 1, tamano: 20, q: 'ana' });
+
+      const where = {
+        OR: [
+          { nombre: { contains: 'ana', mode: 'insensitive' } },
+          { email: { contains: 'ana', mode: 'insensitive' } },
+        ],
+      };
+      expect(prisma.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where }),
+      );
+      expect(prisma.usuario.count).toHaveBeenCalledWith({ where });
     });
   });
 

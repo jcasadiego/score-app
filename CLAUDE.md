@@ -44,12 +44,12 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
   dominio real de `api` (modelos de caso/respuestas, detección de
   contradicciones) y el flujo de `apps/diagnostico`.
-- **Modelo de login/permisos de `apps/panel`:** el modelo real de roles y
-  permisos todavía no está definido. Ya existe un esqueleto de auth (JWT +
-  `RolesGuard`/`@Roles()`) contra un modelo `Usuario` placeholder de un
-  solo rol (`ADMIN`), para no bloquear el resto de la API mientras se
-  define — ver TODO en `api/prisma/schema.prisma` y detalle en
-  `api/README.md`.
+- **Modelo de permisos de `apps/panel`:** el modelo real de roles y
+  permisos todavía no está definido. El login ya funciona de punta a
+  punta (JWT en `api` + pantalla de login y sesión en `apps/panel`) y
+  hay CRUD de usuarios, pero todo contra un `Usuario` con un solo rol
+  placeholder (`ADMIN`) — ver TODO en `api/prisma/schema.prisma`. No
+  agregar roles nuevos ni permisos por caso sin confirmarlo con José.
 
 ## 3.1. Estado actual del código
 
@@ -57,12 +57,26 @@ Las tres piezas ya están inicializadas como scaffold — sin la lógica de
 negocio que depende de los pendientes de la sección 3. Gestor de paquetes:
 `pnpm` en las tres, cada una con su propio lockfile (sin workspaces).
 
-`api` ya tiene, además, la plomería transversal que no depende de esos
-pendientes: seguridad HTTP (helmet, CORS con allowlist por entorno,
-validación global, rate limiting), versionado de rutas (`/api/v1`,
-Swagger en `/docs` fuera de producción), el esqueleto de auth JWT de
-`apps/panel` y el token de enlace stateless de `apps/diagnostico`.
-Detalle completo en `api/README.md`.
+Lo que ya existe, además del scaffold, es todo lo que no depende de esos
+pendientes:
+
+- **`api`:** seguridad HTTP (helmet, CORS con allowlist por entorno,
+  validación global, rate limiting, también en login), versionado de
+  rutas (`/api/v1`, Swagger autogenerado en `/docs` fuera de
+  producción), bitácora de auditoría con actor tipado
+  (`USUARIO_PANEL`/`CLIENTE_FINAL`/`SISTEMA`) vía `AuditoriaInterceptor`,
+  versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
+  de usuarios internos (`/usuarios`, solo ADMIN; `activo: false` revoca
+  el acceso sin borrar historial; un usuario no puede desactivarse a sí
+  mismo), seed del primer ADMIN, y el token de enlace stateless de
+  `apps/diagnostico`. Detalle en `api/README.md`.
+- **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
+  Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
+  `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la
+  pantalla de Usuarios (`app/(panel)/usuarios/`). Detalle en
+  `apps/panel/README.md`.
+- **`apps/diagnostico`:** solo scaffold — su flujo depende de la
+  especificación del cuestionario.
 
 **`api`** — NestJS 10 + TypeScript + Prisma 7 sobre PostgreSQL:
 
@@ -70,6 +84,7 @@ Detalle completo en `api/README.md`.
 pnpm install
 docker compose up -d       # Postgres local
 pnpm prisma migrate dev
+pnpm prisma db seed         # primer usuario ADMIN (ADMIN_* en .env)
 pnpm start:dev              # http://localhost:3000
 pnpm build
 pnpm lint
@@ -77,7 +92,7 @@ pnpm test:e2e
 ```
 
 **`apps/diagnostico`** y **`apps/panel`** — Next.js 16 (App Router) +
-TypeScript + Tailwind:
+TypeScript + Tailwind (`panel` usa además Ant Design):
 
 ```bash
 pnpm install
@@ -127,9 +142,40 @@ Flujo del día a día:
 5. `develop` → `main` es un paso aparte, deliberado, para subir a prod — no
    ocurre como consecuencia automática de mergear a `develop`.
 6. Cada PR corre CI automático (GitHub Actions, `.github/workflows/`):
-   lint + build en las tres piezas, y tests unitarios/e2e en `api`
-   (contra un Postgres de servicio). Un workflow por pieza, filtrado por
-   `paths`, para no correr los tres en cada PR.
+   lint + build + `pnpm audit --audit-level=high` en las tres piezas, y
+   tests unitarios/e2e en `api` (contra un Postgres de servicio). Un
+   workflow por pieza; los tres corren siempre, pero un job `changes`
+   (`dorny/paths-filter`) salta el job real si la pieza no cambió — así
+   los checks requeridos de `develop` no quedan pendientes.
+
+## 5.1. Revisión de seguridad
+
+El repo maneja auth, datos de clientes y (más adelante) pagos, así que la
+revisión de seguridad es parte del flujo, en tres niveles según el riesgo:
+
+1. **Cada PR hacia `develop`:** correr `/security-review` (incluido en
+   Claude Code) sobre la rama antes de mergear. Los hallazgos HIGH/MEDIUM
+   se corrigen en el mismo PR, o se deja anotado en el PR por qué no
+   aplican.
+2. **PR que toca una frontera de confianza** — auth/JWT, sesión y cookies
+   de `apps/panel`, token de enlace de `apps/diagnostico`, usuarios y
+   permisos, bitácora de auditoría, pagos, CRM o el endpoint que consume
+   `score-sitio`: además, pedir una revisión acotada con la skill
+   `security-audit` en modo guía (ej. "revisa la seguridad del flujo de
+   token de enlace"). No genera archivos ni lanza la auditoría completa.
+3. **Antes de cada release `develop` → `main`:** auditoría completa con
+   `security-audit` ("audita la seguridad de este repo, perfil quick" o
+   `standard`), **siempre con presupuesto explícito** de agentes — sin
+   presupuesto lanza decenas de subagentes. El resultado queda fuera del
+   repo (`~/security-audit-skill/score-app/run-N`); las corridas siguientes
+   reutilizan las anteriores. Un hallazgo `confirmed` bloquea el release;
+   los `needs_validation` se revisan y se decide caso por caso.
+
+La skill `security-audit` es de Cloudflare (MIT) y se instala a nivel de
+usuario, no vive en este repo: copiar `skills/security-audit/` de
+`github.com/cloudflare/security-audit-skill` (revisada en el commit
+`c1c8a8c`) a `~/.claude/skills/security-audit/`. Si se actualiza, revisar
+el diff antes de reemplazarla.
 
 ## 6. Convenciones rápidas
 

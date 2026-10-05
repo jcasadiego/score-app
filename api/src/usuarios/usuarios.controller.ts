@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -15,6 +17,10 @@ import { RolUsuario } from '../../generated/prisma/enums';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { UsuariosService } from './usuarios.service';
+
+interface RequestConUsuario extends Request {
+  user: { id: string };
+}
 
 /**
  * Gestión de las cuentas internas de `apps/panel`. Sin autoservicio a
@@ -55,8 +61,8 @@ export class UsuariosController {
 
   @Patch(':id/desactivar')
   @Roles(RolUsuario.ADMIN)
-  desactivar(@Param('id') id: string) {
-    return this.usuarios.desactivar(id);
+  desactivar(@Param('id') id: string, @Req() req: RequestConUsuario) {
+    return this.usuarios.desactivar(id, req.user.id);
   }
 
   @Patch(':id/activar')

@@ -31,3 +31,14 @@ export async function obtenerSesion(): Promise<PayloadSesion | null> {
 
   return payload;
 }
+
+/**
+ * Token crudo de la cookie de sesión, para usarlo como Bearer al llamar a
+ * la API desde el servidor. Se usa junto a `verificarSesion` (que ya
+ * exige sesión activa) en las Server Actions que llaman a endpoints
+ * protegidos.
+ */
+export async function obtenerToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(NOMBRE_COOKIE_SESION)?.value ?? null;
+}

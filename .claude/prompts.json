@@ -1,0 +1,142 @@
+
+{
+  "name": "SCORE - Music Finance Pro",
+  "version": "1.0",
+  "description": "Plataforma SCORE — MVP de diagnóstico financiero para la industria musical, para el cliente Music Finance Pro",
+  "author": "Colmena Technologies",
+  "created": "2026-10-04",
+  "context": {
+    "cliente": "Music Finance Pro",
+    "jira": {
+      "project_key": "PF",
+      "site": "team-1623523974970.atlassian.net",
+      "issue_types": [
+        "Epic",
+        "Historia",
+        "Tarea",
+        "Error",
+        "Subtask"
+      ]
+    },
+    "repos": {
+      "score-sitio": {
+        "producto": "P1 — sitio web público",
+        "stack": "Next.js (App Router) + TypeScript + Tailwind CSS, Vercel",
+        "nota": "Diseño entregado por el cliente en Figma — este repo maqueta, no diseña"
+      },
+      "score-app": {
+        "producto": "P2 (diagnóstico), P4 (API + motor), P5 (panel interno)",
+        "tipo": "monorepo",
+        "apps": {
+          "apps/diagnostico": "Next.js — cuestionario del cliente final, acceso por enlace único sin contraseña",
+          "apps/panel": "Next.js + Ant Design — panel interno del equipo, login JWT, UI funcional y amigable sin diseño a la medida",
+          "api": "NestJS/TypeScript + Prisma (PostgreSQL, ids cuid)"
+        }
+      }
+    },
+    "modulos": [
+      "Auditoría",
+      "Usuarios y permisos",
+      "Leads / Precalificación",
+      "Cuestionario (configuración)",
+      "Diagnósticos",
+      "Motor de cálculo (interfaz + resultados)",
+      "Flags / Contradicciones",
+      "Revisión / Aprobación",
+      "Delivery / Informe",
+      "Pagos",
+      "CRM (bloqueado — falta confirmar proveedor con el cliente)",
+      "Voz / Transcripción (P3, opcional — bloqueado, falta confirmar alcance con el cliente)",
+      "Adapter real del motor de cálculo (bloqueado — falta confirmar escenario técnico del motor)",
+      "Infraestructura y DevEx (transversal: Swagger, shell del panel, herramientas de desarrollo)"
+    ],
+    "fuentes_de_alcance": [
+      "Propuesta_MVP_SCORE.docx",
+      "Alcance_Preliminar_MVP_SCORE.docx"
+    ]
+  },
+  "critical_rules": {
+    "motor_rule": "⚠️ Ninguna tarea llama al motor de cálculo directo — siempre pasa por MotorCalculoPort (interfaz propia). Mientras el escenario real no esté confirmado, se usa un adapter simulado.",
+    "modulos_bloqueados": "⚠️ CRM, Voz/Transcripción y el adapter real del motor NO se inician sin respuesta explícita del cliente, aunque Claude Code lo sugiera.",
+    "alcance_cerrado": "⚠️ Lo que no aparece en Propuesta_MVP_SCORE.docx o Alcance_Preliminar_MVP_SCORE.docx es señal de cambio de alcance — se avisa antes de construirlo.",
+    "que_no_como": "⚠️ Todo ticket y todo prompt para Claude Code describe QUÉ hace falta y QUÉ NO, nunca el diseño interno de la implementación — esa decisión es de quien lo ejecuta.",
+    "ui_panel_rule": "⚠️ apps/panel usa Ant Design, UI funcional y amigable, sin diseño a la medida ni sistema de diseño propio."
+  },
+  "tasks": {
+    "jira-ticket-score": {
+      "id": "task_score_001",
+      "name": "Generar Ticket Jira - SCORE",
+      "prompt_file": ".claude/plantilla-tickets-jira-score.md",
+      "description": "Genera tickets para el tablero Jira (proyecto PF) de la plataforma SCORE, siguiendo la estructura acordada: Descripción general, Alcance funcional, Fuera de alcance, Requerimientos técnicos, Criterios de aceptación, Manejo de errores, Definition of Done, Dependencias, y un prompt para Claude Code cuando la tarea esté pendiente.",
+      "type": "jira_saas_score",
+      "language": "typescript",
+      "framework": "nestjs_nextjs",
+      "keywords": [
+        "score",
+        "music finance pro",
+        "ticket",
+        "jira",
+        "epic",
+        "módulo",
+        "auditoría",
+        "usuarios",
+        "leads",
+        "precalificación",
+        "cuestionario",
+        "diagnóstico",
+        "motor de cálculo",
+        "flags",
+        "revisión",
+        "delivery",
+        "informe",
+        "pagos",
+        "crm",
+        "voz",
+        "transcripción",
+        "panel",
+        "swagger",
+        "api"
+      ],
+      "instructions": [
+        "Detecta cuando se pide un ticket, epic o tarea para SCORE/score-app/score-sitio",
+        "Carga el prompt de .claude/plantilla-tickets-jira-score.md",
+        "Verifica primero si el módulo está bloqueado (ver critical_rules.modulos_bloqueados) — si lo está, el ticket se crea pero se marca bloqueado, no se detalla como si fuera accionable",
+        "Respeta que_no_como: nunca dicta diseño interno, solo qué hace falta y por qué",
+        "Si la tarea ya está implementada, el prompt para Claude Code dice 'No aplica, ya implementado' con referencia al PR",
+        "Si hay sesión de Jira conectada, crea como Epic (por módulo) + Tarea (por pieza entregable: backend, UI, etc.)"
+      ],
+      "output_format": "jira_ticket_score",
+      "required_sections": [
+        "descripcion_general",
+        "alcance_funcional",
+        "fuera_de_alcance",
+        "requerimientos_tecnicos",
+        "criterios_de_aceptacion",
+        "manejo_de_errores",
+        "definition_of_done",
+        "dependencias",
+        "prompt_claude_code"
+      ]
+    }
+  },
+  "settings": {
+    "auto_detect": true,
+    "auto_load_prompt": true,
+    "show_detection_message": true,
+    "validate_structure": true,
+    "enforce_motor_port_rule": true,
+    "enforce_blocked_modules_rule": true,
+    "critical_validations": {
+      "motor_port_required": "✅ Ninguna tarea de cálculo omite MotorCalculoPort",
+      "blocked_modules_flagged": "✅ CRM / Voz / adapter real del motor quedan marcados bloqueados, no accionables",
+      "que_no_como": "✅ Ningún ticket ni prompt dicta diseño interno de implementación",
+      "ant_design_ui": "✅ Tareas de apps/panel usan Ant Design, sin diseño a la medida"
+    },
+    "requirements": {
+      "required_acceptance_criteria_min": 3,
+      "require_definition_of_done": true,
+      "require_error_handling": true,
+      "require_claude_code_prompt_if_pending": true
+    }
+  }
+}

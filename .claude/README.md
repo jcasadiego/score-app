@@ -79,7 +79,8 @@ sesión tiene Jira conectado, con:
 
 ## Nota
 
-Este set no incluye `settings.json` / `settings.local.json` (permisos de
-Claude Code). Esos archivos dependen de los nombres exactos de las
-herramientas MCP tal como las ve tu Claude Code local, y conviene
-armarlos a partir de lo que tú veas ahí en vez de que se adivinen aquí.
+`settings.json` permite las herramientas de Jira con los dos nombres que
+puede tener el MCP de Atlassian: `mcp__atlassian__*` (servidor MCP local)
+y `mcp__claude_ai_Atlassian__*` (conector de claude.ai). Si sumas otra
+herramienta, agrégala con ambos prefijos. Los permisos personales van en
+`settings.local.json`, que no se versiona.

@@ -10,7 +10,17 @@
       "mcp__atlassian__getJiraProjectIssueTypesMetadata",
       "mcp__atlassian__getAccessibleAtlassianResources",
       "mcp__atlassian__getIssueLinkTypes",
-      "mcp__atlassian__createIssueLink"
+      "mcp__atlassian__createIssueLink",
+      "mcp__claude_ai_Atlassian__createJiraIssue",
+      "mcp__claude_ai_Atlassian__editJiraIssue",
+      "mcp__claude_ai_Atlassian__transitionJiraIssue",
+      "mcp__claude_ai_Atlassian__getTransitionsForJiraIssue",
+      "mcp__claude_ai_Atlassian__getJiraIssue",
+      "mcp__claude_ai_Atlassian__searchJiraIssuesUsingJql",
+      "mcp__claude_ai_Atlassian__getJiraProjectIssueTypesMetadata",
+      "mcp__claude_ai_Atlassian__getAccessibleAtlassianResources",
+      "mcp__claude_ai_Atlassian__getIssueLinkTypes",
+      "mcp__claude_ai_Atlassian__createIssueLink"
     ]
   }
 }

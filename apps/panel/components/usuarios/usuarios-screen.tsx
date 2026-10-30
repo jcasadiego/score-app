@@ -93,14 +93,12 @@ export function UsuariosScreen({
 
   function abrirCrear() {
     setUsuarioEnEdicion(null);
-    form.resetFields();
     setErrorModal(null);
     setModalAbierto(true);
   }
 
   function abrirEditar(usuario: Usuario) {
     setUsuarioEnEdicion(usuario);
-    form.setFieldsValue({ nombre: usuario.nombre, email: usuario.email });
     setErrorModal(null);
     setModalAbierto(true);
   }
@@ -352,6 +350,18 @@ export function UsuariosScreen({
           layout="vertical"
           onFinish={enviarFormulario}
           disabled={guardando}
+          // El Form se monta al abrir el modal (destroyOnHidden), así que los
+          // valores iniciales salen de aquí y no de form.setFieldsValue, que
+          // no tendría Form conectado. preserve={false} hace que, al volver a
+          // montarse, cada campo tome los initialValues nuevos en vez de lo
+          // que quedó de la apertura anterior (clearOnDestroy no sirve: con
+          // StrictMode borra también los initialValues recién cargados).
+          initialValues={
+            usuarioEnEdicion
+              ? { nombre: usuarioEnEdicion.nombre, email: usuarioEnEdicion.email }
+              : undefined
+          }
+          preserve={false}
         >
           <Form.Item
             name="nombre"

@@ -337,7 +337,9 @@ export function UsuariosScreen({
         onOk={() => form.submit()}
         okText={usuarioEnEdicion ? "Guardar" : "Crear"}
         cancelText="Cancelar"
-        destroyOnHidden
+        // El Form tiene que existir antes de abrir: abrirCrear/abrirEditar
+        // llaman a form.resetFields/setFieldsValue antes de mostrar el modal.
+        forceRender
       >
         {errorModal && (
           <Alert

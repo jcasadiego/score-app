@@ -40,7 +40,7 @@
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "zod": "^4.6.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
@@ -62,7 +62,7 @@
     "prisma": "7.10.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
-    "ts-jest": "^29.1.0",
+    "ts-jest": "^29.4.15",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
@@ -70,7 +70,7 @@
   },
   "pnpm": {
     "overrides": {
-      "multer": ">=2.3.0",
+      "multer": ">=2.5.0",
       "js-yaml": ">=4.3.2",
       "brace-expansion@<1.1.20": "^1.1.20",
       "brace-expansion@>=2 <2.1.6": "^2.1.6",
@@ -80,7 +80,14 @@
       "lodash@<4.18.0": "^4.18.0",
       "tmp@<0.2.6": "^0.2.6",
       "mysql2@<3.22.0": "^3.22.0",
-      "deepmerge-ts@<8.0.0": "^8.0.0"
+      "deepmerge-ts@<8.0.0": "^8.0.0",
+      "proxy-addr@<2.0.8": "^2.0.8",
+      "handlebars@<4.7.10": "^4.7.10",
+      "body-parser@<1.20.9": "^1.20.9",
+      "source-map-js@<1.2.2": "^1.2.2",
+      "zod@<4.6.6": "^4.6.6",
+      "qs@<6.16.1": "^6.16.1",
+      "fast-uri@<3.1.9": "^3.1.9"
     },
     "auditConfig": {
       "ignoreCves": [

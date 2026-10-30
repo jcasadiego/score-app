@@ -9,9 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.3.8",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "next": "16.4.3",
+    "react": "19.2.9",
+    "react-dom": "19.2.9"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -19,7 +19,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
@@ -28,7 +28,10 @@
     "overrides": {
       "brace-expansion@<1.1.20": "^1.1.20",
       "brace-expansion@>=2 <2.1.6": "^2.1.6",
-      "brace-expansion@>=5 <5.0.11": "^5.0.11"
+      "brace-expansion@>=5 <5.0.11": "^5.0.11",
+      "sharp@<0.35.5": "^0.35.5",
+      "source-map-js@<1.2.2": "^1.2.2",
+      "zod@<4.6.6": "^4.6.6"
     },
     "auditConfig": {
       "ignoreCves": [

@@ -195,3 +195,23 @@ El único punto de contacto entre los dos es el endpoint que consume el
 formulario de precalificación del sitio, dentro de `api`. Si cambias su
 forma (campos, tipos, códigos de respuesta), coordínalo con José antes de
 mergear — el cambio afecta al otro repo y él es quien ve los dos lados.
+
+## 8. Seguimiento en Jira
+
+El backlog de este repo vive en Jira, proyecto **PF**:
+
+- Timeline: https://team-1623523974970.atlassian.net/jira/software/projects/PF/boards/144/timeline
+- Sitio / cloudId para el MCP de Atlassian: `team-1623523974970.atlassian.net`
+- Consulta rápida: JQL `project = PF ORDER BY rank ASC`
+
+Estructura: épicas por módulo (ej. Auditoría = módulo M7 de
+`Alcance_Preliminar_MVP_SCORE.docx`) con tareas hijas. Cada tarea trae
+descripción, alcance, fuera de alcance, criterios de aceptación, DoD y un
+"prompt para Claude Code" — ese prompt es el punto de partida al
+implementarla. Épicas actuales: **PF-1** Auditoría, **PF-3** Usuarios y
+permisos, **PF-6** Infraestructura y DevEx — al abrir un módulo nuevo,
+crear su épica antes que sus tareas. Los tickets nuevos se redactan con
+`.claude/plantilla-tickets-jira-score.md` (índice en
+`.claude/prompts.json`). Al cerrar una tarea, marcar sus
+criterios y DoD y pasarla a "Listo" con el número de PR. El estado de cada tarea se consulta en Jira,
+no se copia aquí (se desactualiza).

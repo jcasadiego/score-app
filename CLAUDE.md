@@ -181,11 +181,38 @@ el diff antes de reemplazarla.
 
 ## 6. Convenciones rápidas
 
-- Idioma de commits, PRs y comentarios de código: **español**
+**Idioma** (decidido el 2026-10-31; el código anterior se migra según la
+sección 10):
+
+- **En inglés todo lo técnico:** identificadores (variables, funciones,
+  clases, tipos, DTOs), nombres de archivos y carpetas, rutas y campos
+  JSON de la api, query params, base de datos (modelos, tablas,
+  columnas, enums y sus valores), acciones de la bitácora, variables de
+  entorno y las URLs del panel.
+- **En español:** los textos que ve el usuario final (UI, correos,
+  mensajes de error que muestra el panel), los comentarios de código,
+  los nombres de los tests, los commits y los PRs.
+- Código **nuevo** ya va en inglés aunque el módulo vecino siga en
+  español. No se renombra código existente "de paso" en un PR de otra
+  cosa: eso va en su fase de la sección 10.
+
+**Estándares:**
+
+- **API (REST):** recursos en plural y `kebab-case` (`/users`,
+  `/password-reset`), sin verbos salvo acciones que no son CRUD
+  (`/users/:id/activate`). Campos JSON y query params en `camelCase`.
+  Error con la forma estándar de NestJS: `{ statusCode, message, error }`.
+  Paginación: `?page=1&pageSize=20&search=` → `{ data, total, page,
+  pageSize }`.
+- **Base de datos (PostgreSQL + Prisma):** modelos en `PascalCase`
+  singular y campos en `camelCase` en el schema, mapeados a tablas y
+  columnas `snake_case` con `@@map`/`@map` (tablas en plural). Valores
+  de enum en `UPPER_SNAKE_CASE`.
+- **Código:** convenciones de NestJS (`users.service.ts`,
+  `UsersService`) y de Next.js. Archivos en `kebab-case`, componentes en
+  `PascalCase`, constantes en `UPPER_SNAKE_CASE`.
 - Variables de entorno nuevas van en el `.env.example` de cada app/API
-  (sin valores reales)
-- Nombres de archivos y componentes: `PascalCase` para componentes,
-  `kebab-case` para el resto
+  (sin valores reales), en `UPPER_SNAKE_CASE` y en inglés.
 
 ## 7. Relación con score-sitio
 
@@ -278,3 +305,77 @@ revisar la regla correspondiente.
   desde `lib/tema.ts`, sin hex sueltos.
 - Revisar la consola del navegador (avisos de Ant Design, hidratación)
   antes de dar por buena una pantalla — así se detectó #16.
+
+## 10. Plan: migrar el código existente a inglés
+
+Contexto: el código nació en español y se pasa a los estándares de la
+sección 6. Como todavía no hay producción, es el momento más barato para
+renombrar base de datos y API. **Una fase = un PR desde `develop`**, en
+este orden, sin apilar ramas (sección 9) y sin mezclarla con features.
+Cada PR pasa lint, build, tests unitarios y e2e, prueba manual en el
+navegador y `/security-review` (las fases 1–3 tocan auth y la bitácora:
+también `security-audit` en modo guía). Al cerrar una fase, marcarla
+aquí.
+
+Glosario de base (usarlo igual en todas las fases):
+
+| Español | Inglés |
+|---|---|
+| Usuario / RolUsuario | User / UserRole |
+| RegistroAuditoria / ActorAuditoria | AuditLog / AuditActorType (`PANEL_USER`, `END_CLIENT`, `SYSTEM`) |
+| VersionReglas | RuleSetVersion |
+| TokenRecuperacionContrasena | PasswordResetToken |
+| FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
+| EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
+| Caso / diagnóstico / enlace | Case / diagnostic / access link |
+| correo / auditoría / reglas / motor de cálculo | mail / audit / rules / scoring engine |
+
+- [ ] **Fase 1 — Contrato HTTP (api + panel en el mismo PR).** Rutas y
+  campos JSON a inglés, error `{ statusCode, message, error }` (deja de
+  existir `mensaje`) y paginación `{ data, total, page, pageSize }`; el
+  panel se adapta en el mismo PR para no quedar roto. Rutas:
+  `/usuarios` → `/users` (`/activar` → `/activate`, `/desactivar` →
+  `/deactivate`), `/leads/:id/estado` → `/leads/:id/status`,
+  `/token-enlace/emitir` → `POST /access-links`,
+  `/auth/recuperacion/solicitar|restablecer` →
+  `/auth/password-reset/request|confirm`. **`POST
+  /leads/precalificacion` es el contrato con `score-sitio` (sección
+  7):** se publica la ruta y los campos nuevos y la vieja queda como
+  alias hasta que el sitio migre; coordinar con José y actualizar
+  `api/docs/contrato-precalificacion.md`.
+- [ ] **Fase 2 — Base de datos.** Modelos, campos y enums a inglés
+  (glosario), con tablas y columnas `snake_case` vía `@@map`/`@map`. La
+  migración se escribe a mano con `ALTER TABLE … RENAME` y `ALTER TYPE …
+  RENAME VALUE` para no perder datos (Prisma por defecto genera DROP +
+  CREATE en un rename: revisar el SQL antes de aplicarlo), más un
+  `UPDATE` de las acciones de la bitácora (`CORREO_ENVIADO` →
+  `EMAIL_SENT`, `CORREO_FALLIDO` → `EMAIL_FAILED`,
+  `RECUPERACION_CONTRASENA_SOLICITADA` → `PASSWORD_RESET_REQUESTED`,
+  `CONTRASENA_RESTABLECIDA` → `PASSWORD_RESET_COMPLETED`). Comprobar con
+  `prisma migrate diff` que el schema y la base quedan iguales. El
+  código que usa el cliente de Prisma se ajusta en el mismo PR (cambian
+  los nombres generados).
+- [ ] **Fase 3 — Resto del código de `api` y variables de entorno.**
+  Carpetas y módulos (`auditoria` → `audit`, `correo` → `mail`,
+  `usuarios` → `users`, `recuperacion-contrasena` → `password-reset`,
+  `token-enlace` → `access-link`, `motor-calculo` → `scoring-engine`,
+  `reglas` → `rules`), clases, métodos, DTOs y constantes. Variables de
+  entorno: `JWT_EXPIRACION` → `JWT_EXPIRES_IN`, `ENLACE_JWT_SECRET|
+  EXPIRACION` → `ACCESS_LINK_JWT_SECRET|EXPIRES_IN`, `CORREO_MODO` →
+  `MAIL_DRIVER`, `CORREO_REMITENTE` → `MAIL_FROM`, `CORREO_REPLY_TO` →
+  `MAIL_REPLY_TO`, `CORREO_LOGO_URL` → `MAIL_LOGO_URL`, `ADMIN_NOMBRE` →
+  `ADMIN_NAME`. Actualizar en el mismo PR `.env.example`, el workflow de
+  CI y los README; avisar a José para que cambie las variables de QA
+  antes de mergear.
+- [ ] **Fase 4 — `apps/panel`.** Código (`lib/`, `components/`, Server
+  Actions, tipos) y URLs: `/usuarios` → `/users`,
+  `/recuperar-contrasena` → `/forgot-password`, `/restablecer-contrasena`
+  → `/reset-password` (el enlace del correo lo arma `api`: cambiarlo en
+  el mismo PR). Los textos de pantalla siguen en español. `lib/tema.ts`
+  → `lib/theme.ts`.
+- [ ] **Fase 5 — Cierre.** `apps/diagnostico` (hoy solo scaffold) ya
+  nace en inglés. Revisar la plantilla de tickets
+  (`.claude/plantilla-tickets-jira-score.md`) para que los prompts pidan
+  nombres en inglés, actualizar esta sección y borrar el plan cuando
+  todas las fases estén hechas.
+

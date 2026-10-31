@@ -1,14 +1,15 @@
+import type { Mock } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
 import { UsuariosService } from '../usuarios/usuarios.service';
 
 describe('JwtStrategy', () => {
-  let usuarios: { buscarPorId: jest.Mock };
+  let usuarios: { buscarPorId: Mock };
   let strategy: JwtStrategy;
 
   beforeEach(() => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
-    usuarios = { buscarPorId: jest.fn() };
+    usuarios = { buscarPorId: vi.fn() };
     strategy = new JwtStrategy(usuarios as unknown as UsuariosService);
   });
 

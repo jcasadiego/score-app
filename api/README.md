@@ -4,7 +4,7 @@ Base de datos, motor de cálculo de SCORE, CRM, pagos y bitácora de
 auditoría. La consumen `apps/diagnostico` y `apps/panel` por HTTP. Ver
 `../CLAUDE.md` para el contexto completo del monorepo.
 
-Stack: NestJS 10 + TypeScript + Prisma 7 sobre PostgreSQL, con `pnpm` como
+Stack: NestJS 12 + TypeScript + Prisma 7 sobre PostgreSQL, con `pnpm` como
 gestor de paquetes.
 
 ## Cómo correr en local
@@ -115,7 +115,12 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
 
 ## Nota de versiones
 
-`@nestjs/cli@11` falla en Node 22 por un bug conocido de ciclo
-ESM/CJS en su dependencia `ora@9` (`ERR_REQUIRE_CYCLE_MODULE`). Por eso
-el proyecto quedó en Nest 10 (estable, sin ese problema). Revisar si
-sigue vigente antes de subir de major.
+Desde NestJS 12 los paquetes de Nest se publican como ESM (usan
+`import.meta.url`), y Jest en modo CommonJS no puede cargarlos. Por eso
+los tests corren con **Vitest** (`vitest.config.mts` y
+`vitest.config.e2e.mts`), con `unplugin-swc` para que se emita la
+metadata de decoradores que necesita la inyección de dependencias de
+Nest (esbuild, el transformador por defecto de Vitest, no la emite). En
+los specs se usa `vi.fn()`/`vi.mock()` y el tipo `Mock` de `vitest`. El
+código de la app sigue siendo CommonJS: Node 22 carga los paquetes ESM de
+Nest vía `require(esm)`.

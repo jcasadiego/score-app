@@ -18,7 +18,7 @@ export class HealthController {
     } catch {
       throw new ServiceUnavailableException({
         status: 'error',
-        detalle: 'sin conexión a la base de datos',
+        detail: 'sin conexión a la base de datos',
       });
     }
   }

@@ -8,8 +8,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { parsearCorsOrigins } from './config/cors';
-import { FiltroExcepcionesGlobal } from './common/filtro-excepciones-global.filter';
+import { parseCorsOrigins } from './config/cors';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 /**
  * Configuración transversal de la app, compartida entre `main.ts` y los
@@ -17,7 +17,7 @@ import { FiltroExcepcionesGlobal } from './common/filtro-excepciones-global.filt
  * sin pasar por `main.ts` y por lo tanto nunca ejercitaban helmet, CORS,
  * validación de DTOs ni versionado.
  */
-export function configurarApp(app: INestApplication): void {
+export function configureApp(app: INestApplication): void {
   // Necesario para que el throttler (y cualquier lectura de IP) vea la IP
   // real del cliente y no la del proxy/balanceador, una vez desplegado
   // detrás de uno (Vercel, nginx, etc.) — sin esto, el rate limiting
@@ -27,7 +27,7 @@ export function configurarApp(app: INestApplication): void {
   app.use(helmet());
 
   app.enableCors({
-    origin: parsearCorsOrigins(process.env.CORS_ORIGINS),
+    origin: parseCorsOrigins(process.env.CORS_ORIGINS),
     credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -41,7 +41,7 @@ export function configurarApp(app: INestApplication): void {
     }),
   );
 
-  app.useGlobalFilters(new FiltroExcepcionesGlobal());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Defensa en profundidad: si algún controller de dominio futuro
   // devuelve una instancia con campos @Exclude() (ej. un passwordHash),

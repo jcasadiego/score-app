@@ -3,12 +3,12 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { configurarApp } from './../src/bootstrap';
+import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
 
-const RUTA = '/api/v1/leads/prequalification';
+const PATH = '/api/v1/leads/prequalification';
 
-const VALIDO = {
+const VALID = {
   name: 'Ana Pérez',
   email: 'ana.e2e@example.com',
   phone: '+52 55 1234 5678',
@@ -21,7 +21,7 @@ const VALIDO = {
 describe('LeadsController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  const idsCreados: string[] = [];
+  const createdIds: string[] = [];
 
   // App nueva por test: el throttler guarda los contadores en memoria por
   // instancia, así cada test arranca con el límite limpio.
@@ -31,42 +31,42 @@ describe('LeadsController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    configurarApp(app);
+    configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
   });
 
   afterEach(async () => {
-    if (idsCreados.length > 0) {
-      await prisma.lead.deleteMany({ where: { id: { in: idsCreados } } });
-      idsCreados.length = 0;
+    if (createdIds.length > 0) {
+      await prisma.lead.deleteMany({ where: { id: { in: createdIds } } });
+      createdIds.length = 0;
     }
     await app.close();
   });
 
   it('crea el lead y responde solo id y estado', async () => {
-    const respuesta = await request(app.getHttpServer())
-      .post(RUTA)
-      .send(VALIDO)
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send(VALID)
       .expect(201);
 
-    expect(Object.keys(respuesta.body).sort()).toEqual(['id', 'status']);
-    expect(respuesta.body.status).toBe('NEW');
-    idsCreados.push(respuesta.body.id);
+    expect(Object.keys(response.body).sort()).toEqual(['id', 'status']);
+    expect(response.body.status).toBe('NEW');
+    createdIds.push(response.body.id);
 
     const lead = await prisma.lead.findUniqueOrThrow({
-      where: { id: respuesta.body.id },
+      where: { id: response.body.id },
     });
-    expect(lead).toMatchObject({ ...VALIDO, status: 'NEW' });
+    expect(lead).toMatchObject({ ...VALID, status: 'NEW' });
   });
 
   it('responde los errores con la forma estándar { statusCode, message, error }', async () => {
-    const respuesta = await request(app.getHttpServer())
-      .post(RUTA)
-      .send({ ...VALIDO, family: 'OTRA' })
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send({ ...VALID, family: 'OTRA' })
       .expect(400);
 
-    expect(respuesta.body).toMatchObject({
+    expect(response.body).toMatchObject({
       statusCode: 400,
       error: 'Bad Request',
       message: expect.arrayContaining([
@@ -77,7 +77,7 @@ describe('LeadsController (e2e)', () => {
 
   describe('ruta legacy de score-sitio (POST /leads/precalificacion)', () => {
     const RUTA_LEGACY = '/api/v1/leads/precalificacion';
-    const VALIDO_LEGACY = {
+    const VALID_LEGACY = {
       nombre: 'Ana Pérez',
       email: 'ana.legacy.e2e@example.com',
       telefono: '+52 55 1234 5678',
@@ -86,17 +86,17 @@ describe('LeadsController (e2e)', () => {
     };
 
     it('acepta el payload viejo y responde { id, estado: NUEVO }', async () => {
-      const respuesta = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post(RUTA_LEGACY)
-        .send(VALIDO_LEGACY)
+        .send(VALID_LEGACY)
         .expect(201);
 
-      expect(Object.keys(respuesta.body).sort()).toEqual(['estado', 'id']);
-      expect(respuesta.body.estado).toBe('NUEVO');
-      idsCreados.push(respuesta.body.id);
+      expect(Object.keys(response.body).sort()).toEqual(['estado', 'id']);
+      expect(response.body.estado).toBe('NUEVO');
+      createdIds.push(response.body.id);
 
       const lead = await prisma.lead.findUniqueOrThrow({
-        where: { id: respuesta.body.id },
+        where: { id: response.body.id },
       });
       expect(lead).toMatchObject({
         name: 'Ana Pérez',
@@ -107,38 +107,38 @@ describe('LeadsController (e2e)', () => {
     });
 
     it('mantiene la forma de error vieja { statusCode, mensaje }', async () => {
-      const respuesta = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post(RUTA_LEGACY)
-        .send({ ...VALIDO_LEGACY, familia: 'CATALOG' })
+        .send({ ...VALID_LEGACY, familia: 'CATALOG' })
         .expect(400);
 
-      expect(Object.keys(respuesta.body).sort()).toEqual([
+      expect(Object.keys(response.body).sort()).toEqual([
         'mensaje',
         'statusCode',
       ]);
-      expect(respuesta.body.mensaje).toEqual([
+      expect(response.body.mensaje).toEqual([
         'familia must be one of the following values: PROYECTO, B2B, PROFESIONAL, CATALOGO',
       ]);
     });
   });
 
   it('no guarda los datos personales del lead en la bitácora', async () => {
-    const desde = new Date();
-    const respuesta = await request(app.getHttpServer())
-      .post(RUTA)
-      .send(VALIDO)
+    const since = new Date();
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send(VALID)
       .expect(201);
-    idsCreados.push(respuesta.body.id);
+    createdIds.push(response.body.id);
 
     // La auditoría se escribe sin bloquear la respuesta.
-    const registro = await vi.waitFor(() =>
+    const auditEntry = await vi.waitFor(() =>
       prisma.auditLog
-        .findFirst({ where: { entity: RUTA, createdAt: { gte: desde } } })
+        .findFirst({ where: { entity: PATH, createdAt: { gte: since } } })
         .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
     );
 
-    expect(registro.actorType).toBe('SYSTEM');
-    expect(registro.data).toMatchObject({
+    expect(auditEntry.actorType).toBe('SYSTEM');
+    expect(auditEntry.data).toMatchObject({
       body: {
         name: '[REDACTADO]',
         email: '[REDACTADO]',
@@ -146,33 +146,33 @@ describe('LeadsController (e2e)', () => {
         family: 'CATALOG',
       },
     });
-    await prisma.auditLog.delete({ where: { id: registro.id } });
+    await prisma.auditLog.delete({ where: { id: auditEntry.id } });
   });
 
   it.each([
-    ['falta el email', { ...VALIDO, email: undefined }],
-    ['email mal formado', { ...VALIDO, email: 'no-es-email' }],
-    ['family desconocida', { ...VALIDO, family: 'OTRA' }],
-    ['campo no permitido', { ...VALIDO, status: 'PAGADO' }],
-  ])('responde 400 si %s', async (_caso, payload) => {
-    const respuesta = await request(app.getHttpServer())
-      .post(RUTA)
+    ['falta el email', { ...VALID, email: undefined }],
+    ['email mal formado', { ...VALID, email: 'no-es-email' }],
+    ['family desconocida', { ...VALID, family: 'OTRA' }],
+    ['campo no permitido', { ...VALID, status: 'PAGADO' }],
+  ])('responde 400 si %s', async (_label, payload) => {
+    const response = await request(app.getHttpServer())
+      .post(PATH)
       .send(payload)
       .expect(400);
 
-    expect(respuesta.body).toMatchObject({ statusCode: 400 });
-    expect(respuesta.body.message).toEqual(expect.any(Array));
+    expect(response.body).toMatchObject({ statusCode: 400 });
+    expect(response.body.message).toEqual(expect.any(Array));
   });
 
   it('responde 429 al pasar el límite de envíos por minuto', async () => {
-    const servidor = app.getHttpServer();
+    const server = app.getHttpServer();
     // Payload inválido a propósito: el throttler corre antes de la
     // validación, así que cuenta igual y no deja leads en la base.
     for (let i = 0; i < 5; i++) {
-      await request(servidor).post(RUTA).send({}).expect(400);
+      await request(server).post(PATH).send({}).expect(400);
     }
 
-    await request(servidor).post(RUTA).send(VALIDO).expect(429);
+    await request(server).post(PATH).send(VALID).expect(429);
   });
 });
 
@@ -189,41 +189,41 @@ describe('Leads del panel (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    configurarApp(app);
+    configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
 
     // Usuario directo en la base (sin login): `JwtStrategy` solo necesita
     // que exista y esté active.
-    const usuario = await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name: 'Admin e2e leads',
         email: `admin.leads.${Date.now()}@test.local`,
         passwordHash: 'no-se-usa',
       },
     });
-    userId = usuario.id;
+    userId = user.id;
     token = await app
       .get(JwtService)
-      .signAsync({ sub: usuario.id }, { secret: process.env.JWT_SECRET });
+      .signAsync({ sub: user.id }, { secret: process.env.JWT_SECRET });
 
     // Marca única para que los filtros no choquen con otros leads de la base.
-    const marca = `e2epanel${Date.now()}`;
+    const marker = `e2epanel${Date.now()}`;
     const leads = await prisma.lead.createManyAndReturn({
       data: [
         {
-          name: `Ana ${marca}`,
-          email: `ana.${marca}@example.com`,
+          name: `Ana ${marker}`,
+          email: `ana.${marker}@example.com`,
           family: 'B2B',
         },
         {
-          name: `Beto ${marca}`,
-          email: `beto.${marca}@example.com`,
+          name: `Beto ${marker}`,
+          email: `beto.${marker}@example.com`,
           family: 'CATALOG',
         },
         {
-          name: `Caro ${marca}`,
-          email: `caro.${marca}@example.com`,
+          name: `Caro ${marker}`,
+          email: `caro.${marker}@example.com`,
           family: 'B2B',
           status: 'CONTACTED',
         },
@@ -246,9 +246,9 @@ describe('Leads del panel (e2e)', () => {
     ['GET', '/api/v1/leads'],
     ['GET', '/api/v1/leads/cualquiera'],
     ['PATCH', '/api/v1/leads/cualquiera/status'],
-  ])('%s %s responde 401 sin token', async (metodo, ruta) => {
-    const servidor = request(app.getHttpServer());
-    await (metodo === 'GET' ? servidor.get(ruta) : servidor.patch(ruta))
+  ])('%s %s responde 401 sin token', async (method, path) => {
+    const server = request(app.getHttpServer());
+    await (method === 'GET' ? server.get(path) : server.patch(path))
       .send({ status: 'CONVERTED' })
       .expect(401);
   });
@@ -257,16 +257,16 @@ describe('Leads del panel (e2e)', () => {
     const { name } = await prisma.lead.findUniqueOrThrow({
       where: { id: leadIds[0] },
     });
-    const marca = name.split(' ')[1];
+    const marker = name.split(' ')[1];
 
-    const respuesta = await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .get('/api/v1/leads')
-      .query({ search: marca, family: 'B2B', status: 'NEW' })
+      .query({ search: marker, family: 'B2B', status: 'NEW' })
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(respuesta.body.total).toBe(1);
-    expect(respuesta.body.data[0]).toMatchObject({
+    expect(response.body.total).toBe(1);
+    expect(response.body.data[0]).toMatchObject({
       id: leadIds[0],
       family: 'B2B',
       status: 'NEW',
@@ -282,24 +282,24 @@ describe('Leads del panel (e2e)', () => {
   });
 
   it('cambia el estado y deja al usuario como actor en la bitácora', async () => {
-    const ruta = `/api/v1/leads/${leadIds[1]}/status`;
-    const respuesta = await request(app.getHttpServer())
-      .patch(ruta)
+    const path = `/api/v1/leads/${leadIds[1]}/status`;
+    const response = await request(app.getHttpServer())
+      .patch(path)
       .send({ status: 'CONVERTED' })
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(respuesta.body).toMatchObject({
+    expect(response.body).toMatchObject({
       id: leadIds[1],
       status: 'CONVERTED',
     });
 
-    const registro = await vi.waitFor(() =>
+    const auditEntry = await vi.waitFor(() =>
       prisma.auditLog
-        .findFirst({ where: { entity: ruta } })
+        .findFirst({ where: { entity: path } })
         .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
     );
-    expect(registro).toMatchObject({
+    expect(auditEntry).toMatchObject({
       actorType: 'PANEL_USER',
       actorId: userId,
     });

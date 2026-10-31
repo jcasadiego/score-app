@@ -2,22 +2,22 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { AuditoriaModule } from './auditoria/auditoria.module';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
-import { CorreoModule } from './correo/correo.module';
+import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
-import { MotorCalculoModule } from './motor-calculo/motor-calculo.module';
+import { ScoringEngineModule } from './scoring-engine/scoring-engine.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { RecuperacionContrasenaModule } from './recuperacion-contrasena/recuperacion-contrasena.module';
-import { ReglasModule } from './reglas/reglas.module';
-import { TokenEnlaceModule } from './token-enlace/token-enlace.module';
-import { UsuariosModule } from './usuarios/usuarios.module';
-import { validarEnv } from './config/validar-env';
+import { PasswordResetModule } from './password-reset/password-reset.module';
+import { RulesModule } from './rules/rules.module';
+import { AccessLinkModule } from './access-link/access-link.module';
+import { UsersModule } from './users/users.module';
+import { validateEnv } from './config/validate-env';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validarEnv }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([
       {
         ttl: Number(process.env.THROTTLE_TTL ?? 60_000),
@@ -25,15 +25,15 @@ import { validarEnv } from './config/validar-env';
       },
     ]),
     PrismaModule,
-    AuditoriaModule,
-    ReglasModule,
-    MotorCalculoModule,
-    UsuariosModule,
+    AuditModule,
+    RulesModule,
+    ScoringEngineModule,
+    UsersModule,
     AuthModule,
-    TokenEnlaceModule,
+    AccessLinkModule,
     LeadsModule,
-    CorreoModule,
-    RecuperacionContrasenaModule,
+    MailModule,
+    PasswordResetModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -3,32 +3,32 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
-import { UsuariosService } from '../usuarios/usuarios.service';
+import { UsersService } from '../users/users.service';
 
 vi.mock('argon2');
 
 describe('AuthService', () => {
   const argon2VerifyMock = argon2.verify as Mock;
-  let usuarios: { buscarPorEmail: Mock };
+  let users: { findByEmail: Mock };
   let service: AuthService;
 
   beforeEach(() => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
-    process.env.JWT_EXPIRACION = '1d';
-    usuarios = { buscarPorEmail: vi.fn() };
+    process.env.JWT_EXPIRES_IN = '1d';
+    users = { findByEmail: vi.fn() };
     argon2VerifyMock.mockReset();
     service = new AuthService(
-      usuarios as unknown as UsuariosService,
+      users as unknown as UsersService,
       new JwtService(),
     );
   });
 
   it('rechaza con el mismo mensaje si el usuario no existe', async () => {
-    usuarios.buscarPorEmail.mockResolvedValue(null);
+    users.findByEmail.mockResolvedValue(null);
     argon2VerifyMock.mockResolvedValue(false);
 
     await expect(
-      service.iniciarSesion('no-existe@test.local', 'cualquiera'),
+      service.login('no-existe@test.local', 'cualquiera'),
     ).rejects.toThrow(UnauthorizedException);
 
     // Igual llama a argon2.verify aunque no exista el usuario, para que
@@ -37,7 +37,7 @@ describe('AuthService', () => {
   });
 
   it('rechaza si el usuario existe pero el password es incorrecto', async () => {
-    usuarios.buscarPorEmail.mockResolvedValue({
+    users.findByEmail.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
@@ -47,14 +47,14 @@ describe('AuthService', () => {
     argon2VerifyMock.mockResolvedValue(false);
 
     await expect(
-      service.iniciarSesion('admin@test.local', 'incorrecta'),
+      service.login('admin@test.local', 'incorrecta'),
     ).rejects.toThrow(UnauthorizedException);
 
     expect(argon2VerifyMock).toHaveBeenCalledWith('hash-real', 'incorrecta');
   });
 
   it('rechaza si el usuario existe, el password es correcto, pero está desactivado', async () => {
-    usuarios.buscarPorEmail.mockResolvedValue({
+    users.findByEmail.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
@@ -63,13 +63,13 @@ describe('AuthService', () => {
     });
     argon2VerifyMock.mockResolvedValue(true);
 
-    await expect(
-      service.iniciarSesion('admin@test.local', 'correcta'),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('admin@test.local', 'correcta')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('devuelve un accessToken si las credenciales son válidas', async () => {
-    usuarios.buscarPorEmail.mockResolvedValue({
+    users.findByEmail.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
@@ -79,14 +79,11 @@ describe('AuthService', () => {
     });
     argon2VerifyMock.mockResolvedValue(true);
 
-    const resultado = await service.iniciarSesion(
-      'admin@test.local',
-      'correcta',
-    );
+    const result = await service.login('admin@test.local', 'correcta');
 
-    expect(resultado.accessToken).toEqual(expect.any(String));
+    expect(result.accessToken).toEqual(expect.any(String));
     const payload = JSON.parse(
-      Buffer.from(resultado.accessToken.split('.')[1], 'base64url').toString(),
+      Buffer.from(result.accessToken.split('.')[1], 'base64url').toString(),
     );
     expect(payload).toMatchObject({ sub: '1', ver: 4 });
   });

@@ -10,9 +10,9 @@ import {
   MinLength,
 } from 'class-validator';
 import { DiagnosticFamily } from '../../../generated/prisma/enums';
-import { EMAIL_MAX, NOMBRE_MAX } from '../../usuarios/dto/limites';
-import { NormalizarTexto, Recortar } from '../../usuarios/dto/normalizar-texto';
-import { PHONE_REGEX, UTM_MAX } from '../dto/crear-lead.dto';
+import { EMAIL_MAX, NAME_MAX } from '../../users/dto/limits';
+import { NormalizeText, Trim } from '../../users/dto/normalize-text';
+import { PHONE_REGEX, UTM_MAX } from '../dto/create-lead.dto';
 
 /** Valores de `familia` del contrato viejo → enum actual. */
 export const LEGACY_FAMILY: Record<string, DiagnosticFamily> = {
@@ -25,14 +25,14 @@ export const LEGACY_FAMILY: Record<string, DiagnosticFamily> = {
 /**
  * Payload de `POST /leads/precalificacion` tal como lo manda hoy
  * `score-sitio` (campos y valores en español). Mismas reglas que
- * `CrearLeadDto`, para que el sitio no note el cambio.
+ * `CreateLeadDto`, para que el sitio no note el cambio.
  */
 export class LegacyPrequalificationDto {
-  @ApiProperty({ minLength: 2, maxLength: NOMBRE_MAX })
-  @NormalizarTexto()
+  @ApiProperty({ minLength: 2, maxLength: NAME_MAX })
+  @NormalizeText()
   @IsString()
   @MinLength(2)
-  @MaxLength(NOMBRE_MAX)
+  @MaxLength(NAME_MAX)
   nombre!: string;
 
   @ApiProperty({ maxLength: EMAIL_MAX })
@@ -45,7 +45,7 @@ export class LegacyPrequalificationDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Recortar()
+  @Trim()
   @Matches(PHONE_REGEX, { message: 'telefono no tiene un formato válido' })
   telefono?: string;
 
@@ -55,21 +55,21 @@ export class LegacyPrequalificationDto {
 
   @ApiPropertyOptional({ maxLength: UTM_MAX })
   @IsOptional()
-  @Recortar()
+  @Trim()
   @IsString()
   @MaxLength(UTM_MAX)
   utmSource?: string;
 
   @ApiPropertyOptional({ maxLength: UTM_MAX })
   @IsOptional()
-  @Recortar()
+  @Trim()
   @IsString()
   @MaxLength(UTM_MAX)
   utmMedium?: string;
 
   @ApiPropertyOptional({ maxLength: UTM_MAX })
   @IsOptional()
-  @Recortar()
+  @Trim()
   @IsString()
   @MaxLength(UTM_MAX)
   utmCampaign?: string;

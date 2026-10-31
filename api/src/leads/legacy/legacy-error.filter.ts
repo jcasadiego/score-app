@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import { Response } from 'express';
-import { buildErrorResponse } from '../../common/filtro-excepciones-global.filter';
+import { buildErrorResponse } from '../../common/global-exception.filter';
 
 /**
  * Forma de error del contrato viejo con `score-sitio`

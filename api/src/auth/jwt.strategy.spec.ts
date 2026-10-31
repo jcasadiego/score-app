@@ -1,20 +1,20 @@
 import type { Mock } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
-import { UsuariosService } from '../usuarios/usuarios.service';
+import { UsersService } from '../users/users.service';
 
 describe('JwtStrategy', () => {
-  let usuarios: { buscarPorId: Mock };
+  let users: { findById: Mock };
   let strategy: JwtStrategy;
 
   beforeEach(() => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
-    usuarios = { buscarPorId: vi.fn() };
-    strategy = new JwtStrategy(usuarios as unknown as UsuariosService);
+    users = { findById: vi.fn() };
+    strategy = new JwtStrategy(users as unknown as UsersService);
   });
 
   it('rechaza si el usuario del payload ya no existe', async () => {
-    usuarios.buscarPorId.mockResolvedValue(null);
+    users.findById.mockResolvedValue(null);
 
     await expect(strategy.validate({ sub: '1' })).rejects.toThrow(
       UnauthorizedException,
@@ -22,7 +22,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rechaza si el usuario existe pero está desactivado', async () => {
-    usuarios.buscarPorId.mockResolvedValue({
+    users.findById.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       role: 'ADMIN',
@@ -35,7 +35,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rechaza un token emitido antes del último cambio de contraseña', async () => {
-    usuarios.buscarPorId.mockResolvedValue({
+    users.findById.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       role: 'ADMIN',
@@ -49,7 +49,7 @@ describe('JwtStrategy', () => {
   });
 
   it('un token sin versión vale como versión 0', async () => {
-    usuarios.buscarPorId.mockResolvedValue({
+    users.findById.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       role: 'ADMIN',
@@ -63,7 +63,7 @@ describe('JwtStrategy', () => {
   });
 
   it('devuelve el usuario si existe, está activo y la versión coincide', async () => {
-    usuarios.buscarPorId.mockResolvedValue({
+    users.findById.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
       role: 'ADMIN',

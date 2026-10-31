@@ -35,7 +35,12 @@ export class AuthService {
     }
 
     const accessToken = await this.jwt.signAsync(
-      { sub: usuario.id, email: usuario.email, rol: usuario.rol },
+      {
+        sub: usuario.id,
+        email: usuario.email,
+        rol: usuario.rol,
+        ver: usuario.versionSesion,
+      },
       {
         secret: process.env.JWT_SECRET,
         expiresIn: process.env.JWT_EXPIRACION,

@@ -1,5 +1,5 @@
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
-import { EMAIL_MAX, NOMBRE_MAX } from './limites';
+import { EMAIL_MAX, NOMBRE_MAX, PASSWORD_MIN } from './limites';
 import { NormalizarTexto, Recortar } from './normalizar-texto';
 
 export class CrearUsuarioDto {
@@ -15,6 +15,6 @@ export class CrearUsuarioDto {
   email!: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(PASSWORD_MIN)
   password!: string;
 }

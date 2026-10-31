@@ -99,7 +99,11 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   `telefono`) se redactan en la bitácora con `@RedactarEnAuditoria()`.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
-  y cambiarlo se coordina con José.
+  y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):
+  `GET /leads` (paginado, filtros `familia`/`estado` y búsqueda `q` por
+  nombre/email, en la base; más recientes primero), `GET /leads/:id` y
+  `PATCH /leads/:id/estado` (`NUEVO`/`CONTACTADO`/`CONVERTIDO`). El resto
+  de los datos del lead no se edita desde el panel.
 - `src/health/` — `GET /health`.
 
 ## Pendiente a propósito (no construir todavía)

@@ -77,7 +77,12 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   cuentas (nombre, email, `activo`) — sin autoservicio, lo administra el
   propio equipo y exige estar ya autenticado como ADMIN. `activo: false`
   revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
-  usuario ni su historial. `GET /usuarios` está paginado en el servidor
+  usuario ni su historial. Cambiar la contraseña (`password` opcional en
+  `PATCH /usuarios/:id`, o por recuperación) cierra todas las sesiones
+  abiertas: el JWT lleva `ver` (`Usuario.versionSesion`), y
+  `JwtStrategy` rechaza los tokens de una versión anterior. Todo cambio
+  de contraseña pasa por `datosCambioPassword()` (`usuarios.service.ts`),
+  que hashea y sube la versión. `GET /usuarios` está paginado en el servidor
   (`?pagina=1&tamano=20&q=`, máx. 100 por página) y devuelve
   `{ datos, total, pagina, tamano }`: página y conteo salen de una sola
   transacción, y la búsqueda (`q`, por nombre o email, sin distinguir
@@ -88,6 +93,18 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   a `POST /usuarios`. `Usuario.rol` es un placeholder de un solo valor
   (`ADMIN`) hasta que se defina el modelo real de permisos (ver
   "Pendiente a propósito" abajo).
+- `src/recuperacion-contrasena/` — recuperación de contraseña de
+  `apps/panel`, rutas públicas: `POST /auth/recuperacion/solicitar`
+  (`{ email }`, 3/min por IP) responde siempre el mismo mensaje y hace
+  el trabajo en segundo plano (misma respuesta y mismo tiempo exista o
+  no el correo); si el usuario existe y está activo, crea un token
+  aleatorio de un solo uso que vence en 1 hora, borra los pendientes
+  anteriores y manda el enlace `PANEL_URL/restablecer-contrasena?token=`
+  por `CorreoService`. En la base solo queda el SHA-256 del token
+  (`TokenRecuperacionContrasena`). `POST /auth/recuperacion/restablecer`
+  (`{ token, password }`, 5/min por IP) responde 204, o 400 con un único
+  mensaje para enlace inválido, usado o vencido. La bitácora guarda la
+  solicitud y el cambio sin token ni email en claro.
 - `src/token-enlace/` — token de vida corta para `apps/diagnostico`
   (firmar/verificar, sin persistencia). Ver TODO en
   `token-enlace.service.ts`.

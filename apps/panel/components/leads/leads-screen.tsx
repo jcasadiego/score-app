@@ -96,7 +96,7 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
   // Vacía el buscador al limpiar los filtros.
   const [reinicioBuscador, setReinicioBuscador] = useState(0);
   const leadAbierto = abierto
-    ? (pagina.datos.find((l) => l.id === abierto.id) ?? abierto)
+    ? (pagina.data.find((l) => l.id === abierto.id) ?? abierto)
     : null;
 
   const hayFiltros = Boolean(filtros.q || filtros.familia || filtros.estado);
@@ -143,7 +143,7 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       }
       if (resultado.lead) setAbierto(resultado.lead);
       message.success(
-        `${lead.nombre} quedó como ${ETIQUETAS_ESTADO_LEAD[estado].toLowerCase()}.`,
+        `${lead.name} quedó como ${ETIQUETAS_ESTADO_LEAD[estado].toLowerCase()}.`,
       );
     });
   }
@@ -151,8 +151,8 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
   const columnas: TableColumnsType<Lead> = [
     {
       title: "Nombre",
-      dataIndex: "nombre",
-      key: "nombre",
+      dataIndex: "name",
+      key: "name",
       render: (nombre: string, lead) => (
         <Typography.Link
           onClick={(e) => {
@@ -175,8 +175,8 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
     },
     {
       title: "Teléfono",
-      dataIndex: "telefono",
-      key: "telefono",
+      dataIndex: "phone",
+      key: "phone",
       render: (telefono: string | null) =>
         telefono ? (
           <span style={{ whiteSpace: "nowrap" }}>{telefono}</span>
@@ -186,8 +186,8 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
     },
     {
       title: "Familia",
-      dataIndex: "familia",
-      key: "familia",
+      dataIndex: "family",
+      key: "family",
       render: (familia: FamiliaDiagnostico) => ETIQUETAS_FAMILIA[familia],
     },
     {
@@ -204,15 +204,15 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
     },
     {
       title: "Estado",
-      dataIndex: "estado",
-      key: "estado",
+      dataIndex: "status",
+      key: "status",
       width: 120,
       render: (estado: EstadoLead) => <TagEstado estado={estado} />,
     },
     {
       title: "Fecha",
-      dataIndex: "creadoEn",
-      key: "creadoEn",
+      dataIndex: "createdAt",
+      key: "createdAt",
       width: 170,
       render: (creadoEn: string) => <FechaLocal iso={creadoEn} />,
     },
@@ -274,7 +274,7 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       <Table<Lead>
         rowKey="id"
         size="middle"
-        dataSource={pagina.datos}
+        dataSource={pagina.data}
         columns={columnas}
         loading={navegando}
         scroll={{ x: 960 }}
@@ -284,8 +284,8 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
           style: { cursor: "pointer" },
         })}
         pagination={{
-          current: pagina.pagina,
-          pageSize: pagina.tamano,
+          current: pagina.page,
+          pageSize: pagina.pageSize,
           total: pagina.total,
           showSizeChanger: false,
           hideOnSinglePage: true,
@@ -295,7 +295,7 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       />
 
       <Drawer
-        title={leadAbierto?.nombre}
+        title={leadAbierto?.name}
         open={leadAbierto !== null}
         onClose={() => setAbierto(null)}
         size="large"
@@ -311,7 +311,7 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
                 Estado
               </Typography.Text>
               <Segmented<EstadoLead>
-                value={leadAbierto.estado}
+                value={leadAbierto.status}
                 options={OPCIONES_ESTADO.map((o) => ({
                   ...o,
                   disabled: guardando,
@@ -330,16 +330,16 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
                 </Typography.Text>
               </Descriptions.Item>
               <Descriptions.Item label="Teléfono">
-                {leadAbierto.telefono ? (
+                {leadAbierto.phone ? (
                   <Typography.Text copyable>
-                    {leadAbierto.telefono}
+                    {leadAbierto.phone}
                   </Typography.Text>
                 ) : (
                   <SinDato />
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Familia">
-                {ETIQUETAS_FAMILIA[leadAbierto.familia]}
+                {ETIQUETAS_FAMILIA[leadAbierto.family]}
               </Descriptions.Item>
               <Descriptions.Item label="Fuente (utm_source)">
                 {leadAbierto.utmSource ?? <SinDato />}
@@ -351,10 +351,10 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
                 {leadAbierto.utmCampaign ?? <SinDato />}
               </Descriptions.Item>
               <Descriptions.Item label="Recibido">
-                <FechaLocal iso={leadAbierto.creadoEn} />
+                <FechaLocal iso={leadAbierto.createdAt} />
               </Descriptions.Item>
               <Descriptions.Item label="Última actualización">
-                <FechaLocal iso={leadAbierto.actualizadoEn} />
+                <FechaLocal iso={leadAbierto.updatedAt} />
               </Descriptions.Item>
             </Descriptions>
           </Flex>

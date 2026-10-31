@@ -38,11 +38,11 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
       throw new ErrorApi(401, "Tu sesión expiró. Vuelve a iniciar sesión.");
     }
     resultado = await listarLeads(token, {
-      pagina,
-      tamano: TAMANO_PAGINA,
-      q,
-      familia,
-      estado,
+      page: pagina,
+      pageSize: TAMANO_PAGINA,
+      search: q,
+      family: familia,
+      status: estado,
     });
   } catch (error) {
     const mensaje =

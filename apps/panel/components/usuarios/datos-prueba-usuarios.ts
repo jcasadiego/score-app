@@ -24,12 +24,12 @@ function usuario(
 ): Usuario {
   return {
     id,
-    nombre,
+    name: nombre,
     email,
-    activo,
-    rol: "ADMIN",
-    creadoEn,
-    actualizadoEn: creadoEn,
+    active: activo,
+    role: "ADMIN",
+    createdAt: creadoEn,
+    updatedAt: creadoEn,
   };
 }
 
@@ -94,19 +94,19 @@ function datosPrueba(
 export function paginaPrueba(
   escenario: EscenarioPrueba,
   idActual: string,
-  { pagina, tamano, q }: FiltroUsuarios,
+  { page, pageSize, search }: FiltroUsuarios,
 ): PaginaUsuarios {
-  const termino = q?.toLocaleLowerCase();
+  const termino = search?.toLocaleLowerCase();
   const filtrados = datosPrueba(escenario, idActual).filter(
     (u) =>
       !termino ||
-      u.nombre.toLocaleLowerCase().includes(termino) ||
+      u.name.toLocaleLowerCase().includes(termino) ||
       u.email.toLocaleLowerCase().includes(termino),
   );
   return {
-    datos: filtrados.slice((pagina - 1) * tamano, pagina * tamano),
+    data: filtrados.slice((page - 1) * pageSize, page * pageSize),
     total: filtrados.length,
-    pagina,
-    tamano,
+    page,
+    pageSize,
   };
 }

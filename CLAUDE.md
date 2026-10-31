@@ -68,8 +68,10 @@ pendientes:
   versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
   de usuarios internos (`/usuarios`, solo ADMIN; `activo: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
-  mismo), seed del primer ADMIN, y el token de enlace stateless de
-  `apps/diagnostico`. Detalle en `api/README.md`.
+  mismo), seed del primer ADMIN, el token de enlace stateless de
+  `apps/diagnostico` y el servicio de correo transaccional
+  (`src/correo`, Resend detrás de `CorreoPort`; en local `CORREO_MODO=log`
+  no envía nada). Detalle en `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la

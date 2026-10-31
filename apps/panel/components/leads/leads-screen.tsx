@@ -9,7 +9,6 @@ import {
   Drawer,
   Empty,
   Flex,
-  Input,
   Segmented,
   Select,
   Table,
@@ -28,6 +27,7 @@ import {
   type FamiliaDiagnostico,
 } from "@/lib/leads/etiquetas";
 import { accionCambiarEstadoLead } from "@/app/(panel)/leads/actions";
+import { BuscadorReactivo } from "@/components/buscador-reactivo";
 import { FechaLocal } from "@/components/fecha-local";
 
 interface FiltrosLeads {
@@ -93,14 +93,23 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
   // (p. ej. al cambiarle el estado con un filtro por estado activo). Si
   // sigue en la página, manda la versión del servidor.
   const [abierto, setAbierto] = useState<Lead | null>(null);
+  // Vacía el buscador al limpiar los filtros.
+  const [reinicioBuscador, setReinicioBuscador] = useState(0);
   const leadAbierto = abierto
     ? (pagina.datos.find((l) => l.id === abierto.id) ?? abierto)
     : null;
 
   const hayFiltros = Boolean(filtros.q || filtros.familia || filtros.estado);
 
-  /** Cambia filtros/página en la URL; cualquier filtro nuevo vuelve a la página 1. */
-  function navegar(cambios: Partial<FiltrosLeads> & { pagina?: number }) {
+  /**
+   * Cambia filtros/página en la URL; cualquier filtro nuevo vuelve a la
+   * página 1. `reemplazar` no agrega una entrada al historial: es para la
+   * búsqueda mientras se escribe.
+   */
+  function navegar(
+    cambios: Partial<FiltrosLeads> & { pagina?: number },
+    { reemplazar = false } = {},
+  ) {
     const params = new URLSearchParams(searchParams);
     for (const clave of ["q", "familia", "estado"] as const) {
       if (!(clave in cambios)) continue;
@@ -113,12 +122,15 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
     else params.delete("pagina");
 
     const query = params.toString();
+    const destino = query ? `${pathname}?${query}` : pathname;
     iniciarNavegacion(() => {
-      router.push(query ? `${pathname}?${query}` : pathname);
+      if (reemplazar) router.replace(destino);
+      else router.push(destino);
     });
   }
 
   function limpiarFiltros() {
+    setReinicioBuscador((n) => n + 1);
     navegar({ q: "", familia: undefined, estado: undefined });
   }
 
@@ -230,15 +242,13 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       </Typography.Title>
 
       <Flex gap={12} wrap style={{ marginBottom: 16 }}>
-        <Input.Search
-          key={filtros.q}
-          defaultValue={filtros.q}
+        <BuscadorReactivo
+          reinicio={reinicioBuscador}
+          valorInicial={filtros.q}
+          onBuscar={(q) => navegar({ q }, { reemplazar: true })}
           placeholder="Buscar por nombre o correo"
-          aria-label="Buscar leads"
-          allowClear
-          maxLength={100}
-          loading={navegando}
-          onSearch={(valor) => navegar({ q: valor.trim() })}
+          ariaLabel="Buscar leads"
+          cargando={navegando}
           style={{ width: 320, maxWidth: "100%" }}
         />
         <Select<FamiliaDiagnostico>

@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
 import { MotorCalculoModule } from './motor-calculo/motor-calculo.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RecuperacionContrasenaModule } from './recuperacion-contrasena/recuperacion-contrasena.module';
 import { ReglasModule } from './reglas/reglas.module';
 import { TokenEnlaceModule } from './token-enlace/token-enlace.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
@@ -32,6 +33,7 @@ import { validarEnv } from './config/validar-env';
     TokenEnlaceModule,
     LeadsModule,
     CorreoModule,
+    RecuperacionContrasenaModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

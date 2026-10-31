@@ -5,7 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { EMAIL_MAX, NOMBRE_MAX } from './limites';
+import { EMAIL_MAX, NOMBRE_MAX, PASSWORD_MIN } from './limites';
 import { NormalizarTexto, Recortar } from './normalizar-texto';
 
 export class ActualizarUsuarioDto {
@@ -21,4 +21,10 @@ export class ActualizarUsuarioDto {
   @IsEmail()
   @MaxLength(EMAIL_MAX)
   email?: string;
+
+  /** Contraseña nueva puesta por un admin; cierra las sesiones abiertas. */
+  @IsOptional()
+  @IsString()
+  @MinLength(PASSWORD_MIN)
+  password?: string;
 }

@@ -43,6 +43,19 @@ export interface PaginaUsuarios {
 interface ActualizarUsuarioParams {
   nombre?: string;
   email?: string;
+  password?: string;
+}
+
+/**
+ * Datos de Prisma para cambiar una contraseña. Es el único lugar que la
+ * cambia (CRUD y recuperación), para que ningún camino olvide subir
+ * `versionSesion` — eso es lo que cierra las sesiones abiertas.
+ */
+export async function datosCambioPassword(password: string) {
+  return {
+    passwordHash: await argon2.hash(password),
+    versionSesion: { increment: 1 },
+  } satisfies Prisma.UsuarioUpdateInput;
 }
 
 @Injectable()
@@ -122,12 +135,15 @@ export class UsuariosService {
 
   async actualizar(
     id: string,
-    datos: ActualizarUsuarioParams,
+    { password, ...datos }: ActualizarUsuarioParams,
   ): Promise<UsuarioPublico> {
     try {
       return await this.prisma.usuario.update({
         where: { id },
-        data: datos,
+        data: {
+          ...datos,
+          ...(password ? await datosCambioPassword(password) : {}),
+        },
         select: SELECT_PUBLICO,
       });
     } catch (error) {

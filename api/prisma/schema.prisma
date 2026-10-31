@@ -17,14 +17,14 @@ datasource db {
 /// no una llave foránea, para no acoplar este modelo a las tablas de cada
 /// módulo que use el servicio de auditoría.
 model RegistroAuditoria {
-  id         String          @id @default(cuid())
-  actorTipo  ActorAuditoria
-  actorId    String?
-  accion     String
-  entidad    String
-  entidadId  String?
-  datos      Json?
-  creadoEn   DateTime        @default(now())
+  id        String         @id @default(cuid())
+  actorTipo ActorAuditoria
+  actorId   String?
+  accion    String
+  entidad   String
+  entidadId String?
+  datos     Json?
+  creadoEn  DateTime       @default(now())
 
   @@index([entidad, entidadId])
   @@index([creadoEn])
@@ -35,11 +35,11 @@ model RegistroAuditoria {
 /// `contenido` mientras se define la especificación completa del
 /// cuestionario y su lógica.
 model VersionReglas {
-  id         String   @id @default(cuid())
-  numero     Int      @unique @default(autoincrement())
-  contenido  Json
-  activa     Boolean  @default(false)
-  creadoEn   DateTime @default(now())
+  id        String   @id @default(cuid())
+  numero    Int      @unique @default(autoincrement())
+  contenido Json
+  activa    Boolean  @default(false)
+  creadoEn  DateTime @default(now())
 }
 
 enum RolUsuario {
@@ -71,8 +71,27 @@ model Usuario {
   passwordHash  String
   activo        Boolean    @default(true)
   rol           RolUsuario @default(ADMIN)
+  /// Va en el JWT (`ver`); subirla invalida todas las sesiones abiertas
+  /// del usuario. Se sube en cada cambio de contraseña.
+  versionSesion Int        @default(0)
   creadoEn      DateTime   @default(now())
   actualizadoEn DateTime   @updatedAt
+
+  tokensRecuperacion TokenRecuperacionContrasena[]
+}
+
+/// Enlace de recuperación de contraseña del panel: un solo uso, vence en
+/// una hora. Se guarda solo el SHA-256 del token, nunca el token.
+model TokenRecuperacionContrasena {
+  id        String    @id @default(cuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiraEn  DateTime
+  usadoEn   DateTime?
+  creadoEn  DateTime  @default(now())
+
+  @@index([usuarioId])
 }
 
 /// Familia de diagnóstico que el cliente elige en el formulario de

@@ -7,11 +7,13 @@ import { CORREO_PORT, CorreoPort, ResultadoEnvio } from './correo.port';
 import {
   correoDiagnosticoEnlace,
   correoRecuperarEnlace,
+  correoRestablecerContrasena,
   DatosCorreoEnlace,
 } from './plantillas/correos';
 import { CorreoRenderizado } from './plantillas/plantilla-base';
 
-export type TipoCorreo = 'DIAGNOSTICO_ENLACE' | 'RECUPERAR_ENLACE';
+export type TipoCorreo =
+  'DIAGNOSTICO_ENLACE' | 'RECUPERAR_ENLACE' | 'RESTABLECER_CONTRASENA';
 
 /** A qué se asocia el envío en la bitácora (ej. el Caso que lo pidió). */
 export interface ContextoCorreo {
@@ -67,6 +69,18 @@ export class CorreoService {
       'RECUPERAR_ENLACE',
       datos.para,
       correoRecuperarEnlace(datos, this.marca()),
+      contexto,
+    );
+  }
+
+  enviarRestablecerContrasena(
+    datos: DestinatarioCorreoEnlace,
+    contexto?: ContextoCorreo,
+  ): Promise<ResultadoEnvio> {
+    return this.enviar(
+      'RESTABLECER_CONTRASENA',
+      datos.para,
+      correoRestablecerContrasena(datos, this.marca()),
       contexto,
     );
   }

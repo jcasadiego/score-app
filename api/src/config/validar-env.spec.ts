@@ -49,7 +49,18 @@ describe('validarEnv · correo', () => {
 
   it('con resend completo arranca también en producción', () => {
     expect(
-      validarEnv({ ...BASE, ...RESEND, NODE_ENV: 'production' }).CORREO_MODO,
+      validarEnv({
+        ...BASE,
+        ...RESEND,
+        NODE_ENV: 'production',
+        PANEL_URL: 'https://panel.example.com',
+      }).CORREO_MODO,
     ).toBe('resend');
+  });
+
+  it('en producción exige PANEL_URL para los enlaces por correo', () => {
+    expect(() =>
+      validarEnv({ ...BASE, ...RESEND, NODE_ENV: 'production' }),
+    ).toThrow(/PANEL_URL: obligatoria en producción/);
   });
 });

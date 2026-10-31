@@ -215,3 +215,64 @@ crear su épica antes que sus tareas. Los tickets nuevos se redactan con
 `.claude/prompts.json`). Al cerrar una tarea, marcar sus
 criterios y DoD y pasarla a "Listo" con el número de PR. El estado de cada tarea se consulta en Jira,
 no se copia aquí (se desactualiza).
+
+## 9. Lecciones de PRs anteriores (no repetir)
+
+Errores que ya costaron un PR de corrección. Antes de tocar estas zonas,
+revisar la regla correspondiente.
+
+**Flujo y CI**
+
+- **No apilar PRs** (rama sobre rama de otro PR abierto). Al mergear el
+  de abajo y borrarse su rama, GitHub cerró el de arriba (#12) y hubo que
+  rehacerlo (#13). Si es inevitable, cambiar la base del de arriba a
+  `develop` antes de mergear el de abajo.
+- **`pnpm audit` puede romper el CI sin que el PR tenga la culpa**
+  (advisories nuevos). Se corrige en un PR `fix(deps)` aparte, se mergea
+  primero y luego se actualizan las ramas abiertas desde `develop` (#11,
+  #17). Overrides acotados por rango a la versión parcheada; `ignoreCves`
+  solo para lo que no tiene parche y no llega al runtime, y se quita la
+  excepción cuando deja de hacer falta (#18).
+- **No volver a poner `paths` en el trigger de los workflows:** los checks
+  requeridos de `develop` quedaban pendientes para siempre (#6). El filtro
+  va en el job `changes`.
+- CI usa **Node 22** (Node 20 ya no recibe parches de seguridad, #17).
+- No marcar un PR como listo con la prueba manual sin hacer (#10): probar
+  contra la api local o en el navegador y anotarlo en el test plan.
+
+**`api`**
+
+- **Tests con Vitest, no Jest** (NestJS 12 es ESM, #18): `vi.fn()`,
+  `vi.mock()`, tipo `Mock` de `vitest`. Detalle en `api/README.md`.
+- **El entrypoint del build es `dist/src/main`**, no `dist/main` (`tsc`
+  incluye `prisma.config.ts` y `generated/`). No mover `rootDir`: rompe
+  los imports del cliente de Prisma generado (#14). Si cambia la
+  estructura del build, comprobar `pnpm build && pnpm start:prod`.
+- **Bitácora de auditoría:** todo lo que se persiste de body/params/query
+  pasa por `redactarDatosSensibles()` — el login quedó guardando passwords
+  en claro (#4). El actor sale de `request.user` (panel) o
+  `request.enlace` (cliente final), nunca de un campo que ningún guard
+  setea (#5).
+- **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el
+  chequeo de `activo` vive en `JwtStrategy.validate`, no solo en el login
+  (#7). El login verifica siempre contra un hash (real o de relleno) para
+  no filtrar por tiempo qué emails existen (#4). Ids de quien hace la
+  acción, del JWT (`req.user.id`), nunca del cliente.
+- Listados paginados y filtrados en la base (página + conteo en una
+  transacción, orden estable), nunca en memoria (#13).
+
+**`apps/panel`**
+
+- **Escapar con `encodeURIComponent`** todo id que se interpole en una
+  ruta de la api desde una Server Action (`../` apuntaba a otro endpoint
+  con el mismo token, #10).
+- **Modales con `Form` de Ant Design:** con `destroyOnHidden` el `Form`
+  no existe al abrir, así que no llamar a `resetFields`/`setFieldsValue`
+  antes de mostrarlo. Los valores van en `initialValues` con
+  `preserve={false}`. Descartados: `forceRender` (error de hidratación) y
+  `clearOnDestroy` (con StrictMode borra los `initialValues`) (#16).
+- No copiar datos del servidor a `useState`: la Server Action +
+  `revalidatePath` ya devuelve el RSC actualizado (#13). Colores solo
+  desde `lib/tema.ts`, sin hex sueltos.
+- Revisar la consola del navegador (avisos de Ant Design, hidratación)
+  antes de dar por buena una pantalla — así se detectó #16.

@@ -7,22 +7,22 @@ export class ReglasService {
   constructor(private readonly prisma: PrismaService) {}
 
   crearVersion(contenido: Prisma.InputJsonValue) {
-    return this.prisma.versionReglas.create({ data: { contenido } });
+    return this.prisma.ruleSetVersion.create({ data: { content: contenido } });
   }
 
   obtenerVersionActiva() {
-    return this.prisma.versionReglas.findFirst({ where: { activa: true } });
+    return this.prisma.ruleSetVersion.findFirst({ where: { active: true } });
   }
 
   async activarVersion(numero: number) {
     return this.prisma.$transaction([
-      this.prisma.versionReglas.updateMany({
-        where: { activa: true },
-        data: { activa: false },
+      this.prisma.ruleSetVersion.updateMany({
+        where: { active: true },
+        data: { active: false },
       }),
-      this.prisma.versionReglas.update({
-        where: { numero },
-        data: { activa: true },
+      this.prisma.ruleSetVersion.update({
+        where: { number: numero },
+        data: { active: true },
       }),
     ]);
   }

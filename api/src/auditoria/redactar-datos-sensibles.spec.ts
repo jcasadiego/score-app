@@ -40,13 +40,13 @@ describe('redactarDatosSensibles', () => {
 
   it('redacta las claves extra de la ruta, además de las globales', () => {
     const resultado = redactarDatosSensibles(
-      { Email: 'a@b.com', familia: 'B2B', password: 'x' },
+      { Email: 'a@b.com', family: 'B2B', password: 'x' },
       ['email'],
     );
 
     expect(resultado).toEqual({
       Email: '[REDACTADO]',
-      familia: 'B2B',
+      family: 'B2B',
       password: '[REDACTADO]',
     });
   });

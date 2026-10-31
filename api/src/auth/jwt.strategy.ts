@@ -5,7 +5,7 @@ import { UsuariosService } from '../usuarios/usuarios.service';
 
 interface JwtPayload {
   sub: string;
-  /** `Usuario.versionSesion` al emitir el token. */
+  /** `User.sessionVersion` al emitir el token. */
   ver?: number;
 }
 
@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * usuario para que un usuario borrado o desactivado no siga teniendo
    * acceso con un token todavía válido — es lo que de verdad revoca el
    * acceso al desactivar una cuenta, no solo el login. Igual con
-   * `versionSesion`: un cambio de contraseña la sube y deja sin valor los
+   * `sessionVersion`: un cambio de contraseña la sube y deja sin valor los
    * tokens emitidos antes. Un token sin `ver` (emitido antes de que
    * existiera) cuenta como versión 0, para no cerrar todas las sesiones
    * al desplegar.
@@ -33,11 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const usuario = await this.usuarios.buscarPorId(payload.sub);
     if (
       !usuario ||
-      !usuario.activo ||
-      (payload.ver ?? 0) !== usuario.versionSesion
+      !usuario.active ||
+      (payload.ver ?? 0) !== usuario.sessionVersion
     ) {
       throw new UnauthorizedException();
     }
-    return { id: usuario.id, email: usuario.email, rol: usuario.rol };
+    return { id: usuario.id, email: usuario.email, role: usuario.role };
   }
 }

@@ -4,9 +4,9 @@ import { validate } from 'class-validator';
 import { CrearLeadDto, UTM_MAX } from './crear-lead.dto';
 
 const VALIDO = {
-  nombre: 'Ana Pérez',
+  name: 'Ana Pérez',
   email: 'ana@example.com',
-  familia: 'PROYECTO',
+  family: 'PROJECT',
 };
 
 async function propiedadesConError(datos: Record<string, unknown>) {
@@ -18,11 +18,11 @@ describe('CrearLeadDto', () => {
   it('normaliza nombre y email, y acepta los opcionales vacíos', async () => {
     const dto = plainToInstance(CrearLeadDto, {
       ...VALIDO,
-      nombre: '  Ana   Pérez ',
+      name: '  Ana   Pérez ',
       email: ' Ana@Example.COM ',
     });
 
-    expect(dto.nombre).toBe('Ana Pérez');
+    expect(dto.name).toBe('Ana Pérez');
     expect(dto.email).toBe('ana@example.com');
     expect(await validate(dto)).toHaveLength(0);
   });
@@ -31,7 +31,7 @@ describe('CrearLeadDto', () => {
     expect(
       await propiedadesConError({
         ...VALIDO,
-        telefono: '+52 (55) 1234-5678',
+        phone: '+52 (55) 1234-5678',
         utmSource: 'instagram',
         utmMedium: 'social',
         utmCampaign: 'lanzamiento',
@@ -41,7 +41,7 @@ describe('CrearLeadDto', () => {
 
   it('rechaza campos requeridos faltantes', async () => {
     expect(await propiedadesConError({})).toEqual(
-      expect.arrayContaining(['nombre', 'email', 'familia']),
+      expect.arrayContaining(['name', 'email', 'family']),
     );
   });
 
@@ -50,10 +50,10 @@ describe('CrearLeadDto', () => {
       await propiedadesConError({
         ...VALIDO,
         email: 'no-es-email',
-        familia: 'OTRA',
-        telefono: 'llámame',
+        family: 'OTRA',
+        phone: 'llámame',
       }),
-    ).toEqual(expect.arrayContaining(['email', 'familia', 'telefono']));
+    ).toEqual(expect.arrayContaining(['email', 'family', 'phone']));
   });
 
   it('rechaza UTMs más largos que el límite', async () => {

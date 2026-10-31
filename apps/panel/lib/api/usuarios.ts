@@ -3,35 +3,35 @@ import { llamarApi, type MensajesRecurso } from "./cliente";
 
 export interface Usuario {
   id: string;
-  nombre: string;
+  name: string;
   email: string;
-  activo: boolean;
-  rol: string;
-  creadoEn: string;
-  actualizadoEn: string;
+  active: boolean;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaginaUsuarios {
-  datos: Usuario[];
+  data: Usuario[];
   total: number;
-  pagina: number;
-  tamano: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface FiltroUsuarios {
-  pagina: number;
-  tamano: number;
-  q?: string;
+  page: number;
+  pageSize: number;
+  search?: string;
 }
 
 export interface DatosCrearUsuario {
-  nombre: string;
+  name: string;
   email: string;
   password: string;
 }
 
 export interface DatosActualizarUsuario {
-  nombre?: string;
+  name?: string;
   email?: string;
   /** Contraseña nueva; la API cierra las sesiones abiertas del usuario. */
   password?: string;
@@ -45,21 +45,21 @@ const MENSAJES: MensajesRecurso = {
 /** Una página de usuarios; el filtro y el conteo los resuelve la API. */
 export function listarUsuarios(
   token: string,
-  { pagina, tamano, q }: FiltroUsuarios,
+  { page, pageSize, search }: FiltroUsuarios,
 ): Promise<PaginaUsuarios> {
   const params = new URLSearchParams({
-    pagina: String(pagina),
-    tamano: String(tamano),
+    page: String(page),
+    pageSize: String(pageSize),
   });
-  if (q) params.set("q", q);
-  return llamarApi<PaginaUsuarios>(token, `/usuarios?${params}`, MENSAJES);
+  if (search) params.set("search", search);
+  return llamarApi<PaginaUsuarios>(token, `/users?${params}`, MENSAJES);
 }
 
 export function crearUsuario(
   token: string,
   datos: DatosCrearUsuario,
 ): Promise<Usuario> {
-  return llamarApi<Usuario>(token, "/usuarios", MENSAJES, {
+  return llamarApi<Usuario>(token, "/users", MENSAJES, {
     method: "POST",
     body: JSON.stringify(datos),
   });
@@ -70,20 +70,20 @@ export function actualizarUsuario(
   id: string,
   datos: DatosActualizarUsuario,
 ): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}`, MENSAJES, {
+  return llamarApi<Usuario>(token, `/users/${encodeURIComponent(id)}`, MENSAJES, {
     method: "PATCH",
     body: JSON.stringify(datos),
   });
 }
 
 export function activarUsuario(token: string, id: string): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}/activar`, MENSAJES, {
+  return llamarApi<Usuario>(token, `/users/${encodeURIComponent(id)}/activate`, MENSAJES, {
     method: "PATCH",
   });
 }
 
 export function desactivarUsuario(token: string, id: string): Promise<Usuario> {
-  return llamarApi<Usuario>(token, `/usuarios/${encodeURIComponent(id)}/desactivar`, MENSAJES, {
+  return llamarApi<Usuario>(token, `/users/${encodeURIComponent(id)}/deactivate`, MENSAJES, {
     method: "PATCH",
   });
 }

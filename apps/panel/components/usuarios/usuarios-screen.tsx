@@ -131,13 +131,13 @@ export function UsuariosScreen({
 
     const resultado = usuarioEnEdicion
       ? await accionActualizarUsuario(usuarioEnEdicion.id, {
-          nombre: valores.nombre,
+          name: valores.nombre,
           email: valores.email,
           // Vacío = no se cambia.
           password: valores.password || undefined,
         })
       : await accionCrearUsuario({
-          nombre: valores.nombre,
+          name: valores.nombre,
           email: valores.email,
           password: valores.password ?? "",
         });
@@ -176,13 +176,13 @@ export function UsuariosScreen({
     void ejecutarCambioActivo(
       usuario,
       accionActivarUsuario,
-      `${usuario.nombre} puede volver a entrar al panel.`,
+      `${usuario.name} puede volver a entrar al panel.`,
     );
   }
 
   function confirmarDesactivar(usuario: Usuario) {
     modal.confirm({
-      title: `¿Desactivar a ${usuario.nombre}?`,
+      title: `¿Desactivar a ${usuario.name}?`,
       content:
         "Pierde acceso al panel de inmediato, incluida cualquier sesión ya iniciada. Puedes volver a activarlo después.",
       okText: "Desactivar",
@@ -192,7 +192,7 @@ export function UsuariosScreen({
         ejecutarCambioActivo(
           usuario,
           accionDesactivarUsuario,
-          `${usuario.nombre} ya no tiene acceso.`,
+          `${usuario.name} ya no tiene acceso.`,
         ),
     });
   }
@@ -201,7 +201,7 @@ export function UsuariosScreen({
     const esUsuarioActual = usuario.id === usuarioActualId;
     return [
       { key: "editar", label: "Editar", onClick: () => abrirEditar(usuario) },
-      usuario.activo
+      usuario.active
         ? {
             key: "desactivar",
             label: esUsuarioActual
@@ -222,8 +222,8 @@ export function UsuariosScreen({
   const columnas: TableColumnsType<Usuario> = [
     {
       title: "Nombre",
-      dataIndex: "nombre",
-      key: "nombre",
+      dataIndex: "name",
+      key: "name",
       render: (nombre: string, usuario) => (
         <Flex gap={8} align="baseline">
           <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
@@ -245,8 +245,8 @@ export function UsuariosScreen({
     },
     {
       title: "Estado",
-      dataIndex: "activo",
-      key: "activo",
+      dataIndex: "active",
+      key: "active",
       width: 110,
       render: (activo: boolean) =>
         activo ? (
@@ -269,7 +269,7 @@ export function UsuariosScreen({
           <Button
             type="text"
             icon={<MoreOutlined />}
-            aria-label={`Acciones para ${usuario.nombre}`}
+            aria-label={`Acciones para ${usuario.name}`}
             loading={idEnProceso === usuario.id}
           />
         </Dropdown>
@@ -328,14 +328,14 @@ export function UsuariosScreen({
       <Table<Usuario>
         rowKey="id"
         size="middle"
-        dataSource={pagina.datos}
+        dataSource={pagina.data}
         columns={columnas}
         loading={navegando}
         scroll={{ x: 640 }}
         locale={{ emptyText: vacio }}
         pagination={{
-          current: pagina.pagina,
-          pageSize: pagina.tamano,
+          current: pagina.page,
+          pageSize: pagina.pageSize,
           total: pagina.total,
           showSizeChanger: false,
           hideOnSinglePage: true,
@@ -375,7 +375,7 @@ export function UsuariosScreen({
           // StrictMode borra también los initialValues recién cargados).
           initialValues={
             usuarioEnEdicion
-              ? { nombre: usuarioEnEdicion.nombre, email: usuarioEnEdicion.email }
+              ? { nombre: usuarioEnEdicion.name, email: usuarioEnEdicion.email }
               : undefined
           }
           preserve={false}

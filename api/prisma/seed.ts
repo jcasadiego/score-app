@@ -4,7 +4,7 @@ import { PrismaClient } from '../generated/prisma/client';
 
 /**
  * Crea el primer usuario ADMIN si todavía no existe. Necesario porque
- * `UsuariosController` (POST /usuarios) exige estar ya autenticado como
+ * `UsuariosController` (POST /users) exige estar ya autenticado como
  * ADMIN — sin este seed no hay forma de entrar al panel por primera vez.
  * Idempotente: si el email ya existe, no le toca el password.
  */
@@ -19,10 +19,10 @@ async function main() {
 
   const passwordHash = await argon2.hash(password);
 
-  const usuario = await prisma.usuario.upsert({
+  const usuario = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { nombre, email, passwordHash, activo: true },
+    create: { name: nombre, email, passwordHash, active: true },
   });
 
   console.log(`Usuario admin listo: ${usuario.email} (${usuario.id})`);

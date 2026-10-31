@@ -8,7 +8,7 @@
 export interface PayloadSesion {
   id: string;
   email: string;
-  rol: string;
+  role: string;
   exp: number;
 }
 
@@ -19,16 +19,16 @@ export function decodificarToken(token: string): PayloadSesion | null {
   try {
     const payload = JSON.parse(
       Buffer.from(partes[1], "base64url").toString("utf-8"),
-    ) as { sub?: string; email?: string; rol?: string; exp?: number };
+    ) as { sub?: string; email?: string; role?: string; exp?: number };
 
-    if (!payload.sub || !payload.email || !payload.rol || !payload.exp) {
+    if (!payload.sub || !payload.email || !payload.role || !payload.exp) {
       return null;
     }
 
     return {
       id: payload.sub,
       email: payload.email,
-      rol: payload.rol,
+      role: payload.role,
       exp: payload.exp,
     };
   } catch {

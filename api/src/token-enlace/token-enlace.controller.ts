@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { RolUsuario } from '../../generated/prisma/enums';
+import { UserRole } from '../../generated/prisma/enums';
 import { EmitirEnlaceDto } from './dto/emitir-enlace.dto';
 import { TokenEnlaceService } from './token-enlace.service';
 
@@ -12,17 +12,17 @@ import { TokenEnlaceService } from './token-enlace.service';
  * existe `Caso`. Se reemplaza por el flujo real de emisión de enlaces
  * cuando esa entidad se defina (ver token-enlace.service.ts).
  */
-@ApiTags('token-enlace')
+@ApiTags('access-links')
 @ApiBearerAuth()
-@Controller('token-enlace')
+@Controller('access-links')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TokenEnlaceController {
   constructor(private readonly tokenEnlace: TokenEnlaceService) {}
 
-  @Post('emitir')
-  @Roles(RolUsuario.ADMIN)
+  @Post()
+  @Roles(UserRole.ADMIN)
   async emitir(@Body() dto: EmitirEnlaceDto) {
-    const token = await this.tokenEnlace.firmar(dto.identificadorId);
+    const token = await this.tokenEnlace.firmar(dto.subjectId);
     return { token };
   }
 }

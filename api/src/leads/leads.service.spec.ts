@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { EstadoLead, FamiliaDiagnostico } from '../../generated/prisma/enums';
+import { LeadStatus, DiagnosticFamily } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadsService } from './leads.service';
 
@@ -43,27 +43,27 @@ describe('LeadsService', () => {
   });
 
   it('crea el lead y solo pide id y estado de vuelta', async () => {
-    prisma.lead.create.mockResolvedValue({ id: 'lead-1', estado: 'NUEVO' });
+    prisma.lead.create.mockResolvedValue({ id: 'lead-1', status: 'NEW' });
 
     const resultado = await service.crear({
-      nombre: 'Ana Pérez',
+      name: 'Ana Pérez',
       email: 'ana@example.com',
-      familia: FamiliaDiagnostico.B2B,
+      family: DiagnosticFamily.B2B,
       utmSource: 'instagram',
     });
 
-    expect(resultado).toEqual({ id: 'lead-1', estado: 'NUEVO' });
+    expect(resultado).toEqual({ id: 'lead-1', status: 'NEW' });
     expect(prisma.lead.create).toHaveBeenCalledWith({
       data: {
-        nombre: 'Ana Pérez',
+        name: 'Ana Pérez',
         email: 'ana@example.com',
-        telefono: undefined,
-        familia: FamiliaDiagnostico.B2B,
+        phone: undefined,
+        family: DiagnosticFamily.B2B,
         utmSource: 'instagram',
         utmMedium: undefined,
         utmCampaign: undefined,
       },
-      select: { id: true, estado: true },
+      select: { id: true, status: true },
     });
   });
 
@@ -73,35 +73,35 @@ describe('LeadsService', () => {
       prisma.lead.count.mockResolvedValue(41);
 
       const resultado = await service.listar({
-        pagina: 3,
-        tamano: 20,
-        q: 'ana',
-        familia: FamiliaDiagnostico.CATALOGO,
-        estado: EstadoLead.CONTACTADO,
+        page: 3,
+        pageSize: 20,
+        search: 'ana',
+        family: DiagnosticFamily.CATALOG,
+        status: LeadStatus.CONTACTED,
       });
 
       const where = {
-        familia: FamiliaDiagnostico.CATALOGO,
-        estado: EstadoLead.CONTACTADO,
+        family: DiagnosticFamily.CATALOG,
+        status: LeadStatus.CONTACTED,
         OR: [
-          { nombre: { contains: 'ana', mode: 'insensitive' } },
+          { name: { contains: 'ana', mode: 'insensitive' } },
           { email: { contains: 'ana', mode: 'insensitive' } },
         ],
       };
       expect(prisma.lead.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where,
-          orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           skip: 40,
           take: 20,
         }),
       );
       expect(prisma.lead.count).toHaveBeenCalledWith({ where });
       expect(resultado).toEqual({
-        datos: [{ id: 'lead-1' }],
+        data: [{ id: 'lead-1' }],
         total: 41,
-        pagina: 3,
-        tamano: 20,
+        page: 3,
+        pageSize: 20,
       });
     });
 
@@ -109,10 +109,10 @@ describe('LeadsService', () => {
       prisma.lead.findMany.mockResolvedValue([]);
       prisma.lead.count.mockResolvedValue(0);
 
-      await service.listar({ pagina: 1, tamano: 20 });
+      await service.listar({ page: 1, pageSize: 20 });
 
       expect(prisma.lead.count).toHaveBeenCalledWith({
-        where: { familia: undefined, estado: undefined },
+        where: { family: undefined, status: undefined },
       });
     });
   });
@@ -131,15 +131,15 @@ describe('LeadsService', () => {
     it('actualiza solo el estado', async () => {
       prisma.lead.update.mockResolvedValue({
         id: 'lead-1',
-        estado: 'CONVERTIDO',
+        status: 'CONVERTED',
       });
 
-      await service.cambiarEstado('lead-1', EstadoLead.CONVERTIDO);
+      await service.cambiarEstado('lead-1', LeadStatus.CONVERTED);
 
       expect(prisma.lead.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'lead-1' },
-          data: { estado: EstadoLead.CONVERTIDO },
+          data: { status: LeadStatus.CONVERTED },
         }),
       );
     });
@@ -148,7 +148,7 @@ describe('LeadsService', () => {
       prisma.lead.update.mockRejectedValue(crearErrorPrisma('P2025'));
 
       await expect(
-        service.cambiarEstado('nope', EstadoLead.CONTACTADO),
+        service.cambiarEstado('nope', LeadStatus.CONTACTED),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

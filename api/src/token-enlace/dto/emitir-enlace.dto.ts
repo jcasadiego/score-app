@@ -3,5 +3,6 @@ import { IsString, MinLength } from 'class-validator';
 export class EmitirEnlaceDto {
   @IsString()
   @MinLength(1)
-  identificadorId!: string;
+  /** Id de lo que abre el enlace (hoy genérico; luego, el Caso). */
+  subjectId!: string;
 }

@@ -12,105 +12,119 @@ datasource db {
 
 /// Bitácora de auditoría: registra toda acción de escritura hecha a través
 /// de la API (requisito duro de P4). El detalle de qué se cambió va en
-/// `datos`, ya que la forma exacta depende de cada entidad. La relación
-/// hacia la entidad afectada es por referencia (`entidad` + `entidadId`),
+/// `data`, ya que la forma exacta depende de cada entidad. La relación
+/// hacia la entidad afectada es por referencia (`entity` + `entityId`),
 /// no una llave foránea, para no acoplar este modelo a las tablas de cada
 /// módulo que use el servicio de auditoría.
-model RegistroAuditoria {
+model AuditLog {
   id        String         @id @default(cuid())
-  actorTipo ActorAuditoria
-  actorId   String?
-  accion    String
-  entidad   String
-  entidadId String?
-  datos     Json?
-  creadoEn  DateTime       @default(now())
+  actorType AuditActorType @map("actor_type")
+  actorId   String?        @map("actor_id")
+  action    String
+  entity    String
+  entityId  String?        @map("entity_id")
+  data      Json?
+  createdAt DateTime       @default(now()) @map("created_at")
 
-  @@index([entidad, entidadId])
-  @@index([creadoEn])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 /// Versión de reglas aplicada a un diagnóstico (requisito duro de P4).
 /// El contenido de las reglas es configuración, no código — vive en
-/// `contenido` mientras se define la especificación completa del
+/// `content` mientras se define la especificación completa del
 /// cuestionario y su lógica.
-model VersionReglas {
+model RuleSetVersion {
   id        String   @id @default(cuid())
-  numero    Int      @unique @default(autoincrement())
-  contenido Json
-  activa    Boolean  @default(false)
-  creadoEn  DateTime @default(now())
+  number    Int      @unique @default(autoincrement())
+  content   Json
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("rule_set_versions")
 }
 
-enum RolUsuario {
+enum UserRole {
   ADMIN
   // TODO: el modelo real de roles/permisos de apps/panel todavía no está
   // definido (ver CLAUDE.md sección 3, pendiente "modelo de login/
   // permisos de apps/panel") — confirmar con José antes de agregar más
   // valores o de asumir que este enum es la forma final.
+
+  @@map("user_role")
 }
 
 /// Tipo de actor que ejecuta una acción auditada: usuario autenticado de
 /// `apps/panel`, cliente final de `apps/diagnostico` (vía token de
 /// enlace), o el propio sistema cuando no hay actor autenticado (ej. antes
 /// de un login).
-enum ActorAuditoria {
-  USUARIO_PANEL
-  CLIENTE_FINAL
-  SISTEMA
+enum AuditActorType {
+  PANEL_USER
+  END_CLIENT
+  SYSTEM
+
+  @@map("audit_actor_type")
 }
 
 /// Placeholder de autenticación para apps/panel. TODO: el modelo real de
 /// permisos (roles múltiples, alcance por caso, etc.) es un pendiente
 /// explícito del proyecto — este modelo solo existe para que el
 /// mecanismo de login JWT tenga contra qué autenticar mientras tanto.
-model Usuario {
-  id            String     @id @default(cuid())
-  nombre        String
-  email         String     @unique
-  passwordHash  String
-  activo        Boolean    @default(true)
-  rol           RolUsuario @default(ADMIN)
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  active         Boolean  @default(true)
+  role           UserRole @default(ADMIN)
   /// Va en el JWT (`ver`); subirla invalida todas las sesiones abiertas
   /// del usuario. Se sube en cada cambio de contraseña.
-  versionSesion Int        @default(0)
-  creadoEn      DateTime   @default(now())
-  actualizadoEn DateTime   @updatedAt
+  sessionVersion Int      @default(0) @map("session_version")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  tokensRecuperacion TokenRecuperacionContrasena[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
 }
 
 /// Enlace de recuperación de contraseña del panel: un solo uso, vence en
 /// una hora. Se guarda solo el SHA-256 del token, nunca el token.
-model TokenRecuperacionContrasena {
+model PasswordResetToken {
   id        String    @id @default(cuid())
-  usuarioId String
-  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiraEn  DateTime
-  usadoEn   DateTime?
-  creadoEn  DateTime  @default(now())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
-  @@index([usuarioId])
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 /// Familia de diagnóstico que el cliente elige en el formulario de
 /// precalificación de `score-sitio`. La API no la infiere: llega ya
 /// elegida en el payload.
-enum FamiliaDiagnostico {
-  PROYECTO
+enum DiagnosticFamily {
+  PROJECT
   B2B
-  PROFESIONAL
-  CATALOGO
+  PROFESSIONAL
+  CATALOG
+
+  @@map("diagnostic_family")
 }
 
 /// Estado comercial de un lead, que el equipo cambia a mano desde el panel
 /// mientras no hay CRM. Los estados de pago y diagnóstico activado los
 /// agrega el módulo de Pagos.
-enum EstadoLead {
-  NUEVO
-  CONTACTADO
-  CONVERTIDO
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+
+  @@map("lead_status")
 }
 
 /// Lead registrado desde el formulario de precalificación de
@@ -118,18 +132,19 @@ enum EstadoLead {
 /// CLAUDE.md sección 7). `email` no es único a propósito: la misma
 /// persona puede precalificar más de una vez.
 model Lead {
-  id            String             @id @default(cuid())
-  nombre        String
-  email         String
-  telefono      String?
-  familia       FamiliaDiagnostico
-  utmSource     String?
-  utmMedium     String?
-  utmCampaign   String?
-  estado        EstadoLead         @default(NUEVO)
-  creadoEn      DateTime           @default(now())
-  actualizadoEn DateTime           @updatedAt
+  id          String           @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  family      DiagnosticFamily
+  utmSource   String?          @map("utm_source")
+  utmMedium   String?          @map("utm_medium")
+  utmCampaign String?          @map("utm_campaign")
+  status      LeadStatus       @default(NEW)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
 
   @@index([email])
-  @@index([creadoEn])
+  @@index([createdAt])
+  @@map("leads")
 }

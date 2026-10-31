@@ -7,7 +7,7 @@ export class CrearUsuarioDto {
   @IsString()
   @MinLength(2)
   @MaxLength(NOMBRE_MAX)
-  nombre!: string;
+  name!: string;
 
   @Recortar()
   @IsEmail()

@@ -7,7 +7,7 @@ import { configurarApp } from './../src/bootstrap';
 import { CORREO_PORT, MensajeCorreo } from './../src/correo/correo.port';
 import { PrismaService } from './../src/prisma/prisma.service';
 
-const BASE = '/api/v1/auth/recuperacion';
+const BASE = '/api/v1/auth/password-reset';
 const EMAIL = 'recuperacion.e2e@example.com';
 
 describe('Recuperación de contraseña (e2e)', () => {
@@ -23,8 +23,8 @@ describe('Recuperación de contraseña (e2e)', () => {
       // Captura el correo en vez de mandarlo, para sacar el enlace.
       .overrideProvider(CORREO_PORT)
       .useValue({
-        enviar: async (mensaje: MensajeCorreo) => {
-          enviados.push(mensaje);
+        enviar: async (message: MensajeCorreo) => {
+          enviados.push(message);
           return { enviado: true, proveedorId: 'e2e' };
         },
       })
@@ -35,10 +35,10 @@ describe('Recuperación de contraseña (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    await prisma.usuario.deleteMany({ where: { email: EMAIL } });
-    await prisma.usuario.create({
+    await prisma.user.deleteMany({ where: { email: EMAIL } });
+    await prisma.user.create({
       data: {
-        nombre: 'Recuperación E2E',
+        name: 'Recuperación E2E',
         email: EMAIL,
         passwordHash: await argon2.hash('clave-vieja-123'),
       },
@@ -46,7 +46,7 @@ describe('Recuperación de contraseña (e2e)', () => {
   });
 
   afterEach(async () => {
-    await prisma.usuario.deleteMany({ where: { email: EMAIL } });
+    await prisma.user.deleteMany({ where: { email: EMAIL } });
     await app.close();
   });
 
@@ -59,7 +59,7 @@ describe('Recuperación de contraseña (e2e)', () => {
   async function pedirEnlace(): Promise<string> {
     const cantidadPrevia = enviados.length;
     await request(app.getHttpServer())
-      .post(`${BASE}/solicitar`)
+      .post(`${BASE}/request`)
       .send({ email: EMAIL })
       .expect(200);
     // El correo sale en segundo plano, después de responder.
@@ -74,11 +74,11 @@ describe('Recuperación de contraseña (e2e)', () => {
 
   it('responde lo mismo exista o no el correo, y solo envía al que existe', async () => {
     const existe = await request(app.getHttpServer())
-      .post(`${BASE}/solicitar`)
+      .post(`${BASE}/request`)
       .send({ email: EMAIL })
       .expect(200);
     const noExiste = await request(app.getHttpServer())
-      .post(`${BASE}/solicitar`)
+      .post(`${BASE}/request`)
       .send({ email: 'nadie.e2e@example.com' })
       .expect(200);
 
@@ -92,34 +92,34 @@ describe('Recuperación de contraseña (e2e)', () => {
     const sesionVieja = (await login('clave-vieja-123').expect(200)).body
       .accessToken;
     await request(app.getHttpServer())
-      .get('/api/v1/usuarios')
+      .get('/api/v1/users')
       .set('Authorization', `Bearer ${sesionVieja}`)
       .expect(200);
 
     const token = await pedirEnlace();
     await request(app.getHttpServer())
-      .post(`${BASE}/restablecer`)
+      .post(`${BASE}/confirm`)
       .send({ token, password: 'clave-nueva-456' })
       .expect(204);
 
     await request(app.getHttpServer())
-      .post(`${BASE}/restablecer`)
+      .post(`${BASE}/confirm`)
       .send({ token, password: 'otra-clave-789' })
       .expect(400);
     await request(app.getHttpServer())
-      .get('/api/v1/usuarios')
+      .get('/api/v1/users')
       .set('Authorization', `Bearer ${sesionVieja}`)
       .expect(401);
     await login('clave-vieja-123').expect(401);
     await login('clave-nueva-456').expect(200);
 
-    const bitacora = await prisma.registroAuditoria.findMany({
-      where: { creadoEn: { gte: desde } },
+    const bitacora = await prisma.auditLog.findMany({
+      where: { createdAt: { gte: desde } },
     });
-    expect(bitacora.map((r) => r.accion)).toEqual(
+    expect(bitacora.map((r) => r.action)).toEqual(
       expect.arrayContaining([
-        'RECUPERACION_CONTRASENA_SOLICITADA',
-        'CONTRASENA_RESTABLECIDA',
+        'PASSWORD_RESET_REQUESTED',
+        'PASSWORD_RESET_COMPLETED',
       ]),
     );
     expect(JSON.stringify(bitacora)).not.toContain(token);
@@ -131,11 +131,11 @@ describe('Recuperación de contraseña (e2e)', () => {
     const segundo = await pedirEnlace();
 
     await request(app.getHttpServer())
-      .post(`${BASE}/restablecer`)
+      .post(`${BASE}/confirm`)
       .send({ token: primero, password: 'clave-nueva-456' })
       .expect(400);
     await request(app.getHttpServer())
-      .post(`${BASE}/restablecer`)
+      .post(`${BASE}/confirm`)
       .send({ token: segundo, password: 'clave-nueva-456' })
       .expect(204);
   });
@@ -144,7 +144,7 @@ describe('Recuperación de contraseña (e2e)', () => {
     const token = await pedirEnlace();
 
     await request(app.getHttpServer())
-      .post(`${BASE}/restablecer`)
+      .post(`${BASE}/confirm`)
       .send({ token, password: 'corta' })
       .expect(400);
   });
@@ -152,13 +152,14 @@ describe('Recuperación de contraseña (e2e)', () => {
   it('limita las solicitudes por minuto', async () => {
     for (let i = 0; i < 3; i++) {
       await request(app.getHttpServer())
-        .post(`${BASE}/solicitar`)
+        .post(`${BASE}/request`)
         .send({ email: 'nadie.e2e@example.com' })
         .expect(200);
     }
     await request(app.getHttpServer())
-      .post(`${BASE}/solicitar`)
+      .post(`${BASE}/request`)
       .send({ email: 'nadie.e2e@example.com' })
-      .expect(429);
+      .expect(429)
+      .expect((r) => expect(r.body.error).toBe('Too Many Requests'));
   });
 });

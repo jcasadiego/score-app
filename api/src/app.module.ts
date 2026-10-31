@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
+import { CorreoModule } from './correo/correo.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
 import { MotorCalculoModule } from './motor-calculo/motor-calculo.module';
@@ -30,6 +31,7 @@ import { validarEnv } from './config/validar-env';
     AuthModule,
     TokenEnlaceModule,
     LeadsModule,
+    CorreoModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

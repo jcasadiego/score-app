@@ -91,6 +91,15 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
 - `src/token-enlace/` — token de vida corta para `apps/diagnostico`
   (firmar/verificar, sin persistencia). Ver TODO en
   `token-enlace.service.ts`.
+- `src/leads/` — `POST /api/v1/leads/precalificacion`, el endpoint
+  público (sin auth, 5 envíos/min por IP) que llama el formulario de
+  precalificación de `score-sitio` desde el navegador. Registra un
+  `Lead` en estado `NUEVO` con la familia ya elegida y los UTM; responde
+  solo `{ id, estado }`. Los datos personales (`nombre`, `email`,
+  `telefono`) se redactan en la bitácora con `@RedactarEnAuditoria()`.
+  Es un contrato con otro repo: está en
+  [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
+  y cambiarlo se coordina con José.
 - `src/health/` — `GET /health`.
 
 ## Pendiente a propósito (no construir todavía)

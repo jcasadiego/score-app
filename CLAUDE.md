@@ -38,7 +38,7 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 - **Escenario del motor de cálculo:** confirmar si es software ejecutable,
   una hoja de cálculo, está solo documentado, o parcialmente definido (ver
   `Alcance_Preliminar_MVP_SCORE.docx`, sección 03). En `api`, el motor
-  queda detrás de `MotorCalculoPort` (`api/src/motor-calculo/`) para no
+  queda detrás de `ScoringEnginePort` (`api/src/scoring-engine/`) para no
   bloquear el resto por esto — hoy solo hay un adaptador de ejemplo.
 - **Especificación completa del cuestionario** de las cuatro familias
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
@@ -64,7 +64,7 @@ pendientes:
   validación global, rate limiting, también en login), versionado de
   rutas (`/api/v1`, Swagger autogenerado en `/docs` fuera de
   producción), bitácora de auditoría con actor tipado
-  (`PANEL_USER`/`END_CLIENT`/`SYSTEM`) vía `AuditoriaInterceptor`,
+  (`PANEL_USER`/`END_CLIENT`/`SYSTEM`) vía `AuditInterceptor`,
   versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
   de usuarios internos (`/users`, solo ADMIN; `active: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
@@ -72,7 +72,7 @@ pendientes:
   contraseña del panel por correo, seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional
-  (`src/correo`, Resend detrás de `CorreoPort`; en local `CORREO_MODO=log`
+  (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
   no envía nada). Detalle en `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
@@ -282,9 +282,9 @@ revisar la regla correspondiente.
   los imports del cliente de Prisma generado (#14). Si cambia la
   estructura del build, comprobar `pnpm build && pnpm start:prod`.
 - **Bitácora de auditoría:** todo lo que se persiste de body/params/query
-  pasa por `redactarDatosSensibles()` — el login quedó guardando passwords
+  pasa por `redactSensitiveData()` — el login quedó guardando passwords
   en claro (#4). El actor sale de `request.user` (panel) o
-  `request.enlace` (cliente final), nunca de un campo que ningún guard
+  `request.accessLink` (cliente final), nunca de un campo que ningún guard
   setea (#5).
 - **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el
   chequeo de `activo` vive en `JwtStrategy.validate`, no solo en el login
@@ -356,7 +356,7 @@ Glosario de base (usarlo igual en todas las fases):
     alias con el contrato viejo completo (`src/leads/legacy/`). Borrarlo
     cuando `score-sitio` use la ruta nueva — coordinar con José (ver
     `api/docs/contrato-precalificacion.md`).
-- [ ] **Fase 3 — Resto del código de `api` y variables de entorno.**
+- [x] **Fase 3 — Resto del código de `api` y variables de entorno.**
   Carpetas y módulos (`auditoria` → `audit`, `correo` → `mail`,
   `usuarios` → `users`, `recuperacion-contrasena` → `password-reset`,
   `token-enlace` → `access-link`, `motor-calculo` → `scoring-engine`,
@@ -367,7 +367,10 @@ Glosario de base (usarlo igual en todas las fases):
   `MAIL_REPLY_TO`, `CORREO_LOGO_URL` → `MAIL_LOGO_URL`, `ADMIN_NOMBRE` →
   `ADMIN_NAME`. Actualizar en el mismo PR `.env.example`, el workflow de
   CI y los README; avisar a José para que cambie las variables de QA
-  antes de mergear.
+  antes de mergear. Hecho también: el script `pnpm correo:probar` pasó a
+  `pnpm mail:test`, `GET /health` responde `detail` en vez de `detalle`
+  y el puerto del motor usa `answers`/`result`. El contrato legacy
+  (`src/leads/legacy/`) sigue en español a propósito.
 - [ ] **Fase 4 — `apps/panel`.** Código (`lib/`, `components/`, Server
   Actions, tipos) y URLs: `/usuarios` → `/users`,
   `/recuperar-contrasena` → `/forgot-password`, `/restablecer-contrasena`

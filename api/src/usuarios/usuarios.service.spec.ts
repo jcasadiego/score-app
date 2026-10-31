@@ -1,10 +1,11 @@
+import type { Mock } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsuariosService } from './usuarios.service';
 
-jest.mock('argon2');
+vi.mock('argon2');
 
 function crearErrorPrisma(code: string) {
   return new Prisma.PrismaClientKnownRequestError('error de prueba', {
@@ -14,15 +15,15 @@ function crearErrorPrisma(code: string) {
 }
 
 describe('UsuariosService', () => {
-  const argon2HashMock = argon2.hash as jest.Mock;
+  const argon2HashMock = argon2.hash as Mock;
   let prisma: {
-    $transaction: jest.Mock;
+    $transaction: Mock;
     usuario: {
-      count: jest.Mock;
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findUnique: jest.Mock;
-      update: jest.Mock;
+      count: Mock;
+      create: Mock;
+      findMany: Mock;
+      findUnique: Mock;
+      update: Mock;
     };
   };
   let service: UsuariosService;
@@ -31,15 +32,15 @@ describe('UsuariosService', () => {
     argon2HashMock.mockReset().mockResolvedValue('hash-generado');
     prisma = {
       // El servicio usa la forma de arreglo: resuelve las promesas en orden.
-      $transaction: jest.fn((consultas: Promise<unknown>[]) =>
+      $transaction: vi.fn((consultas: Promise<unknown>[]) =>
         Promise.all(consultas),
       ),
       usuario: {
-        count: jest.fn(),
-        create: jest.fn(),
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
+        count: vi.fn(),
+        create: vi.fn(),
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        update: vi.fn(),
       },
     };
     service = new UsuariosService(prisma as unknown as PrismaService);

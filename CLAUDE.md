@@ -78,7 +78,7 @@ pendientes:
 - **`apps/diagnostico`:** solo scaffold — su flujo depende de la
   especificación del cuestionario.
 
-**`api`** — NestJS 10 + TypeScript + Prisma 7 sobre PostgreSQL:
+**`api`** — NestJS 12 + TypeScript + Prisma 7 sobre PostgreSQL:
 
 ```bash
 pnpm install

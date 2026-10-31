@@ -1,20 +1,21 @@
+import type { Mock } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 
-jest.mock('argon2');
+vi.mock('argon2');
 
 describe('AuthService', () => {
-  const argon2VerifyMock = argon2.verify as jest.Mock;
-  let usuarios: { buscarPorEmail: jest.Mock };
+  const argon2VerifyMock = argon2.verify as Mock;
+  let usuarios: { buscarPorEmail: Mock };
   let service: AuthService;
 
   beforeEach(() => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
     process.env.JWT_EXPIRACION = '1d';
-    usuarios = { buscarPorEmail: jest.fn() };
+    usuarios = { buscarPorEmail: vi.fn() };
     argon2VerifyMock.mockReset();
     service = new AuthService(
       usuarios as unknown as UsuariosService,

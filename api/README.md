@@ -104,6 +104,23 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   nombre/email, en la base; más recientes primero), `GET /leads/:id` y
   `PATCH /leads/:id/estado` (`NUEVO`/`CONTACTADO`/`CONVERTIDO`). El resto
   de los datos del lead no se edita desde el panel.
+- `src/correo/` — correo transaccional. Los módulos llaman a
+  `CorreoService` (`enviarEnlaceDiagnostico`, `enviarRecuperacionEnlace`),
+  nunca al proveedor: detrás está `CorreoPort` (`correo.port.ts`), con
+  dos adaptadores elegidos por `CORREO_MODO`: `log` (default, no envía
+  nada y deja destinatario, asunto, enlaces y texto en el log) y `resend`
+  (staging/producción; exige `RESEND_API_KEY`, `CORREO_REMITENTE` y
+  `CORREO_REPLY_TO`, y en producción es obligatorio — si falta algo la
+  API no arranca y dice qué). Las plantillas viven en
+  `correo/plantillas/` (HTML con estilos en línea, todo lo variable
+  escapado; logo por `CORREO_LOGO_URL`, textos provisionales). Un fallo
+  del proveedor no lanza: vuelve `{ enviado: false, motivo }`. Cada
+  intento queda en Auditoría (`CORREO_ENVIADO`/`CORREO_FALLIDO`) con el
+  tipo, el destinatario enmascarado y el id o motivo — nunca el enlace ni
+  el contenido. Sin colas ni reintentos (fuera de alcance del MVP).
+  Prueba manual: `pnpm correo:probar tu@email.com` (necesita Postgres);
+  con `CORREO_MODO=resend` y remitente `onboarding@resend.dev` llega de
+  verdad, pero solo al email dueño de la cuenta de Resend.
 - `src/health/` — `GET /health`.
 
 ## Pendiente a propósito (no construir todavía)

@@ -57,8 +57,10 @@ No se devuelven los datos enviados, y la respuesta es la misma aunque el
 email ya haya precalificado antes. El `id` es el que usarán después
 Pagos y Diagnóstico.
 
-**400 Bad Request**: faltan datos o están mal formados. `mensaje` es una
-lista con un texto por cada problema encontrado:
+**400 Bad Request**: faltan datos o están mal formados. Si los datos no
+pasan la validación, `mensaje` es una lista con un texto por cada
+problema encontrado. Si el body ni siquiera es JSON válido, `mensaje` es
+un solo texto. El sitio tiene que aceptar los dos casos.
 
 ```json
 {
@@ -90,7 +92,7 @@ const res = await fetch(`${API_URL}/api/v1/leads/precalificacion`, {
 if (res.status === 201) {
   const { id } = await res.json();
 } else if (res.status === 400) {
-  const { mensaje } = await res.json(); // string[]
+  const { mensaje } = await res.json(); // string[] | string
 } else if (res.status === 429) {
   // límite de envíos
 }

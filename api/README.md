@@ -51,7 +51,9 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
 - `src/config/` — validación de variables de entorno al boot (Zod) y
   parseo de `CORS_ORIGINS`.
 - `src/common/` — `FiltroExcepcionesGlobal`, forma de error única para
-  toda la API.
+  toda la API: la estándar de NestJS, `{ statusCode, message, error }`
+  (`message` es una lista en los errores de validación). Un error que no
+  es `HttpException` va al log y responde un 500 genérico.
 - `src/prisma/` — `PrismaService` global, conecta vía driver adapter
   (`@prisma/adapter-pg`), requerido por Prisma 7.
 - `src/motor-calculo/` — el motor de cálculo de SCORE queda detrás de
@@ -61,9 +63,9 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   hoja de cálculo a portar, o construir desde cero; ver `CLAUDE.md`
   sección 3).
 - `src/auditoria/` — bitácora de auditoría (requisito duro). Cada evento
-  guarda actor tipado (`USUARIO_PANEL` / `CLIENTE_FINAL` / `SISTEMA` +
-  id cuando aplica), acción, entidad afectada por referencia (tipo + id,
-  sin llave foránea) y un detalle libre en `datos`. El
+  guarda actor tipado (`PANEL_USER` / `END_CLIENT` / `SYSTEM` + id
+  cuando aplica), acción, entidad afectada por referencia (tipo + id,
+  sin llave foránea) y un detalle libre en `data` (tabla `audit_logs`). El
   `AuditoriaInterceptor` registra automáticamente toda request mutante
   (POST/PUT/PATCH/DELETE) resolviendo el actor desde `request.user`
   (JWT de panel) o `request.enlace` (token de enlace de diagnóstico); los
@@ -73,53 +75,57 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
 - `src/usuarios/` + `src/auth/` — login JWT y guards de roles para
-  `apps/panel`. `UsuariosController` (`/usuarios`) es el CRUD interno de
-  cuentas (nombre, email, `activo`) — sin autoservicio, lo administra el
-  propio equipo y exige estar ya autenticado como ADMIN. `activo: false`
+  `apps/panel`. `UsuariosController` (`/users`) es el CRUD interno de
+  cuentas (`name`, `email`, `active`) — sin autoservicio, lo administra el
+  propio equipo y exige estar ya autenticado como ADMIN. `active: false`
   revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
   usuario ni su historial. Cambiar la contraseña (`password` opcional en
-  `PATCH /usuarios/:id`, o por recuperación) cierra todas las sesiones
-  abiertas: el JWT lleva `ver` (`Usuario.versionSesion`), y
+  `PATCH /users/:id`, o por recuperación) cierra todas las sesiones
+  abiertas: el JWT lleva `ver` (`User.sessionVersion`), y
   `JwtStrategy` rechaza los tokens de una versión anterior. Todo cambio
   de contraseña pasa por `datosCambioPassword()` (`usuarios.service.ts`),
-  que hashea y sube la versión. `GET /usuarios` está paginado en el servidor
-  (`?pagina=1&tamano=20&q=`, máx. 100 por página) y devuelve
-  `{ datos, total, pagina, tamano }`: página y conteo salen de una sola
-  transacción, y la búsqueda (`q`, por nombre o email, sin distinguir
+  que hashea y sube la versión. `GET /users` está paginado en el servidor
+  (`?page=1&pageSize=20&search=`, máx. 100 por página) y devuelve
+  `{ data, total, page, pageSize }`: página y conteo salen de una sola
+  transacción, y la búsqueda (`search`, por nombre o email, sin distinguir
   mayúsculas) se resuelve en la consulta. Los DTOs normalizan espacios y
   limitan `nombre` a 120 y `email` a 254 caracteres. `prisma/seed.ts` (`pnpm prisma db seed`) crea
   el primer ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/
   `ADMIN_NOMBRE`, porque sin un usuario ya autenticado no se puede llegar
-  a `POST /usuarios`. `Usuario.rol` es un placeholder de un solo valor
+  a `POST /users`. `User.role` es un placeholder de un solo valor
   (`ADMIN`) hasta que se defina el modelo real de permisos (ver
   "Pendiente a propósito" abajo).
 - `src/recuperacion-contrasena/` — recuperación de contraseña de
-  `apps/panel`, rutas públicas: `POST /auth/recuperacion/solicitar`
+  `apps/panel`, rutas públicas: `POST /auth/password-reset/request`
   (`{ email }`, 3/min por IP) responde siempre el mismo mensaje y hace
   el trabajo en segundo plano (misma respuesta y mismo tiempo exista o
   no el correo); si el usuario existe y está activo, crea un token
   aleatorio de un solo uso que vence en 1 hora, borra los pendientes
   anteriores y manda el enlace `PANEL_URL/restablecer-contrasena?token=`
   por `CorreoService`. En la base solo queda el SHA-256 del token
-  (`TokenRecuperacionContrasena`). `POST /auth/recuperacion/restablecer`
+  (`PasswordResetToken`). `POST /auth/password-reset/confirm`
   (`{ token, password }`, 5/min por IP) responde 204, o 400 con un único
   mensaje para enlace inválido, usado o vencido. La bitácora guarda la
   solicitud y el cambio sin token ni email en claro.
 - `src/token-enlace/` — token de vida corta para `apps/diagnostico`
+  (`POST /access-links` con `{ subjectId }`, solo ADMIN, para QA)
   (firmar/verificar, sin persistencia). Ver TODO en
   `token-enlace.service.ts`.
-- `src/leads/` — `POST /api/v1/leads/precalificacion`, el endpoint
+- `src/leads/` — `POST /api/v1/leads/prequalification`, el endpoint
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un
-  `Lead` en estado `NUEVO` con la familia ya elegida y los UTM; responde
-  solo `{ id, estado }`. Los datos personales (`nombre`, `email`,
+  `Lead` en estado `NEW` con la familia ya elegida y los UTM; responde
+  solo `{ id, status }`. Mientras `score-sitio` migra, `POST
+  /leads/precalificacion` (`src/leads/legacy/`) sigue aceptando el
+  contrato viejo en español, con su forma de error `{ statusCode,
+  mensaje }`. Los datos personales (`nombre`, `email`,
   `telefono`) se redactan en la bitácora con `@RedactarEnAuditoria()`.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):
-  `GET /leads` (paginado, filtros `familia`/`estado` y búsqueda `q` por
-  nombre/email, en la base; más recientes primero), `GET /leads/:id` y
-  `PATCH /leads/:id/estado` (`NUEVO`/`CONTACTADO`/`CONVERTIDO`). El resto
+  `GET /leads` (paginado, filtros `family`/`status` y búsqueda `search`
+  por nombre/email, en la base; más recientes primero), `GET /leads/:id`
+  y `PATCH /leads/:id/status` (`NEW`/`CONTACTED`/`CONVERTED`). El resto
   de los datos del lead no se edita desde el panel.
 - `src/correo/` — correo transaccional. Los módulos llaman a
   `CorreoService` (`enviarEnlaceDiagnostico`, `enviarRecuperacionEnlace`),

@@ -20,7 +20,7 @@ import {
 } from "antd";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import type { PaginaUsuarios, Usuario } from "@/lib/api/usuarios";
-import { EMAIL_MAX, NOMBRE_MAX } from "@/lib/usuarios/limites";
+import { EMAIL_MAX, NOMBRE_MAX, PASSWORD_MIN } from "@/lib/usuarios/limites";
 import {
   accionActivarUsuario,
   accionActualizarUsuario,
@@ -133,6 +133,8 @@ export function UsuariosScreen({
       ? await accionActualizarUsuario(usuarioEnEdicion.id, {
           nombre: valores.nombre,
           email: valores.email,
+          // Vacío = no se cambia.
+          password: valores.password || undefined,
         })
       : await accionCrearUsuario({
           nombre: valores.nombre,
@@ -400,18 +402,27 @@ export function UsuariosScreen({
             <Input maxLength={EMAIL_MAX} autoComplete="off" />
           </Form.Item>
 
-          {!usuarioEnEdicion && (
-            <Form.Item
-              name="password"
-              label="Contraseña"
-              rules={[
-                { required: true, message: "Ingresa una contraseña." },
-                { min: 8, message: "Debe tener al menos 8 caracteres." },
-              ]}
-            >
-              <Input.Password autoComplete="new-password" />
-            </Form.Item>
-          )}
+          <Form.Item
+            name="password"
+            label={usuarioEnEdicion ? "Nueva contraseña" : "Contraseña"}
+            extra={
+              usuarioEnEdicion
+                ? "Déjala vacía para no cambiarla. Si la cambias, se cierran las sesiones abiertas de este usuario."
+                : undefined
+            }
+            rules={[
+              {
+                required: !usuarioEnEdicion,
+                message: "Ingresa una contraseña.",
+              },
+              {
+                min: PASSWORD_MIN,
+                message: `Debe tener al menos ${PASSWORD_MIN} caracteres.`,
+              },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>

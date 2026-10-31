@@ -33,6 +33,8 @@ export interface DatosCrearUsuario {
 export interface DatosActualizarUsuario {
   nombre?: string;
   email?: string;
+  /** Contraseña nueva; la API cierra las sesiones abiertas del usuario. */
+  password?: string;
 }
 
 const MENSAJES: MensajesRecurso = {

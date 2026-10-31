@@ -2,10 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 import { NOMBRE_COOKIE_SESION, RUTA_INICIO } from "@/lib/auth/constants";
 import { decodificarToken } from "@/lib/auth/jwt";
 
-const RUTAS_PUBLICAS = ["/login"];
+const RUTAS_PUBLICAS = [
+  "/login",
+  "/recuperar-contrasena",
+  "/restablecer-contrasena",
+];
 
-function esRutaPublica(pathname: string): boolean {
-  return RUTAS_PUBLICAS.some(
+/**
+ * Públicas que no tienen sentido con sesión abierta. Las de recuperación
+ * no están: el enlace del correo debe funcionar aunque el navegador tenga
+ * una sesión (por ejemplo, la de otra persona del equipo).
+ */
+const RUTAS_SOLO_SIN_SESION = ["/login"];
+
+function coincide(rutas: string[], pathname: string): boolean {
+  return rutas.some(
     (ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`),
   );
 }
@@ -24,11 +35,11 @@ export default function proxy(request: NextRequest) {
   const sesion = token ? decodificarToken(token) : null;
   const haySesionValida = !!sesion && sesion.exp * 1000 > Date.now();
 
-  if (!esRutaPublica(pathname) && !haySesionValida) {
+  if (!coincide(RUTAS_PUBLICAS, pathname) && !haySesionValida) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (esRutaPublica(pathname) && haySesionValida) {
+  if (coincide(RUTAS_SOLO_SIN_SESION, pathname) && haySesionValida) {
     return NextResponse.redirect(new URL(RUTA_INICIO, request.url));
   }
 

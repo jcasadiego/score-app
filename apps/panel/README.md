@@ -28,6 +28,15 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verificarSesion`) es el punto único para exigirla
   en Server Components de este repo.
+- Recuperación de contraseña, pantallas públicas (fuera de la
+  protección de `proxy.ts`): `/recuperar-contrasena` pide el enlace y
+  muestra siempre el mismo aviso; `/restablecer-contrasena?token=` es
+  adonde lleva el correo — saca el token de la URL al cargar, pide la
+  contraseña dos veces y, al terminar, vuelve a `/login` con un aviso.
+  Las llamadas van por `lib/api/recuperacion.ts`. En local el enlace
+  aparece en el log de `api` (`CORREO_MODO=log`). Si un admin cambia su
+  propia contraseña desde Usuarios, la api cierra también su sesión y
+  el panel lo manda al login.
 - El JWT se decodifica sin verificar firma (`lib/auth/jwt.ts`) solo para
   leer `email`/`rol` a mostrar en la UI y el `exp` para expirar la
   cookie — el panel no tiene `JWT_SECRET` (es un secreto exclusivo de

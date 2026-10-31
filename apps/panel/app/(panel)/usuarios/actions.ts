@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { verificarSesion } from "@/lib/auth/dal";
-import { obtenerToken } from "@/lib/auth/session";
+import { eliminarSesion, obtenerToken } from "@/lib/auth/session";
 import { ErrorApi } from "@/lib/api/errors";
 import {
   actualizarUsuario,
@@ -59,14 +60,26 @@ export async function accionActualizarUsuario(
   id: string,
   datos: DatosActualizarUsuario,
 ): Promise<ResultadoAccionUsuario> {
+  let usuario: Usuario;
+  let cambioPropiaContrasena: boolean;
   try {
+    const sesion = await verificarSesion();
     const token = await tokenAutenticado();
-    const usuario = await actualizarUsuario(token, id, datos);
-    revalidatePath("/usuarios");
-    return { ok: true, usuario };
+    usuario = await actualizarUsuario(token, id, datos);
+    cambioPropiaContrasena = !!datos.password && sesion.id === id;
   } catch (error) {
     return manejarError(error);
   }
+
+  // Cambiar la contraseña cierra todas las sesiones de esa cuenta en la
+  // API, también la de quien la cambió si es la suya: se lo manda al login.
+  if (cambioPropiaContrasena) {
+    await eliminarSesion();
+    redirect("/login?contrasena=cambiada");
+  }
+
+  revalidatePath("/usuarios");
+  return { ok: true, usuario };
 }
 
 export async function accionActivarUsuario(

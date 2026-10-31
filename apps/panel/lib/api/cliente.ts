@@ -56,14 +56,14 @@ async function construirError(
   respuesta: Response,
   mensajes: MensajesRecurso,
 ): Promise<ErrorApi> {
-  // Forma de error de la api (`FiltroExcepcionesGlobal`): el texto viene
-  // en `mensaje`, como string o, si es de validación, como lista.
-  const cuerpo = (await respuesta.json().catch(() => null)) as {
-    mensaje?: string | string[];
+  // Forma de error estándar de la api: `{ statusCode, message, error }`;
+  // `message` es un texto o, si es de validación, una lista.
+  const body = (await respuesta.json().catch(() => null)) as {
+    message?: string | string[];
   } | null;
-  const mensaje = Array.isArray(cuerpo?.mensaje)
-    ? cuerpo.mensaje[0]
-    : cuerpo?.mensaje;
+  const mensaje = Array.isArray(body?.message)
+    ? body.message[0]
+    : body?.message;
 
   if (respuesta.status === 409) {
     return new ErrorApi(409, mensaje ?? mensajes.conflicto ?? MENSAJE_ERROR_GENERICO);

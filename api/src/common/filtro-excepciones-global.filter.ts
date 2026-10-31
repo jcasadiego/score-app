@@ -4,8 +4,51 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { STATUS_CODES } from 'node:http';
+
+export interface ErrorResponseBody {
+  statusCode: number;
+  message: string | string[];
+  error: string;
+}
+
+const logger = new Logger('ExceptionFilter');
+
+/**
+ * Forma estándar de NestJS (`{ statusCode, message, error }`). Un error
+ * que no es `HttpException` es un bug: va al log con su stack y al
+ * cliente solo le llega un 500 genérico, sin detalles internos.
+ */
+export function buildErrorResponse(exception: unknown): ErrorResponseBody {
+  if (!(exception instanceof HttpException)) {
+    logger.error(
+      'Error no controlado',
+      exception instanceof Error ? exception.stack : String(exception),
+    );
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error',
+      error: 'Internal Server Error',
+    };
+  }
+
+  const statusCode = exception.getStatus();
+  const body = exception.getResponse();
+  const { message, error } =
+    typeof body === 'string'
+      ? { message: body, error: undefined }
+      : (body as { message?: string | string[]; error?: string });
+
+  return {
+    statusCode,
+    message: message ?? exception.message,
+    // Sin `error` propio (ej. ThrottlerException), la frase HTTP estándar.
+    error: error ?? STATUS_CODES[statusCode] ?? 'Error',
+  };
+}
 
 /**
  * Forma de error única para toda la API, para que `apps/diagnostico` y
@@ -14,34 +57,12 @@ import { Response } from 'express';
  */
 @Catch()
 export class FiltroExcepcionesGlobal implements ExceptionFilter {
-  catch(excepcion: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-
-    const esHttpException = excepcion instanceof HttpException;
-    const status = esHttpException
-      ? excepcion.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    const respuestaExcepcion = esHttpException
-      ? excepcion.getResponse()
-      : undefined;
-
-    const mensaje =
-      typeof respuestaExcepcion === 'string'
-        ? respuestaExcepcion
-        : ((respuestaExcepcion as { message?: string | string[] })?.message ??
-          'Error interno del servidor');
-
-    const detalle =
-      !esHttpException && process.env.NODE_ENV !== 'production'
-        ? String(excepcion)
-        : undefined;
-
-    response.status(status).json({
-      statusCode: status,
-      mensaje,
-      detalle,
-    });
+  catch(exception: unknown, host: ArgumentsHost) {
+    const body = buildErrorResponse(exception);
+    host
+      .switchToHttp()
+      .getResponse<Response>()
+      .status(body.statusCode)
+      .json(body);
   }
 }

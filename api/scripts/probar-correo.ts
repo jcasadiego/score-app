@@ -24,7 +24,7 @@ async function main() {
       nombre: 'Persona de prueba',
       enlace: 'http://localhost:3001/e/enlace-de-prueba',
     };
-    const contexto = { entidad: 'PruebaCorreo' };
+    const contexto = { entity: 'EmailTest' };
 
     console.log(
       'Tu diagnóstico SCORE →',

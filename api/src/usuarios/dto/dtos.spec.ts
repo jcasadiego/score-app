@@ -7,37 +7,37 @@ import { ListarUsuariosDto } from './listar-usuarios.dto';
 describe('DTOs de usuarios', () => {
   it('normaliza espacios en nombre y recorta el email', async () => {
     const dto = plainToInstance(CrearUsuarioDto, {
-      nombre: '  Sam   Lee ',
+      name: '  Sam   Lee ',
       email: ' sam@example.com ',
       password: 'password123',
     });
 
-    expect(dto.nombre).toBe('Sam Lee');
+    expect(dto.name).toBe('Sam Lee');
     expect(dto.email).toBe('sam@example.com');
     expect(await validate(dto)).toHaveLength(0);
   });
 
   it('rechaza un nombre más largo que el límite', async () => {
     const dto = plainToInstance(CrearUsuarioDto, {
-      nombre: 'a'.repeat(121),
+      name: 'a'.repeat(121),
       email: 'a@example.com',
       password: 'password123',
     });
 
     const errores = await validate(dto);
-    expect(errores.map((e) => e.property)).toContain('nombre');
+    expect(errores.map((e) => e.property)).toContain('name');
   });
 
   it('aplica valores por defecto y convierte la paginación a número', async () => {
     const vacio = plainToInstance(ListarUsuariosDto, {});
-    expect(vacio).toMatchObject({ pagina: 1, tamano: 20 });
+    expect(vacio).toMatchObject({ page: 1, pageSize: 20 });
 
     const dto = plainToInstance(ListarUsuariosDto, {
-      pagina: '3',
-      tamano: '500',
+      page: '3',
+      pageSize: '500',
     });
-    expect(dto.pagina).toBe(3);
+    expect(dto.page).toBe(3);
     const errores = await validate(dto);
-    expect(errores.map((e) => e.property)).toEqual(['tamano']);
+    expect(errores.map((e) => e.property)).toEqual(['pageSize']);
   });
 });

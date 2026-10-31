@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { ActorAuditoria } from '../../generated/prisma/enums';
+import { AuditActorType } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface RegistrarAuditoriaParams {
-  actorTipo: ActorAuditoria;
+  actorType: AuditActorType;
   actorId?: string;
-  accion: string;
-  entidad: string;
-  entidadId?: string;
-  datos?: Prisma.InputJsonValue;
+  action: string;
+  entity: string;
+  entityId?: string;
+  data?: Prisma.InputJsonValue;
 }
 
 @Injectable()
@@ -17,14 +17,14 @@ export class AuditoriaService {
   constructor(private readonly prisma: PrismaService) {}
 
   registrar(params: RegistrarAuditoriaParams) {
-    return this.prisma.registroAuditoria.create({
+    return this.prisma.auditLog.create({
       data: {
-        actorTipo: params.actorTipo,
+        actorType: params.actorType,
         actorId: params.actorId,
-        accion: params.accion,
-        entidad: params.entidad,
-        entidadId: params.entidadId,
-        datos: params.datos,
+        action: params.action,
+        entity: params.entity,
+        entityId: params.entityId,
+        data: params.data,
       },
     });
   }
@@ -34,10 +34,10 @@ export class AuditoriaService {
    * cronológico. Sin filtros ni paginación — para eso hace falta
    * reportería, que es deliberadamente parte de un módulo aparte.
    */
-  listarPorEntidad(entidad: string, entidadId: string) {
-    return this.prisma.registroAuditoria.findMany({
-      where: { entidad, entidadId },
-      orderBy: { creadoEn: 'asc' },
+  listarPorEntidad(entity: string, entityId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { entity, entityId },
+      orderBy: { createdAt: 'asc' },
     });
   }
 }

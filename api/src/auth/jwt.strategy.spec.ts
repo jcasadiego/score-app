@@ -25,8 +25,8 @@ describe('JwtStrategy', () => {
     usuarios.buscarPorId.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
-      rol: 'ADMIN',
-      activo: false,
+      role: 'ADMIN',
+      active: false,
     });
 
     await expect(strategy.validate({ sub: '1' })).rejects.toThrow(
@@ -38,9 +38,9 @@ describe('JwtStrategy', () => {
     usuarios.buscarPorId.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
-      rol: 'ADMIN',
-      activo: true,
-      versionSesion: 2,
+      role: 'ADMIN',
+      active: true,
+      sessionVersion: 2,
     });
 
     await expect(strategy.validate({ sub: '1', ver: 1 })).rejects.toThrow(
@@ -52,9 +52,9 @@ describe('JwtStrategy', () => {
     usuarios.buscarPorId.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
-      rol: 'ADMIN',
-      activo: true,
-      versionSesion: 0,
+      role: 'ADMIN',
+      active: true,
+      sessionVersion: 0,
     });
 
     await expect(strategy.validate({ sub: '1' })).resolves.toMatchObject({
@@ -66,15 +66,15 @@ describe('JwtStrategy', () => {
     usuarios.buscarPorId.mockResolvedValue({
       id: '1',
       email: 'admin@test.local',
-      rol: 'ADMIN',
-      activo: true,
-      versionSesion: 3,
+      role: 'ADMIN',
+      active: true,
+      sessionVersion: 3,
     });
 
     await expect(strategy.validate({ sub: '1', ver: 3 })).resolves.toEqual({
       id: '1',
       email: 'admin@test.local',
-      rol: 'ADMIN',
+      role: 'ADMIN',
     });
   });
 });

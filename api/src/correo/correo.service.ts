@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActorAuditoria } from '../../generated/prisma/enums';
+import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EnvValidado } from '../config/validar-env';
 import { CORREO_PORT, CorreoPort, ResultadoEnvio } from './correo.port';
@@ -12,14 +12,13 @@ import {
 } from './plantillas/correos';
 import { CorreoRenderizado } from './plantillas/plantilla-base';
 
-export type TipoCorreo =
-  'DIAGNOSTICO_ENLACE' | 'RECUPERAR_ENLACE' | 'RESTABLECER_CONTRASENA';
+export type TipoCorreo = 'DIAGNOSTIC_LINK' | 'LINK_RECOVERY' | 'PASSWORD_RESET';
 
 /** A qué se asocia el envío en la bitácora (ej. el Caso que lo pidió). */
 export interface ContextoCorreo {
-  entidad?: string;
-  entidadId?: string;
-  actorTipo?: ActorAuditoria;
+  entity?: string;
+  entityId?: string;
+  actorType?: AuditActorType;
   actorId?: string;
 }
 
@@ -54,7 +53,7 @@ export class CorreoService {
     contexto?: ContextoCorreo,
   ): Promise<ResultadoEnvio> {
     return this.enviar(
-      'DIAGNOSTICO_ENLACE',
+      'DIAGNOSTIC_LINK',
       datos.para,
       correoDiagnosticoEnlace(datos, this.marca()),
       contexto,
@@ -66,7 +65,7 @@ export class CorreoService {
     contexto?: ContextoCorreo,
   ): Promise<ResultadoEnvio> {
     return this.enviar(
-      'RECUPERAR_ENLACE',
+      'LINK_RECOVERY',
       datos.para,
       correoRecuperarEnlace(datos, this.marca()),
       contexto,
@@ -78,7 +77,7 @@ export class CorreoService {
     contexto?: ContextoCorreo,
   ): Promise<ResultadoEnvio> {
     return this.enviar(
-      'RESTABLECER_CONTRASENA',
+      'PASSWORD_RESET',
       datos.para,
       correoRestablecerContrasena(datos, this.marca()),
       contexto,
@@ -125,17 +124,17 @@ export class CorreoService {
   ) {
     try {
       await this.auditoria.registrar({
-        actorTipo: contexto.actorTipo ?? ActorAuditoria.SISTEMA,
+        actorType: contexto.actorType ?? AuditActorType.SYSTEM,
         actorId: contexto.actorId,
-        accion: resultado.enviado ? 'CORREO_ENVIADO' : 'CORREO_FALLIDO',
-        entidad: contexto.entidad ?? 'Correo',
-        entidadId: contexto.entidadId,
-        datos: {
-          tipo,
-          destinatario: enmascararEmail(para),
+        action: resultado.enviado ? 'EMAIL_SENT' : 'EMAIL_FAILED',
+        entity: contexto.entity ?? 'Email',
+        entityId: contexto.entityId,
+        data: {
+          type: tipo,
+          recipient: enmascararEmail(para),
           ...('motivo' in resultado
-            ? { motivo: resultado.motivo }
-            : { proveedorId: resultado.proveedorId }),
+            ? { reason: resultado.motivo }
+            : { providerId: resultado.proveedorId }),
         },
       });
     } catch (error) {

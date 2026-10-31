@@ -9,7 +9,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { FamiliaDiagnostico } from '../../../generated/prisma/enums';
+import { DiagnosticFamily } from '../../../generated/prisma/enums';
 import { EMAIL_MAX, NOMBRE_MAX } from '../../usuarios/dto/limites';
 import { NormalizarTexto, Recortar } from '../../usuarios/dto/normalizar-texto';
 
@@ -22,7 +22,7 @@ export const UTM_MAX = 200;
  * internacional varía demasiado como para algo más estricto sin una
  * librería dedicada.
  */
-const TELEFONO_REGEX = /^\+?[0-9\s\-()]{7,20}$/;
+export const PHONE_REGEX = /^\+?[0-9\s\-()]{7,20}$/;
 
 /**
  * Payload del formulario de precalificación de `score-sitio`. Es un
@@ -35,7 +35,7 @@ export class CrearLeadDto {
   @IsString()
   @MinLength(2)
   @MaxLength(NOMBRE_MAX)
-  nombre!: string;
+  name!: string;
 
   @ApiProperty({ maxLength: EMAIL_MAX, example: 'ana@example.com' })
   @Transform(({ value }: { value: unknown }) =>
@@ -48,12 +48,12 @@ export class CrearLeadDto {
   @ApiPropertyOptional({ example: '+52 55 1234 5678' })
   @IsOptional()
   @Recortar()
-  @Matches(TELEFONO_REGEX, { message: 'telefono no tiene un formato válido' })
-  telefono?: string;
+  @Matches(PHONE_REGEX, { message: 'phone must be a valid phone number' })
+  phone?: string;
 
-  @ApiProperty({ enum: FamiliaDiagnostico, enumName: 'FamiliaDiagnostico' })
-  @IsEnum(FamiliaDiagnostico)
-  familia!: FamiliaDiagnostico;
+  @ApiProperty({ enum: DiagnosticFamily, enumName: 'DiagnosticFamily' })
+  @IsEnum(DiagnosticFamily)
+  family!: DiagnosticFamily;
 
   @ApiPropertyOptional({ maxLength: UTM_MAX, example: 'instagram' })
   @IsOptional()

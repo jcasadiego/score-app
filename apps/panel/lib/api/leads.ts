@@ -4,31 +4,31 @@ import type { EstadoLead, FamiliaDiagnostico } from "@/lib/leads/etiquetas";
 
 export interface Lead {
   id: string;
-  nombre: string;
+  name: string;
   email: string;
-  telefono: string | null;
-  familia: FamiliaDiagnostico;
+  phone: string | null;
+  family: FamiliaDiagnostico;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
-  estado: EstadoLead;
-  creadoEn: string;
-  actualizadoEn: string;
+  status: EstadoLead;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaginaLeads {
-  datos: Lead[];
+  data: Lead[];
   total: number;
-  pagina: number;
-  tamano: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface FiltroLeads {
-  pagina: number;
-  tamano: number;
-  q?: string;
-  familia?: FamiliaDiagnostico;
-  estado?: EstadoLead;
+  page: number;
+  pageSize: number;
+  search?: string;
+  family?: FamiliaDiagnostico;
+  status?: EstadoLead;
 }
 
 const MENSAJES: MensajesRecurso = {
@@ -38,27 +38,27 @@ const MENSAJES: MensajesRecurso = {
 /** Una página de leads; filtros, búsqueda y conteo los resuelve la API. */
 export function listarLeads(
   token: string,
-  { pagina, tamano, q, familia, estado }: FiltroLeads,
+  { page, pageSize, search, family, status }: FiltroLeads,
 ): Promise<PaginaLeads> {
   const params = new URLSearchParams({
-    pagina: String(pagina),
-    tamano: String(tamano),
+    page: String(page),
+    pageSize: String(pageSize),
   });
-  if (q) params.set("q", q);
-  if (familia) params.set("familia", familia);
-  if (estado) params.set("estado", estado);
+  if (search) params.set("search", search);
+  if (family) params.set("family", family);
+  if (status) params.set("status", status);
   return llamarApi<PaginaLeads>(token, `/leads?${params}`, MENSAJES);
 }
 
 export function cambiarEstadoLead(
   token: string,
   id: string,
-  estado: EstadoLead,
+  status: EstadoLead,
 ): Promise<Lead> {
   return llamarApi<Lead>(
     token,
-    `/leads/${encodeURIComponent(id)}/estado`,
+    `/leads/${encodeURIComponent(id)}/status`,
     MENSAJES,
-    { method: "PATCH", body: JSON.stringify({ estado }) },
+    { method: "PATCH", body: JSON.stringify({ status }) },
   );
 }

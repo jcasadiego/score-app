@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
-import { ActorAuditoria } from '../../generated/prisma/enums';
+import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { EnvValidado } from '../config/validar-env';
 import { CorreoService } from '../correo/correo.service';
@@ -49,19 +49,19 @@ export class RecuperacionContrasenaService {
    * del proveedor de correo no le llega a quien pidió el enlace (queda en
    * Auditoría vía `CorreoService`).
    */
-  solicitar(email: string): { mensaje: string } {
+  solicitar(email: string): { message: string } {
     void this.procesarSolicitud(email).catch((error: unknown) =>
       this.logger.error(
         'Falló la solicitud de recuperación de contraseña',
         error instanceof Error ? error.stack : undefined,
       ),
     );
-    return { mensaje: MENSAJE_SOLICITUD };
+    return { message: MENSAJE_SOLICITUD };
   }
 
   async procesarSolicitud(email: string): Promise<void> {
     const usuario = await this.usuarios.buscarPorEmail(email);
-    if (!usuario || !usuario.activo) {
+    if (!usuario || !usuario.active) {
       return;
     }
 
@@ -69,23 +69,23 @@ export class RecuperacionContrasenaService {
     // Borrar los pendientes y crear el nuevo juntos: pedir un enlace nuevo
     // invalida el anterior.
     await this.prisma.$transaction([
-      this.prisma.tokenRecuperacionContrasena.deleteMany({
-        where: { usuarioId: usuario.id, usadoEn: null },
+      this.prisma.passwordResetToken.deleteMany({
+        where: { userId: usuario.id, usedAt: null },
       }),
-      this.prisma.tokenRecuperacionContrasena.create({
+      this.prisma.passwordResetToken.create({
         data: {
-          usuarioId: usuario.id,
+          userId: usuario.id,
           tokenHash: hashToken(token),
-          expiraEn: new Date(Date.now() + VIGENCIA_ENLACE_MS),
+          expiresAt: new Date(Date.now() + VIGENCIA_ENLACE_MS),
         },
       }),
     ]);
 
     await this.auditoria.registrar({
-      actorTipo: ActorAuditoria.SISTEMA,
-      accion: 'RECUPERACION_CONTRASENA_SOLICITADA',
-      entidad: 'Usuario',
-      entidadId: usuario.id,
+      actorType: AuditActorType.SYSTEM,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entity: 'User',
+      entityId: usuario.id,
     });
 
     const panelUrl =
@@ -94,22 +94,22 @@ export class RecuperacionContrasenaService {
     enlace.searchParams.set('token', token);
 
     await this.correo.enviarRestablecerContrasena(
-      { para: usuario.email, nombre: usuario.nombre, enlace: enlace.href },
-      { entidad: 'Usuario', entidadId: usuario.id },
+      { para: usuario.email, nombre: usuario.name, enlace: enlace.href },
+      { entity: 'User', entityId: usuario.id },
     );
   }
 
   async restablecer(token: string, password: string): Promise<void> {
-    const registro = await this.prisma.tokenRecuperacionContrasena.findUnique({
+    const registro = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(token) },
-      include: { usuario: { select: { activo: true } } },
+      include: { user: { select: { active: true } } },
     });
 
     if (
       !registro ||
-      registro.usadoEn ||
-      registro.expiraEn <= new Date() ||
-      !registro.usuario.activo
+      registro.usedAt ||
+      registro.expiresAt <= new Date() ||
+      !registro.user.active
     ) {
       throw new BadRequestException(MENSAJE_ENLACE_INVALIDO);
     }
@@ -119,29 +119,29 @@ export class RecuperacionContrasenaService {
     await this.prisma.$transaction(async (tx) => {
       // Marcar como usado solo si sigue sin usar: si dos requests llegan a
       // la vez con el mismo enlace, solo una cambia la contraseña.
-      const { count } = await tx.tokenRecuperacionContrasena.updateMany({
-        where: { id: registro.id, usadoEn: null },
-        data: { usadoEn: new Date() },
+      const { count } = await tx.passwordResetToken.updateMany({
+        where: { id: registro.id, usedAt: null },
+        data: { usedAt: new Date() },
       });
       if (count === 0) {
         throw new BadRequestException(MENSAJE_ENLACE_INVALIDO);
       }
 
-      await tx.usuario.update({
-        where: { id: registro.usuarioId },
+      await tx.user.update({
+        where: { id: registro.userId },
         data: datosPassword,
       });
-      await tx.tokenRecuperacionContrasena.deleteMany({
-        where: { usuarioId: registro.usuarioId, usadoEn: null },
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: registro.userId, usedAt: null },
       });
     });
 
     await this.auditoria
       .registrar({
-        actorTipo: ActorAuditoria.SISTEMA,
-        accion: 'CONTRASENA_RESTABLECIDA',
-        entidad: 'Usuario',
-        entidadId: registro.usuarioId,
+        actorType: AuditActorType.SYSTEM,
+        action: 'PASSWORD_RESET_COMPLETED',
+        entity: 'User',
+        entityId: registro.userId,
       })
       .catch((error: unknown) =>
         this.logger.error(

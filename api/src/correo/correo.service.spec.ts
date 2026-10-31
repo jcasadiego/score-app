@@ -33,12 +33,12 @@ describe('CorreoService', () => {
     });
 
     expect(resultado).toEqual({ enviado: true, proveedorId: 'em_1' });
-    const mensaje = proveedor.enviar.mock.calls[0][0];
-    expect(mensaje.para).toBe('ana@example.com');
-    expect(mensaje.asunto).toBe('Tu diagnóstico SCORE');
-    expect(mensaje.html).toContain(`href="${ENLACE}"`);
-    expect(mensaje.html).toContain('lang="es"');
-    expect(mensaje.texto).toContain(ENLACE);
+    const message = proveedor.enviar.mock.calls[0][0];
+    expect(message.para).toBe('ana@example.com');
+    expect(message.asunto).toBe('Tu diagnóstico SCORE');
+    expect(message.html).toContain(`href="${ENLACE}"`);
+    expect(message.html).toContain('lang="es"');
+    expect(message.texto).toContain(ENLACE);
   });
 
   it('registra el envío en Auditoría sin el enlace ni el email completo', async () => {
@@ -46,19 +46,19 @@ describe('CorreoService', () => {
 
     await service.enviarRecuperacionEnlace(
       { para: 'ana@example.com', nombre: 'Ana', enlace: ENLACE },
-      { entidad: 'Caso', entidadId: 'caso-1' },
+      { entity: 'Caso', entityId: 'caso-1' },
     );
 
     expect(auditoria.registrar).toHaveBeenCalledWith({
-      actorTipo: 'SISTEMA',
+      actorType: 'SYSTEM',
       actorId: undefined,
-      accion: 'CORREO_ENVIADO',
-      entidad: 'Caso',
-      entidadId: 'caso-1',
-      datos: {
-        tipo: 'RECUPERAR_ENLACE',
-        destinatario: 'a***@example.com',
-        proveedorId: 'em_1',
+      action: 'EMAIL_SENT',
+      entity: 'Caso',
+      entityId: 'caso-1',
+      data: {
+        type: 'LINK_RECOVERY',
+        recipient: 'a***@example.com',
+        providerId: 'em_1',
       },
     });
     expect(JSON.stringify(auditoria.registrar.mock.calls)).not.toContain(
@@ -84,10 +84,10 @@ describe('CorreoService', () => {
     });
     expect(auditoria.registrar).toHaveBeenCalledWith(
       expect.objectContaining({
-        accion: 'CORREO_FALLIDO',
-        entidad: 'Correo',
-        datos: expect.objectContaining({
-          motivo: 'daily_quota_exceeded (429): límite diario',
+        action: 'EMAIL_FAILED',
+        entity: 'Email',
+        data: expect.objectContaining({
+          reason: 'daily_quota_exceeded (429): límite diario',
         }),
       }),
     );

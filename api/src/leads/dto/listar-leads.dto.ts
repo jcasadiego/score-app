@@ -1,62 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
-import {
-  EstadoLead,
-  FamiliaDiagnostico,
-} from '../../../generated/prisma/enums';
-import {
-  TAMANO_PAGINA_MAX,
-  TAMANO_PAGINA_POR_DEFECTO,
-} from '../../usuarios/dto/listar-usuarios.dto';
-import { Recortar } from '../../usuarios/dto/normalizar-texto';
+import { IsEnum, IsOptional } from 'class-validator';
+import { DiagnosticFamily, LeadStatus } from '../../../generated/prisma/enums';
+import { ListarUsuariosDto } from '../../usuarios/dto/listar-usuarios.dto';
 
-export class ListarLeadsDto {
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+/** Paginación y búsqueda de siempre, más los filtros propios de leads. */
+export class ListarLeadsDto extends ListarUsuariosDto {
+  @ApiPropertyOptional({ enum: DiagnosticFamily, enumName: 'DiagnosticFamily' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  pagina: number = 1;
+  @IsEnum(DiagnosticFamily)
+  family?: DiagnosticFamily;
 
-  @ApiPropertyOptional({
-    minimum: 1,
-    maximum: TAMANO_PAGINA_MAX,
-    default: TAMANO_PAGINA_POR_DEFECTO,
-  })
+  @ApiPropertyOptional({ enum: LeadStatus, enumName: 'LeadStatus' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(TAMANO_PAGINA_MAX)
-  tamano: number = TAMANO_PAGINA_POR_DEFECTO;
-
-  /** Búsqueda parcial, sin distinguir mayúsculas, por nombre o email. */
-  @ApiPropertyOptional({ maxLength: 100 })
-  @IsOptional()
-  @Recortar()
-  @IsString()
-  @MaxLength(100)
-  q?: string;
-
-  @ApiPropertyOptional({
-    enum: FamiliaDiagnostico,
-    enumName: 'FamiliaDiagnostico',
-  })
-  @IsOptional()
-  @IsEnum(FamiliaDiagnostico)
-  familia?: FamiliaDiagnostico;
-
-  @ApiPropertyOptional({ enum: EstadoLead, enumName: 'EstadoLead' })
-  @IsOptional()
-  @IsEnum(EstadoLead)
-  estado?: EstadoLead;
+  @IsEnum(LeadStatus)
+  status?: LeadStatus;
 }

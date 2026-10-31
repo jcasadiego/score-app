@@ -38,7 +38,7 @@ export default async function UsuariosPage({
   const pagina =
     Number.isInteger(paginaPedida) && paginaPedida > 0 ? paginaPedida : 1;
   const q = primerValor(params.q)?.trim().slice(0, 100) || undefined;
-  const filtro = { pagina, tamano: TAMANO_PAGINA, q };
+  const filtro = { page: pagina, pageSize: TAMANO_PAGINA, search: q };
 
   const escenario = escenarioDePrueba(primerValor(params.data));
 

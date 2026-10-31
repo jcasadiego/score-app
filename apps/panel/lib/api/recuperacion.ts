@@ -14,7 +14,7 @@ function urlBase(): string {
 async function postPublico(path: string, cuerpo: unknown): Promise<Response> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${urlBase()}/api/v1/auth/recuperacion${path}`, {
+    respuesta = await fetch(`${urlBase()}/api/v1/auth/password-reset${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo),
@@ -41,7 +41,7 @@ async function postPublico(path: string, cuerpo: unknown): Promise<Response> {
  * hay nada que distinguir: si no hubo error, se muestra el mismo aviso.
  */
 export async function solicitarRecuperacion(email: string): Promise<void> {
-  const respuesta = await postPublico("/solicitar", { email });
+  const respuesta = await postPublico("/request", { email });
   if (!respuesta.ok) {
     throw new ErrorApi(respuesta.status, MENSAJE_ERROR_GENERICO);
   }
@@ -51,17 +51,17 @@ export async function restablecerContrasena(
   token: string,
   password: string,
 ): Promise<void> {
-  const respuesta = await postPublico("/restablecer", { token, password });
+  const respuesta = await postPublico("/confirm", { token, password });
   if (respuesta.ok) return;
 
   if (respuesta.status === 400) {
-    const cuerpo = (await respuesta.json().catch(() => null)) as {
-      mensaje?: string | string[];
+    const body = (await respuesta.json().catch(() => null)) as {
+      message?: string | string[];
     } | null;
     // Enlace inválido, usado o vencido llega como un único mensaje; los
     // errores de validación del body (ValidationPipe) llegan como lista.
-    if (typeof cuerpo?.mensaje === "string") {
-      throw new ErrorApi(STATUS_ENLACE_INVALIDO, cuerpo.mensaje);
+    if (typeof body?.message === "string") {
+      throw new ErrorApi(STATUS_ENLACE_INVALIDO, body.message);
     }
     throw new ErrorApi(
       400,

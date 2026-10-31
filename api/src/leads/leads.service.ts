@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { EstadoLead, FamiliaDiagnostico } from '../../generated/prisma/enums';
+import { DiagnosticFamily, LeadStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearLeadDto } from './dto/crear-lead.dto';
 
@@ -11,7 +11,7 @@ import { CrearLeadDto } from './dto/crear-lead.dto';
  */
 const SELECT_RESPUESTA = {
   id: true,
-  estado: true,
+  status: true,
 } satisfies Prisma.LeadSelect;
 
 export type LeadCreado = Prisma.LeadGetPayload<{
@@ -21,16 +21,16 @@ export type LeadCreado = Prisma.LeadGetPayload<{
 /** Lo que ve el equipo en `apps/panel` (solo ADMIN). */
 const SELECT_PANEL = {
   id: true,
-  nombre: true,
+  name: true,
   email: true,
-  telefono: true,
-  familia: true,
+  phone: true,
+  family: true,
   utmSource: true,
   utmMedium: true,
   utmCampaign: true,
-  estado: true,
-  creadoEn: true,
-  actualizadoEn: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
 } satisfies Prisma.LeadSelect;
 
 export type LeadPanel = Prisma.LeadGetPayload<{
@@ -38,18 +38,18 @@ export type LeadPanel = Prisma.LeadGetPayload<{
 }>;
 
 interface ListarLeadsParams {
-  pagina: number;
-  tamano: number;
-  q?: string;
-  familia?: FamiliaDiagnostico;
-  estado?: EstadoLead;
+  page: number;
+  pageSize: number;
+  search?: string;
+  family?: DiagnosticFamily;
+  status?: LeadStatus;
 }
 
 export interface PaginaLeads {
-  datos: LeadPanel[];
+  data: LeadPanel[];
   total: number;
-  pagina: number;
-  tamano: number;
+  page: number;
+  pageSize: number;
 }
 
 @Injectable()
@@ -59,10 +59,10 @@ export class LeadsService {
   crear(dto: CrearLeadDto): Promise<LeadCreado> {
     return this.prisma.lead.create({
       data: {
-        nombre: dto.nombre,
+        name: dto.name,
         email: dto.email,
-        telefono: dto.telefono,
-        familia: dto.familia,
+        phone: dto.phone,
+        family: dto.family,
         utmSource: dto.utmSource,
         utmMedium: dto.utmMedium,
         utmCampaign: dto.utmCampaign,
@@ -77,35 +77,35 @@ export class LeadsService {
    * que la paginación sea estable.
    */
   async listar({
-    pagina,
-    tamano,
-    q,
-    familia,
-    estado,
+    page,
+    pageSize,
+    search,
+    family,
+    status,
   }: ListarLeadsParams): Promise<PaginaLeads> {
     const where: Prisma.LeadWhereInput = {
-      familia,
-      estado,
-      ...(q && {
+      family,
+      status,
+      ...(search && {
         OR: [
-          { nombre: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
 
-    const [datos, total] = await this.prisma.$transaction([
+    const [data, total] = await this.prisma.$transaction([
       this.prisma.lead.findMany({
         where,
         select: SELECT_PANEL,
-        orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
-        skip: (pagina - 1) * tamano,
-        take: tamano,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
       this.prisma.lead.count({ where }),
     ]);
 
-    return { datos, total, pagina, tamano };
+    return { data, total, page, pageSize };
   }
 
   async obtener(id: string): Promise<LeadPanel> {
@@ -121,11 +121,11 @@ export class LeadsService {
     return lead;
   }
 
-  async cambiarEstado(id: string, estado: EstadoLead): Promise<LeadPanel> {
+  async cambiarEstado(id: string, status: LeadStatus): Promise<LeadPanel> {
     try {
       return await this.prisma.lead.update({
         where: { id },
-        data: { estado },
+        data: { status },
         select: SELECT_PANEL,
       });
     } catch (error) {

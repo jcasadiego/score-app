@@ -5,7 +5,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/">) {
   const sesion = await verificarSesion();
 
   return (
-    <AppShell usuario={{ email: sesion.email, rol: sesion.rol }}>
+    <AppShell usuario={{ email: sesion.email, rol: sesion.role }}>
       {children}
     </AppShell>
   );

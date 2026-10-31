@@ -17,21 +17,21 @@ vi.mock('argon2');
 
 const USUARIO = {
   id: 'u1',
-  nombre: 'Ana',
+  name: 'Ana',
   email: 'ana@test.local',
-  activo: true,
+  active: true,
 };
 
 describe('RecuperacionContrasenaService', () => {
   let prisma: {
     $transaction: Mock;
-    tokenRecuperacionContrasena: {
+    passwordResetToken: {
       create: Mock;
       deleteMany: Mock;
       findUnique: Mock;
       updateMany: Mock;
     };
-    usuario: { update: Mock };
+    user: { update: Mock };
   };
   let usuarios: { buscarPorEmail: Mock };
   let correo: { enviarRestablecerContrasena: Mock };
@@ -42,13 +42,13 @@ describe('RecuperacionContrasenaService', () => {
     (argon2.hash as Mock).mockResolvedValue('hash-nuevo');
     prisma = {
       $transaction: vi.fn(),
-      tokenRecuperacionContrasena: {
+      passwordResetToken: {
         create: vi.fn().mockReturnValue('crear'),
         deleteMany: vi.fn().mockReturnValue('borrar'),
         findUnique: vi.fn(),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-      usuario: { update: vi.fn() },
+      user: { update: vi.fn() },
     };
     // Forma de arreglo (solicitar) o callback interactivo (restablecer).
     prisma.$transaction.mockImplementation((arg: unknown) =>
@@ -77,12 +77,12 @@ describe('RecuperacionContrasenaService', () => {
     it('responde lo mismo exista o no el correo', () => {
       usuarios.buscarPorEmail.mockResolvedValue(null);
       expect(service.solicitar('nadie@test.local')).toEqual({
-        mensaje: MENSAJE_SOLICITUD,
+        message: MENSAJE_SOLICITUD,
       });
 
       usuarios.buscarPorEmail.mockResolvedValue(USUARIO);
       expect(service.solicitar(USUARIO.email)).toEqual({
-        mensaje: MENSAJE_SOLICITUD,
+        message: MENSAJE_SOLICITUD,
       });
     });
 
@@ -91,19 +91,18 @@ describe('RecuperacionContrasenaService', () => {
 
       await service.procesarSolicitud(USUARIO.email);
 
-      expect(
-        prisma.tokenRecuperacionContrasena.deleteMany,
-      ).toHaveBeenCalledWith({ where: { usuarioId: 'u1', usadoEn: null } });
+      expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', usedAt: null },
+      });
       const { enlace } = correo.enviarRestablecerContrasena.mock.calls[0][0];
       const token = new URL(enlace).searchParams.get('token');
       expect(enlace).toMatch(
         /^https:\/\/panel\.example\.com\/restablecer-contrasena\?token=/,
       );
-      const { data } =
-        prisma.tokenRecuperacionContrasena.create.mock.calls[0][0];
+      const { data } = prisma.passwordResetToken.create.mock.calls[0][0];
       expect(data.tokenHash).toBe(hashToken(token));
       expect(data.tokenHash).not.toBe(token);
-      const vigenciaMs = data.expiraEn.getTime() - Date.now();
+      const vigenciaMs = data.expiresAt.getTime() - Date.now();
       expect(vigenciaMs).toBeGreaterThan(59 * 60 * 1000);
       expect(vigenciaMs).toBeLessThanOrEqual(60 * 60 * 1000);
       expect(JSON.stringify(auditoria.registrar.mock.calls)).not.toContain(
@@ -116,11 +115,11 @@ describe('RecuperacionContrasenaService', () => {
       await service.procesarSolicitud('nadie@test.local');
       usuarios.buscarPorEmail.mockResolvedValueOnce({
         ...USUARIO,
-        activo: false,
+        active: false,
       });
       await service.procesarSolicitud(USUARIO.email);
 
-      expect(prisma.tokenRecuperacionContrasena.create).not.toHaveBeenCalled();
+      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(correo.enviarRestablecerContrasena).not.toHaveBeenCalled();
     });
   });
@@ -128,66 +127,62 @@ describe('RecuperacionContrasenaService', () => {
   describe('restablecer', () => {
     const vigente = {
       id: 't1',
-      usuarioId: 'u1',
-      usadoEn: null,
-      expiraEn: new Date(Date.now() + 60_000),
-      usuario: { activo: true },
+      userId: 'u1',
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      user: { active: true },
     };
 
-    it('cambia la contraseña, sube versionSesion y marca el enlace como usado', async () => {
-      prisma.tokenRecuperacionContrasena.findUnique.mockResolvedValue(vigente);
+    it('cambia la contraseña, sube sessionVersion y marca el enlace como usado', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(vigente);
 
       await service.restablecer('token-ok', 'nueva-clave');
 
-      expect(
-        prisma.tokenRecuperacionContrasena.findUnique,
-      ).toHaveBeenCalledWith(
+      expect(prisma.passwordResetToken.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tokenHash: hashToken('token-ok') },
         }),
       );
-      expect(
-        prisma.tokenRecuperacionContrasena.updateMany,
-      ).toHaveBeenCalledWith({
-        where: { id: 't1', usadoEn: null },
-        data: { usadoEn: expect.any(Date) },
+      expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledWith({
+        where: { id: 't1', usedAt: null },
+        data: { usedAt: expect.any(Date) },
       });
-      expect(prisma.usuario.update).toHaveBeenCalledWith({
+      expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
-        data: { passwordHash: 'hash-nuevo', versionSesion: { increment: 1 } },
+        data: { passwordHash: 'hash-nuevo', sessionVersion: { increment: 1 } },
       });
       expect(auditoria.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
-          accion: 'CONTRASENA_RESTABLECIDA',
-          entidadId: 'u1',
+          action: 'PASSWORD_RESET_COMPLETED',
+          entityId: 'u1',
         }),
       );
     });
 
     it.each([
       ['inexistente', null],
-      ['ya usado', { ...vigente, usadoEn: new Date() }],
-      ['vencido', { ...vigente, expiraEn: new Date(Date.now() - 1) }],
-      ['de usuario inactivo', { ...vigente, usuario: { activo: false } }],
+      ['ya usado', { ...vigente, usedAt: new Date() }],
+      ['vencido', { ...vigente, expiresAt: new Date(Date.now() - 1) }],
+      ['de usuario inactivo', { ...vigente, user: { active: false } }],
     ])('rechaza con 400 un enlace %s', async (_caso, registro) => {
-      prisma.tokenRecuperacionContrasena.findUnique.mockResolvedValue(registro);
+      prisma.passwordResetToken.findUnique.mockResolvedValue(registro);
 
       await expect(service.restablecer('t', 'nueva-clave')).rejects.toThrow(
         BadRequestException,
       );
-      expect(prisma.usuario.update).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('si otra request ya usó el enlace, no cambia la contraseña', async () => {
-      prisma.tokenRecuperacionContrasena.findUnique.mockResolvedValue(vigente);
-      prisma.tokenRecuperacionContrasena.updateMany.mockResolvedValue({
+      prisma.passwordResetToken.findUnique.mockResolvedValue(vigente);
+      prisma.passwordResetToken.updateMany.mockResolvedValue({
         count: 0,
       });
 
       await expect(service.restablecer('t', 'nueva-clave')).rejects.toThrow(
         BadRequestException,
       );
-      expect(prisma.usuario.update).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 });

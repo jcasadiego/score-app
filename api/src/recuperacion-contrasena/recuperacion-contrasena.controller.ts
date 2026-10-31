@@ -12,11 +12,11 @@ import { RecuperacionContrasenaService } from './recuperacion-contrasena.service
  * spam de correos, la otra el intento de adivinar tokens.
  */
 @ApiTags('auth')
-@Controller('auth/recuperacion')
+@Controller('auth/password-reset')
 export class RecuperacionContrasenaController {
   constructor(private readonly recuperacion: RecuperacionContrasenaService) {}
 
-  @Post('solicitar')
+  @Post('request')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @RedactarEnAuditoria('email')
@@ -25,7 +25,7 @@ export class RecuperacionContrasenaController {
   }
 
   /** `token` y `password` ya se redactan en la bitácora por defecto. */
-  @Post('restablecer')
+  @Post('confirm')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   restablecer(@Body() dto: RestablecerContrasenaDto) {

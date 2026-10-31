@@ -64,9 +64,9 @@ pendientes:
   validación global, rate limiting, también en login), versionado de
   rutas (`/api/v1`, Swagger autogenerado en `/docs` fuera de
   producción), bitácora de auditoría con actor tipado
-  (`USUARIO_PANEL`/`CLIENTE_FINAL`/`SISTEMA`) vía `AuditoriaInterceptor`,
+  (`PANEL_USER`/`END_CLIENT`/`SYSTEM`) vía `AuditoriaInterceptor`,
   versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
-  de usuarios internos (`/usuarios`, solo ADMIN; `activo: false` revoca
+  de usuarios internos (`/users`, solo ADMIN; `active: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
   mismo; cambiar la contraseña cierra sus sesiones), recuperación de
   contraseña del panel por correo, seed del primer ADMIN, el token de
@@ -334,31 +334,28 @@ Glosario de base (usarlo igual en todas las fases):
 | Caso / diagnóstico / enlace | Case / diagnostic / access link |
 | correo / auditoría / reglas / motor de cálculo | mail / audit / rules / scoring engine |
 
-- [ ] **Fase 1 — Contrato HTTP (api + panel en el mismo PR).** Rutas y
-  campos JSON a inglés, error `{ statusCode, message, error }` (deja de
-  existir `mensaje`) y paginación `{ data, total, page, pageSize }`; el
-  panel se adapta en el mismo PR para no quedar roto. Rutas:
-  `/usuarios` → `/users` (`/activar` → `/activate`, `/desactivar` →
-  `/deactivate`), `/leads/:id/estado` → `/leads/:id/status`,
-  `/token-enlace/emitir` → `POST /access-links`,
-  `/auth/recuperacion/solicitar|restablecer` →
-  `/auth/password-reset/request|confirm`. **`POST
-  /leads/precalificacion` es el contrato con `score-sitio` (sección
-  7):** se publica la ruta y los campos nuevos y la vieja queda como
-  alias hasta que el sitio migre; coordinar con José y actualizar
-  `api/docs/contrato-precalificacion.md`.
-- [ ] **Fase 2 — Base de datos.** Modelos, campos y enums a inglés
-  (glosario), con tablas y columnas `snake_case` vía `@@map`/`@map`. La
-  migración se escribe a mano con `ALTER TABLE … RENAME` y `ALTER TYPE …
-  RENAME VALUE` para no perder datos (Prisma por defecto genera DROP +
-  CREATE en un rename: revisar el SQL antes de aplicarlo), más un
-  `UPDATE` de las acciones de la bitácora (`CORREO_ENVIADO` →
-  `EMAIL_SENT`, `CORREO_FALLIDO` → `EMAIL_FAILED`,
-  `RECUPERACION_CONTRASENA_SOLICITADA` → `PASSWORD_RESET_REQUESTED`,
-  `CONTRASENA_RESTABLECIDA` → `PASSWORD_RESET_COMPLETED`). Comprobar con
-  `prisma migrate diff` que el schema y la base quedan iguales. El
-  código que usa el cliente de Prisma se ajusta en el mismo PR (cambian
-  los nombres generados).
+- [x] **Fases 1 y 2 — Contrato HTTP y base de datos (un solo PR).** Se
+  juntaron porque las respuestas de la api son los `select` de Prisma: los
+  campos JSON salen de los nombres del schema, y separarlas obligaba a una
+  capa de traducción que se tiraba en la fase siguiente. Hecho:
+  - Modelos, campos y enums en inglés (glosario), con tablas y columnas
+    `snake_case` vía `@@map`/`@map`. Migración escrita a mano
+    (`20261031140000_nombres_en_ingles`): solo `RENAME`, más un `UPDATE`
+    de las acciones y entidades viejas de la bitácora (`CORREO_ENVIADO` →
+    `EMAIL_SENT`, `Usuario` → `User`, etc.). Prisma por defecto resuelve
+    un rename como DROP + CREATE: en próximas migraciones de renombre,
+    revisar siempre el SQL antes de aplicarlo.
+  - Rutas: `/users` (`/activate`, `/deactivate`), `/leads/:id/status`,
+    `/leads/prequalification`, `POST /access-links`,
+    `/auth/password-reset/request|confirm`. Campos JSON y query params en
+    inglés; paginación `?page=&pageSize=&search=` → `{ data, total, page,
+    pageSize }`; error `{ statusCode, message, error }`; claim `role` en
+    el JWT. El panel se adaptó en el mismo PR (sus URLs siguen en
+    español hasta la fase 4).
+  - **Pendiente de esta fase:** `POST /leads/precalificacion` queda como
+    alias con el contrato viejo completo (`src/leads/legacy/`). Borrarlo
+    cuando `score-sitio` use la ruta nueva — coordinar con José (ver
+    `api/docs/contrato-precalificacion.md`).
 - [ ] **Fase 3 — Resto del código de `api` y variables de entorno.**
   Carpetas y módulos (`auditoria` → `audit`, `correo` → `mail`,
   `usuarios` → `users`, `recuperacion-contrasena` → `password-reset`,

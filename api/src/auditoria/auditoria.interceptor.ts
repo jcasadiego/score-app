@@ -5,6 +5,7 @@ import {
   Logger,
   NestInterceptor,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
 import { Prisma } from '../../generated/prisma/client';
@@ -14,6 +15,7 @@ import {
   RegistrarAuditoriaParams,
 } from './auditoria.service';
 import { redactarDatosSensibles } from './redactar-datos-sensibles';
+import { CLAVES_REDACTAR_AUDITORIA } from './redactar-en-auditoria.decorator';
 
 const METODOS_AUDITABLES = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -32,7 +34,10 @@ interface RequestAuditable extends Request {
 export class AuditoriaInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditoriaInterceptor.name);
 
-  constructor(private readonly auditoria: AuditoriaService) {}
+  constructor(
+    private readonly auditoria: AuditoriaService,
+    private readonly reflector: Reflector,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<RequestAuditable>();
@@ -40,6 +45,12 @@ export class AuditoriaInterceptor implements NestInterceptor {
     if (!METODOS_AUDITABLES.includes(request.method)) {
       return next.handle();
     }
+
+    const clavesExtra =
+      this.reflector.getAllAndOverride<string[] | undefined>(
+        CLAVES_REDACTAR_AUDITORIA,
+        [context.getHandler(), context.getClass()],
+      ) ?? [];
 
     return next.handle().pipe(
       tap(() => {
@@ -49,9 +60,9 @@ export class AuditoriaInterceptor implements NestInterceptor {
             accion: request.method,
             entidad: request.path,
             datos: {
-              body: redactarDatosSensibles(request.body),
-              params: redactarDatosSensibles(request.params),
-              query: redactarDatosSensibles(request.query),
+              body: redactarDatosSensibles(request.body, clavesExtra),
+              params: redactarDatosSensibles(request.params, clavesExtra),
+              query: redactarDatosSensibles(request.query, clavesExtra),
             } as Prisma.InputJsonValue,
           })
           .catch((err: unknown) =>

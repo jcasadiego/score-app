@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
+import { LeadsModule } from './leads/leads.module';
 import { MotorCalculoModule } from './motor-calculo/motor-calculo.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReglasModule } from './reglas/reglas.module';
@@ -28,6 +29,7 @@ import { validarEnv } from './config/validar-env';
     UsuariosModule,
     AuthModule,
     TokenEnlaceModule,
+    LeadsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

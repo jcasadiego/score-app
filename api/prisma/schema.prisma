@@ -74,3 +74,40 @@ model Usuario {
   creadoEn      DateTime   @default(now())
   actualizadoEn DateTime   @updatedAt
 }
+
+/// Familia de diagnóstico que el cliente elige en el formulario de
+/// precalificación de `score-sitio`. La API no la infiere: llega ya
+/// elegida en el payload.
+enum FamiliaDiagnostico {
+  PROYECTO
+  B2B
+  PROFESIONAL
+  CATALOGO
+}
+
+/// Estado de un lead. Por ahora solo existe el inicial — los siguientes
+/// (pago, diagnóstico activado, etc.) los agrega el módulo de Pagos.
+enum EstadoLead {
+  NUEVO
+}
+
+/// Lead registrado desde el formulario de precalificación de
+/// `score-sitio` (único punto de contacto entre los dos repos, ver
+/// CLAUDE.md sección 7). `email` no es único a propósito: la misma
+/// persona puede precalificar más de una vez.
+model Lead {
+  id            String             @id @default(cuid())
+  nombre        String
+  email         String
+  telefono      String?
+  familia       FamiliaDiagnostico
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  estado        EstadoLead         @default(NUEVO)
+  creadoEn      DateTime           @default(now())
+  actualizadoEn DateTime           @updatedAt
+
+  @@index([email])
+  @@index([creadoEn])
+}

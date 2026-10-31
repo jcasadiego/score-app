@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { accionLogin, type EstadoLogin } from "./actions";
 
 const estadoInicial: EstadoLogin = {};
 
-export function FormularioLogin() {
+export function FormularioLogin({ aviso }: { aviso?: string }) {
   const [estado, accionFormulario, pendiente] = useActionState(
     accionLogin,
     estadoInicial,
@@ -24,6 +25,12 @@ export function FormularioLogin() {
 
       <form action={accionFormulario}>
         <Form component={false} layout="vertical" disabled={pendiente}>
+          {aviso && !estado.error && (
+            <Form.Item>
+              <Alert type="success" showIcon title={aviso} />
+            </Form.Item>
+          )}
+
           {estado.error && (
             <Form.Item>
               <Alert type="error" showIcon title={estado.error} />
@@ -53,6 +60,8 @@ export function FormularioLogin() {
               placeholder="••••••••"
             />
           </Form.Item>
+
+          <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
 
           <Form.Item style={{ marginTop: 24, marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" block loading={pendiente}>

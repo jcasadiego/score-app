@@ -24,6 +24,8 @@ const EsquemaEnv = z
     ENLACE_JWT_EXPIRACION: z.string().default('24h'),
     THROTTLE_TTL: z.coerce.number().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().default(100),
+    // Base de los enlaces del panel que salen por correo (recuperación).
+    PANEL_URL: opcional(z.url()),
     // `log` no envía nada real (desarrollo); `resend` envía de verdad.
     CORREO_MODO: z.enum(['log', 'resend']).default('log'),
     RESEND_API_KEY: opcional(z.string()),
@@ -34,6 +36,13 @@ const EsquemaEnv = z
   .superRefine((env, ctx) => {
     // Fuera de desarrollo, un correo que no sale debe impedir el arranque,
     // no descubrirse cuando un cliente reclama que no le llegó el enlace.
+    if (env.NODE_ENV === 'production' && !env.PANEL_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PANEL_URL'],
+        message: 'obligatoria en producción (va en los enlaces por correo)',
+      });
+    }
     if (env.NODE_ENV === 'production' && env.CORREO_MODO !== 'resend') {
       ctx.addIssue({
         code: 'custom',

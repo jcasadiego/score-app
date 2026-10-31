@@ -75,6 +75,7 @@ describe('AuthService', () => {
       passwordHash: 'hash-real',
       rol: 'ADMIN',
       activo: true,
+      versionSesion: 4,
     });
     argon2VerifyMock.mockResolvedValue(true);
 
@@ -84,5 +85,9 @@ describe('AuthService', () => {
     );
 
     expect(resultado.accessToken).toEqual(expect.any(String));
+    const payload = JSON.parse(
+      Buffer.from(resultado.accessToken.split('.')[1], 'base64url').toString(),
+    );
+    expect(payload).toMatchObject({ sub: '1', ver: 4 });
   });
 });

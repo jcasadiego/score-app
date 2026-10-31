@@ -151,6 +151,36 @@ describe('UsuariosService', () => {
     });
   });
 
+  describe('actualizar', () => {
+    it('sin password no toca la contraseña ni las sesiones', async () => {
+      prisma.usuario.update.mockResolvedValue({ id: '1' });
+
+      await service.actualizar('1', { nombre: 'Ana' });
+
+      expect(argon2HashMock).not.toHaveBeenCalled();
+      expect(prisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { nombre: 'Ana' } }),
+      );
+    });
+
+    it('con password la hashea y sube versionSesion para cerrar sesiones', async () => {
+      prisma.usuario.update.mockResolvedValue({ id: '1' });
+
+      await service.actualizar('1', { nombre: 'Ana', password: 'nueva-clave' });
+
+      expect(argon2HashMock).toHaveBeenCalledWith('nueva-clave');
+      expect(prisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            nombre: 'Ana',
+            passwordHash: 'hash-generado',
+            versionSesion: { increment: 1 },
+          },
+        }),
+      );
+    });
+  });
+
   describe('desactivar / activar', () => {
     it('desactivar actualiza activo a false', async () => {
       prisma.usuario.update.mockResolvedValue({

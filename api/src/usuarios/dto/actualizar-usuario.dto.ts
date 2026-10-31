@@ -14,7 +14,7 @@ export class ActualizarUsuarioDto {
   @IsString()
   @MinLength(2)
   @MaxLength(NOMBRE_MAX)
-  nombre?: string;
+  name?: string;
 
   @IsOptional()
   @Recortar()

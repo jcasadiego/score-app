@@ -41,8 +41,8 @@ describe('AuthService', () => {
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
-      rol: 'ADMIN',
-      activo: true,
+      role: 'ADMIN',
+      active: true,
     });
     argon2VerifyMock.mockResolvedValue(false);
 
@@ -58,8 +58,8 @@ describe('AuthService', () => {
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
-      rol: 'ADMIN',
-      activo: false,
+      role: 'ADMIN',
+      active: false,
     });
     argon2VerifyMock.mockResolvedValue(true);
 
@@ -73,9 +73,9 @@ describe('AuthService', () => {
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
-      rol: 'ADMIN',
-      activo: true,
-      versionSesion: 4,
+      role: 'ADMIN',
+      active: true,
+      sessionVersion: 4,
     });
     argon2VerifyMock.mockResolvedValue(true);
 

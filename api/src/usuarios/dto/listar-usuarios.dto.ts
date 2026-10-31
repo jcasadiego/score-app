@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -9,27 +10,35 @@ import {
 } from 'class-validator';
 import { Recortar } from './normalizar-texto';
 
-export const TAMANO_PAGINA_POR_DEFECTO = 20;
-export const TAMANO_PAGINA_MAX = 100;
+export const DEFAULT_PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;
 
+/** Paginación y búsqueda comunes a los listados del panel. */
 export class ListarUsuariosDto {
+  @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  pagina: number = 1;
+  page: number = 1;
 
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: MAX_PAGE_SIZE,
+    default: DEFAULT_PAGE_SIZE,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(TAMANO_PAGINA_MAX)
-  tamano: number = TAMANO_PAGINA_POR_DEFECTO;
+  @Max(MAX_PAGE_SIZE)
+  pageSize: number = DEFAULT_PAGE_SIZE;
 
   /** Búsqueda parcial, sin distinguir mayúsculas, por nombre o email. */
+  @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()
   @Recortar()
   @IsString()
   @MaxLength(100)
-  q?: string;
+  search?: string;
 }

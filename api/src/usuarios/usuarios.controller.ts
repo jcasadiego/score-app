@@ -14,7 +14,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { RolUsuario } from '../../generated/prisma/enums';
+import { UserRole } from '../../generated/prisma/enums';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { ListarUsuariosDto } from './dto/listar-usuarios.dto';
@@ -30,45 +30,45 @@ interface RequestConUsuario extends Request {
  * controlador exige estar ya autenticado como ADMIN (ver seed en
  * `prisma/seed.ts` para el primer usuario).
  */
-@ApiTags('usuarios')
+@ApiTags('users')
 @ApiBearerAuth()
-@Controller('usuarios')
+@Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsuariosController {
   constructor(private readonly usuarios: UsuariosService) {}
 
   @Post()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(UserRole.ADMIN)
   crear(@Body() dto: CrearUsuarioDto) {
     return this.usuarios.crear(dto);
   }
 
   @Get()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(UserRole.ADMIN)
   listar(@Query() query: ListarUsuariosDto) {
     return this.usuarios.listar(query);
   }
 
   @Get(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(UserRole.ADMIN)
   obtener(@Param('id') id: string) {
     return this.usuarios.obtener(id);
   }
 
   @Patch(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(UserRole.ADMIN)
   actualizar(@Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
     return this.usuarios.actualizar(id, dto);
   }
 
-  @Patch(':id/desactivar')
-  @Roles(RolUsuario.ADMIN)
+  @Patch(':id/deactivate')
+  @Roles(UserRole.ADMIN)
   desactivar(@Param('id') id: string, @Req() req: RequestConUsuario) {
     return this.usuarios.desactivar(id, req.user.id);
   }
 
-  @Patch(':id/activar')
-  @Roles(RolUsuario.ADMIN)
+  @Patch(':id/activate')
+  @Roles(UserRole.ADMIN)
   activar(@Param('id') id: string) {
     return this.usuarios.activar(id);
   }

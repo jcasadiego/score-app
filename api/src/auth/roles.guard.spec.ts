@@ -1,12 +1,12 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RolUsuario } from '../../generated/prisma/enums';
+import { UserRole } from '../../generated/prisma/enums';
 import { RolesGuard } from './roles.guard';
 
-function crearContextoConUsuario(rol?: RolUsuario): ExecutionContext {
+function crearContextoConUsuario(role?: UserRole): ExecutionContext {
   return {
     switchToHttp: () => ({
-      getRequest: () => ({ user: rol ? { rol } : undefined }),
+      getRequest: () => ({ user: role ? { role } : undefined }),
     }),
     getHandler: () => ({}),
     getClass: () => ({}),
@@ -25,18 +25,18 @@ describe('RolesGuard', () => {
 
   it('deja pasar si el rol del usuario está entre los requeridos', () => {
     const reflector = {
-      getAllAndOverride: () => [RolUsuario.ADMIN],
+      getAllAndOverride: () => [UserRole.ADMIN],
     } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
 
-    expect(guard.canActivate(crearContextoConUsuario(RolUsuario.ADMIN))).toBe(
+    expect(guard.canActivate(crearContextoConUsuario(UserRole.ADMIN))).toBe(
       true,
     );
   });
 
   it('rechaza si el usuario no tiene ninguno de los roles requeridos', () => {
     const reflector = {
-      getAllAndOverride: () => [RolUsuario.ADMIN],
+      getAllAndOverride: () => [UserRole.ADMIN],
     } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
 

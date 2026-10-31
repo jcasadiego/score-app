@@ -9,7 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
 import { Prisma } from '../../generated/prisma/client';
-import { ActorAuditoria } from '../../generated/prisma/enums';
+import { AuditActorType } from '../../generated/prisma/enums';
 import {
   AuditoriaService,
   RegistrarAuditoriaParams,
@@ -57,9 +57,9 @@ export class AuditoriaInterceptor implements NestInterceptor {
         this.auditoria
           .registrar({
             ...this.resolverActor(request),
-            accion: request.method,
-            entidad: request.path,
-            datos: {
+            action: request.method,
+            entity: request.path,
+            data: {
               body: redactarDatosSensibles(request.body, clavesExtra),
               params: redactarDatosSensibles(request.params, clavesExtra),
               query: redactarDatosSensibles(request.query, clavesExtra),
@@ -80,21 +80,21 @@ export class AuditoriaInterceptor implements NestInterceptor {
    */
   private resolverActor(
     request: RequestAuditable,
-  ): Pick<RegistrarAuditoriaParams, 'actorTipo' | 'actorId'> {
+  ): Pick<RegistrarAuditoriaParams, 'actorType' | 'actorId'> {
     if (request.user?.id) {
       return {
-        actorTipo: ActorAuditoria.USUARIO_PANEL,
+        actorType: AuditActorType.PANEL_USER,
         actorId: request.user.id,
       };
     }
 
     if (request.enlace?.sub) {
       return {
-        actorTipo: ActorAuditoria.CLIENTE_FINAL,
+        actorType: AuditActorType.END_CLIENT,
         actorId: request.enlace.sub,
       };
     }
 
-    return { actorTipo: ActorAuditoria.SISTEMA };
+    return { actorType: AuditActorType.SYSTEM };
   }
 }

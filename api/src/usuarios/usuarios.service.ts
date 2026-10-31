@@ -9,39 +9,39 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const SELECT_PUBLICO = {
   id: true,
-  nombre: true,
+  name: true,
   email: true,
-  activo: true,
-  rol: true,
-  creadoEn: true,
-  actualizadoEn: true,
-} satisfies Prisma.UsuarioSelect;
+  active: true,
+  role: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
 
-export type UsuarioPublico = Prisma.UsuarioGetPayload<{
+export type UsuarioPublico = Prisma.UserGetPayload<{
   select: typeof SELECT_PUBLICO;
 }>;
 
 interface CrearUsuarioParams {
-  nombre: string;
+  name: string;
   email: string;
   password: string;
 }
 
 interface ListarUsuariosParams {
-  pagina: number;
-  tamano: number;
-  q?: string;
+  page: number;
+  pageSize: number;
+  search?: string;
 }
 
 export interface PaginaUsuarios {
-  datos: UsuarioPublico[];
+  data: UsuarioPublico[];
   total: number;
-  pagina: number;
-  tamano: number;
+  page: number;
+  pageSize: number;
 }
 
 interface ActualizarUsuarioParams {
-  nombre?: string;
+  name?: string;
   email?: string;
   password?: string;
 }
@@ -49,13 +49,13 @@ interface ActualizarUsuarioParams {
 /**
  * Datos de Prisma para cambiar una contraseña. Es el único lugar que la
  * cambia (CRUD y recuperación), para que ningún camino olvide subir
- * `versionSesion` — eso es lo que cierra las sesiones abiertas.
+ * `sessionVersion` — eso es lo que cierra las sesiones abiertas.
  */
 export async function datosCambioPassword(password: string) {
   return {
     passwordHash: await argon2.hash(password),
-    versionSesion: { increment: 1 },
-  } satisfies Prisma.UsuarioUpdateInput;
+    sessionVersion: { increment: 1 },
+  } satisfies Prisma.UserUpdateInput;
 }
 
 @Injectable()
@@ -63,23 +63,23 @@ export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
   buscarPorEmail(email: string) {
-    return this.prisma.usuario.findUnique({ where: { email } });
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   buscarPorId(id: string) {
-    return this.prisma.usuario.findUnique({ where: { id } });
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   async crear({
-    nombre,
+    name,
     email,
     password,
   }: CrearUsuarioParams): Promise<UsuarioPublico> {
     const passwordHash = await argon2.hash(password);
 
     try {
-      return await this.prisma.usuario.create({
-        data: { nombre, email, passwordHash },
+      return await this.prisma.user.create({
+        data: { name, email, passwordHash },
         select: SELECT_PUBLICO,
       });
     } catch (error) {
@@ -93,35 +93,35 @@ export class UsuariosService {
    * `id` desempata el orden para que la paginación sea estable.
    */
   async listar({
-    pagina,
-    tamano,
-    q,
+    page,
+    pageSize,
+    search,
   }: ListarUsuariosParams): Promise<PaginaUsuarios> {
-    const where: Prisma.UsuarioWhereInput = q
+    const where: Prisma.UserWhereInput = search
       ? {
           OR: [
-            { nombre: { contains: q, mode: 'insensitive' } },
-            { email: { contains: q, mode: 'insensitive' } },
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
           ],
         }
       : {};
 
-    const [datos, total] = await this.prisma.$transaction([
-      this.prisma.usuario.findMany({
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
         where,
         select: SELECT_PUBLICO,
-        orderBy: [{ creadoEn: 'asc' }, { id: 'asc' }],
-        skip: (pagina - 1) * tamano,
-        take: tamano,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
-      this.prisma.usuario.count({ where }),
+      this.prisma.user.count({ where }),
     ]);
 
-    return { datos, total, pagina, tamano };
+    return { data, total, page, pageSize };
   }
 
   async obtener(id: string): Promise<UsuarioPublico> {
-    const usuario = await this.prisma.usuario.findUnique({
+    const usuario = await this.prisma.user.findUnique({
       where: { id },
       select: SELECT_PUBLICO,
     });
@@ -138,7 +138,7 @@ export class UsuariosService {
     { password, ...datos }: ActualizarUsuarioParams,
   ): Promise<UsuarioPublico> {
     try {
-      return await this.prisma.usuario.update({
+      return await this.prisma.user.update({
         where: { id },
         data: {
           ...datos,
@@ -167,12 +167,12 @@ export class UsuariosService {
 
   private async cambiarActivo(
     id: string,
-    activo: boolean,
+    active: boolean,
   ): Promise<UsuarioPublico> {
     try {
-      return await this.prisma.usuario.update({
+      return await this.prisma.user.update({
         where: { id },
-        data: { activo },
+        data: { active },
         select: SELECT_PUBLICO,
       });
     } catch (error) {

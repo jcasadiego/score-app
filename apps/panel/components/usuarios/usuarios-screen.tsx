@@ -28,6 +28,7 @@ import {
   accionDesactivarUsuario,
   type ResultadoAccionUsuario,
 } from "@/app/(panel)/usuarios/actions";
+import { BuscadorReactivo } from "@/components/buscador-reactivo";
 
 interface UsuariosScreenProps {
   pagina: PaginaUsuarios;
@@ -73,9 +74,18 @@ export function UsuariosScreen({
   const [idEnProceso, setIdEnProceso] = useState<string | null>(null);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [form] = Form.useForm<ValoresFormulario>();
+  // Vacía el buscador cuando la búsqueda se limpia desde fuera.
+  const [reinicioBuscador, setReinicioBuscador] = useState(0);
 
-  /** Cambia página/búsqueda en la URL (conserva el resto, p. ej. `data`). */
-  function navegar(cambios: { pagina?: number; q?: string }) {
+  /**
+   * Cambia página/búsqueda en la URL (conserva el resto, p. ej. `data`).
+   * `reemplazar` no agrega una entrada al historial: es para la búsqueda
+   * mientras se escribe.
+   */
+  function navegar(
+    cambios: { pagina?: number; q?: string },
+    { reemplazar = false } = {},
+  ) {
     const params = new URLSearchParams(searchParams);
     if (cambios.q !== undefined) {
       if (cambios.q) params.set("q", cambios.q);
@@ -86,9 +96,16 @@ export function UsuariosScreen({
     else params.delete("pagina");
 
     const query = params.toString();
+    const destino = query ? `${pathname}?${query}` : pathname;
     iniciarNavegacion(() => {
-      router.push(query ? `${pathname}?${query}` : pathname);
+      if (reemplazar) router.replace(destino);
+      else router.push(destino);
     });
+  }
+
+  function limpiarBusqueda() {
+    setReinicioBuscador((n) => n + 1);
+    navegar({ q: "" });
   }
 
   function abrirCrear() {
@@ -263,7 +280,7 @@ export function UsuariosScreen({
       image={Empty.PRESENTED_IMAGE_SIMPLE}
       description={`Ningún usuario coincide con “${busqueda}”.`}
     >
-      <Button onClick={() => navegar({ q: "" })}>Limpiar búsqueda</Button>
+      <Button onClick={limpiarBusqueda}>Limpiar búsqueda</Button>
     </Empty>
   ) : (
     <Empty
@@ -296,15 +313,13 @@ export function UsuariosScreen({
         </Button>
       </Flex>
 
-      <Input.Search
-        key={busqueda}
-        defaultValue={busqueda}
+      <BuscadorReactivo
+        reinicio={reinicioBuscador}
+        valorInicial={busqueda}
+        onBuscar={(q) => navegar({ q }, { reemplazar: true })}
         placeholder="Buscar por nombre o correo"
-        aria-label="Buscar usuarios"
-        allowClear
-        maxLength={100}
-        loading={navegando}
-        onSearch={(valor) => navegar({ q: valor.trim() })}
+        ariaLabel="Buscar usuarios"
+        cargando={navegando}
         style={{ maxWidth: 360, marginBottom: 16 }}
       />
 

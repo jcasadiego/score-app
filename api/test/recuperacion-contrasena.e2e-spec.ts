@@ -159,6 +159,7 @@ describe('Recuperación de contraseña (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${BASE}/request`)
       .send({ email: 'nadie.e2e@example.com' })
-      .expect(429);
+      .expect(429)
+      .expect((r) => expect(r.body.error).toBe('Too Many Requests'));
   });
 });

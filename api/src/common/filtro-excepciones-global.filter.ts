@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { STATUS_CODES } from 'node:http';
 
 export interface ErrorResponseBody {
   statusCode: number;
@@ -44,7 +45,8 @@ export function buildErrorResponse(exception: unknown): ErrorResponseBody {
   return {
     statusCode,
     message: message ?? exception.message,
-    error: error ?? exception.name.replace(/Exception$/, ''),
+    // Sin `error` propio (ej. ThrottlerException), la frase HTTP estándar.
+    error: error ?? STATUS_CODES[statusCode] ?? 'Error',
   };
 }
 

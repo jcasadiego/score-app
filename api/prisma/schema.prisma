@@ -85,10 +85,13 @@ enum FamiliaDiagnostico {
   CATALOGO
 }
 
-/// Estado de un lead. Por ahora solo existe el inicial — los siguientes
-/// (pago, diagnóstico activado, etc.) los agrega el módulo de Pagos.
+/// Estado comercial de un lead, que el equipo cambia a mano desde el panel
+/// mientras no hay CRM. Los estados de pago y diagnóstico activado los
+/// agrega el módulo de Pagos.
 enum EstadoLead {
   NUEVO
+  CONTACTADO
+  CONVERTIDO
 }
 
 /// Lead registrado desde el formulario de precalificación de

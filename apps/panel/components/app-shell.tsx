@@ -26,6 +26,7 @@ interface AppShellProps {
 }
 
 const ITEMS_MENU = [
+  { key: "/leads", label: <Link href="/leads">Leads</Link> },
   { key: "/usuarios", label: <Link href="/usuarios">Usuarios</Link> },
 ];
 

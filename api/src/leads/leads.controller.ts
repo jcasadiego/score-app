@@ -1,14 +1,33 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { RedactarEnAuditoria } from '../auditoria/redactar-en-auditoria.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { RolUsuario } from '../../generated/prisma/enums';
+import { CambiarEstadoLeadDto } from './dto/cambiar-estado-lead.dto';
 import { CrearLeadDto } from './dto/crear-lead.dto';
+import { ListarLeadsDto } from './dto/listar-leads.dto';
 import { LeadsService } from './leads.service';
 
 /**
- * Endpoint público que consume el formulario de precalificación de
- * `score-sitio` desde el navegador — sin auth de usuario a propósito.
- * Contrato en `docs/contrato-precalificacion.md`.
+ * `POST precalificacion` es el endpoint público que consume el formulario
+ * de `score-sitio` desde el navegador — sin auth de usuario a propósito
+ * (contrato en `docs/contrato-precalificacion.md`). El resto es para
+ * `apps/panel` y exige JWT + ADMIN, por eso los guards van por método y
+ * no en el controlador.
  */
 @ApiTags('leads')
 @Controller('leads')
@@ -25,5 +44,29 @@ export class LeadsController {
   @RedactarEnAuditoria('nombre', 'email', 'telefono')
   crear(@Body() dto: CrearLeadDto) {
     return this.leads.crear(dto);
+  }
+
+  @Get()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  listar(@Query() query: ListarLeadsDto) {
+    return this.leads.listar(query);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  obtener(@Param('id') id: string) {
+    return this.leads.obtener(id);
+  }
+
+  @Patch(':id/estado')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  cambiarEstado(@Param('id') id: string, @Body() dto: CambiarEstadoLeadDto) {
+    return this.leads.cambiarEstado(id, dto.estado);
   }
 }

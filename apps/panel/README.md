@@ -34,8 +34,12 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   `api`).
 - Todas las pantallas autenticadas cuelgan de `app/(panel)/layout.tsx`,
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
-  pantallas de cada módulo se agregan ahí — la primera es Usuarios
-  (`app/(panel)/usuarios/`), que consume `UsuariosController` de `api`.
+  pantallas de cada módulo se agregan ahí: Usuarios
+  (`app/(panel)/usuarios/`) y Leads (`app/(panel)/leads/`, lista con
+  filtros, detalle en un `Drawer` y cambio de estado). Las llamadas a la
+  api pasan por `lib/api/cliente.ts`.
+- Fechas con `components/fecha-local.tsx`: se formatean en la zona del
+  navegador solo en el cliente, para no romper la hidratación.
 - Tema único en `lib/tema.ts` (colores, radio, fuente) aplicado por
   `components/proveedor-antd.tsx`, que además da `message`/`modal` vía
   `App.useApp()` y apaga las animaciones si el sistema pide reducir

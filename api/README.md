@@ -62,6 +62,11 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   cuando se confirme el escenario real del motor (API ya ejecutable,
   hoja de cálculo a portar, o construir desde cero; ver `CLAUDE.md`
   sección 3).
+- `src/common/app-throttler.guard.ts` — límite de peticiones. Cuenta por usuario
+  si el JWT tiene firma válida, por la IP que informa el panel en rutas sin sesión
+  (`x-client-ip`, solo con `x-panel-secret` igual a `PANEL_API_SECRET`) y, si no,
+  por IP de conexión. Cada contador es por ruta y vive en memoria, así que con
+  varias instancias de la API hará falta un almacén compartido.
 - `src/audit/` — bitácora de auditoría (requisito duro). Cada evento
   guarda actor tipado (`PANEL_USER` / `END_CLIENT` / `SYSTEM` + id
   cuando aplica), acción, entidad afectada por referencia (tipo + id,

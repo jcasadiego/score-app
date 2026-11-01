@@ -31,6 +31,10 @@ const EnvSchema = z
     ACCESS_LINK_JWT_EXPIRES_IN: z.string().default('24h'),
     THROTTLE_TTL: z.coerce.number().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().default(100),
+    // Con este secreto, el panel informa la IP real de quien inicia sesión.
+    PANEL_API_SECRET: optional(
+      z.string().min(32, 'debe tener al menos 32 caracteres'),
+    ),
     // Base de los enlaces del panel que salen por correo (recuperación).
     PANEL_URL: optional(z.url()),
     // `log` no envía nada real (desarrollo); `resend` envía de verdad.
@@ -48,6 +52,14 @@ const EnvSchema = z
         code: 'custom',
         path: ['PANEL_URL'],
         message: 'obligatoria en producción (va en los enlaces por correo)',
+      });
+    }
+    // Sin él, un solo contador de login para todo el equipo.
+    if (env.NODE_ENV === 'production' && !env.PANEL_API_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PANEL_API_SECRET'],
+        message: 'obligatoria en producción (límite de login por cliente)',
       });
     }
     if (env.NODE_ENV === 'production' && env.MAIL_DRIVER !== 'resend') {

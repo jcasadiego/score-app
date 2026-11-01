@@ -196,7 +196,7 @@ describe('UsersService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: '1' },
-          data: { active: false },
+          data: { active: false, sessions: { deleteMany: {} } },
         }),
       );
       expect(result.active).toBe(false);

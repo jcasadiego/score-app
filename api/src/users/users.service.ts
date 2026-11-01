@@ -151,18 +151,23 @@ export class UsersService {
     if (requesterId && requesterId === id) {
       throw new ConflictException('No puedes desactivar tu propia cuenta.');
     }
-    return this.setActive(id, false);
+    // Cierra sus sesiones: si no, reactivar la cuenta revivía los tokens que
+    // aún no habían vencido.
+    return this.setActive(id, { active: false, sessions: { deleteMany: {} } });
   }
 
   async activate(id: string): Promise<PublicUser> {
-    return this.setActive(id, true);
+    return this.setActive(id, { active: true });
   }
 
-  private async setActive(id: string, active: boolean): Promise<PublicUser> {
+  private async setActive(
+    id: string,
+    data: Prisma.UserUpdateInput,
+  ): Promise<PublicUser> {
     try {
       return await this.prisma.user.update({
         where: { id },
-        data: { active },
+        data,
         select: PUBLIC_SELECT,
       });
     } catch (error) {

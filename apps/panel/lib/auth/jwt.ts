@@ -10,6 +10,17 @@ export interface SessionPayload {
   email: string;
   role: string;
   exp: number;
+  iat?: number;
+}
+
+/**
+ * La sesión se renueva pasada la mitad de la vida del token: da margen de
+ * sobra para reintentar si la API no responde, sin llamarla en cada petición.
+ */
+export function shouldRenew(session: SessionPayload): boolean {
+  if (!session.iat) return false;
+  const halfLife = session.iat + (session.exp - session.iat) / 2;
+  return Date.now() / 1000 >= halfLife;
 }
 
 export function decodeToken(token: string): SessionPayload | null {
@@ -19,7 +30,7 @@ export function decodeToken(token: string): SessionPayload | null {
   try {
     const payload = JSON.parse(
       Buffer.from(parts[1], "base64url").toString("utf-8"),
-    ) as { sub?: string; email?: string; role?: string; exp?: number };
+    ) as { sub?: string; email?: string; role?: string; exp?: number; iat?: number };
 
     if (!payload.sub || !payload.email || !payload.role || !payload.exp) {
       return null;
@@ -30,6 +41,7 @@ export function decodeToken(token: string): SessionPayload | null {
       email: payload.email,
       role: payload.role,
       exp: payload.exp,
+      iat: payload.iat,
     };
   } catch {
     return null;

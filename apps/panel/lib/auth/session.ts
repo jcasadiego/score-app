@@ -1,19 +1,31 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { SESSION_COOKIE_NAME } from "./constants";
-import { decodeToken, type SessionPayload } from "./jwt";
+import { refreshAccessToken } from "@/lib/api/auth";
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from "./constants";
+import { decodeToken, shouldRenew, type SessionPayload } from "./jwt";
 
 export async function createSession(accessToken: string): Promise<void> {
   const payload = decodeToken(accessToken);
   const cookieStore = await cookies();
 
-  cookieStore.set(SESSION_COOKIE_NAME, accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: payload ? new Date(payload.exp * 1000) : undefined,
-  });
+  cookieStore.set(
+    SESSION_COOKIE_NAME,
+    accessToken,
+    sessionCookieOptions(payload?.exp),
+  );
+}
+
+/**
+ * Renueva la sesión desde una Server Action. `proxy.ts` no lo hace en esas
+ * peticiones, y quien solo guarda formularios también está usando el panel.
+ */
+export async function renewSessionIfNeeded(): Promise<void> {
+  const token = await getToken();
+  const session = token ? decodeToken(token) : null;
+  if (!token || !session || !shouldRenew(session)) return;
+
+  const freshToken = await refreshAccessToken(token);
+  if (freshToken) await createSession(freshToken);
 }
 
 export async function deleteSession(): Promise<void> {

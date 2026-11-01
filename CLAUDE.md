@@ -68,7 +68,8 @@ pendientes:
   versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
   de usuarios internos (`/users`, solo ADMIN; `active: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
-  mismo; cambiar la contraseña cierra sus sesiones), recuperación de
+  mismo; cambiar la contraseña cierra sus sesiones), renovación de sesión
+  (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), recuperación de
   contraseña del panel por correo, seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional

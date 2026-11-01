@@ -28,6 +28,10 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verifySession`) es el punto único para exigirla
   en Server Components de este repo.
+- La sesión se renueva sola con `POST /auth/refresh` pasada la mitad de la
+  vida del token: en `proxy.ts` al navegar y con `renewSessionIfNeeded` en las
+  Server Actions. Vence tras 1 día sin usar el panel y, en cualquier caso, a
+  los 7 días del login.
 - Si la API rechaza el token (401: cuenta desactivada, contraseña cambiada
   o token vencido), la sesión se cierra y se vuelve al login con un aviso.
   Una página no puede borrar la cookie, así que pasa por

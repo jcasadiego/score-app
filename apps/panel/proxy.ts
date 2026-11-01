@@ -3,8 +3,10 @@ import {
   HOME_ROUTE,
   SESSION_COOKIE_NAME,
   SESSION_EXPIRED_ROUTE,
+  sessionCookieOptions,
 } from "@/lib/auth/constants";
-import { decodeToken } from "@/lib/auth/jwt";
+import { refreshAccessToken } from "@/lib/api/auth";
+import { decodeToken, shouldRenew } from "@/lib/auth/jwt";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -33,7 +35,7 @@ function matchesRoute(routes: string[], pathname: string): boolean {
  * autenticada; ver `verifySession` (`lib/auth/dal.ts`) para el chequeo
  * de cada Server Component.
  */
-export default function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -58,7 +60,30 @@ export default function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(HOME_ROUTE, request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // Solo al navegar por pantallas protegidas. En una Server Action, esta
+  // cookie competiría con la que borra el logout y podría ganarle.
+  if (
+    token &&
+    session &&
+    hasValidSession &&
+    request.method === "GET" &&
+    !matchesRoute(PUBLIC_ROUTES, pathname) &&
+    shouldRenew(session)
+  ) {
+    const freshToken = await refreshAccessToken(token);
+    const freshSession = freshToken ? decodeToken(freshToken) : null;
+    if (freshToken && freshSession) {
+      response.cookies.set(
+        SESSION_COOKIE_NAME,
+        freshToken,
+        sessionCookieOptions(freshSession.exp),
+      );
+    }
+  }
+
+  return response;
 }
 
 export const config = {

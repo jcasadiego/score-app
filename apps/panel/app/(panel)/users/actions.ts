@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/auth/dal";
-import { deleteSession, getToken } from "@/lib/auth/session";
+import {
+  deleteSession,
+  getToken,
+  renewSessionIfNeeded,
+} from "@/lib/auth/session";
 import { redirectIfSessionExpired } from "@/lib/auth/expire-session";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -33,6 +37,7 @@ async function authenticatedToken(): Promise<string> {
   if (!token) {
     throw new ApiError(401, "Tu sesión expiró. Vuelve a iniciar sesión.");
   }
+  await renewSessionIfNeeded();
   return token;
 }
 

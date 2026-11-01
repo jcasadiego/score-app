@@ -52,6 +52,7 @@ describe('validateEnv · correo', () => {
       validateEnv({
         ...BASE,
         ...RESEND,
+        PANEL_API_SECRET: 'z'.repeat(32),
         NODE_ENV: 'production',
         PANEL_URL: 'https://panel.example.com',
       }).MAIL_DRIVER,
@@ -62,5 +63,23 @@ describe('validateEnv · correo', () => {
     expect(() =>
       validateEnv({ ...BASE, ...RESEND, NODE_ENV: 'production' }),
     ).toThrow(/PANEL_URL: obligatoria en producción/);
+  });
+});
+
+describe('validateEnv · PANEL_API_SECRET', () => {
+  it('es opcional en desarrollo', () => {
+    expect(validateEnv(BASE).PANEL_API_SECRET).toBeUndefined();
+  });
+
+  it('en producción no arranca sin él', () => {
+    expect(() =>
+      validateEnv({ ...BASE, ...RESEND, NODE_ENV: 'production' }),
+    ).toThrow(/PANEL_API_SECRET: obligatoria en producción/);
+  });
+
+  it('rechaza un secreto corto', () => {
+    expect(() => validateEnv({ ...BASE, PANEL_API_SECRET: 'corto' })).toThrow(
+      /PANEL_API_SECRET: debe tener al menos 32 caracteres/,
+    );
   });
 });

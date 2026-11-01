@@ -1,4 +1,5 @@
 import "server-only";
+import { clientIpHeaders } from "./client-ip";
 import { ApiError } from "./errors";
 
 const GENERIC_ERROR_MESSAGE =
@@ -16,7 +17,10 @@ async function postPublic(path: string, body: unknown): Promise<Response> {
   try {
     response = await fetch(`${baseUrl()}/api/v1/auth/password-reset${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await clientIpHeaders()),
+      },
       body: JSON.stringify(body),
       cache: "no-store",
     });

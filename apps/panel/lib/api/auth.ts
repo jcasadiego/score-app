@@ -1,4 +1,5 @@
 import "server-only";
+import { clientIpHeaders } from "./client-ip";
 import { ApiError } from "./errors";
 
 const GENERIC_ERROR_MESSAGE =
@@ -95,7 +96,10 @@ export async function login(
   try {
     response = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await clientIpHeaders()),
+      },
       body: JSON.stringify({ email, password }),
       cache: "no-store",
     });

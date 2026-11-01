@@ -28,6 +28,9 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verifySession`) es el punto único para exigirla
   en Server Components de este repo.
+- Login y recuperación envían la IP del cliente a la API (`lib/api/client-ip.ts`)
+  para que su límite de intentos no junte a todo el equipo. Requiere
+  `PANEL_API_SECRET`, igual en ambos lados, y un solo proxy delante del panel.
 - La sesión se renueva sola con `POST /auth/refresh` pasada la mitad de la
   vida del token: en `proxy.ts` al navegar y con `renewSessionIfNeeded` en las
   Server Actions. Vence tras 1 día sin usar el panel y, en cualquier caso, a

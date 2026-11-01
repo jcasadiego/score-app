@@ -44,15 +44,12 @@ export class AuthService {
     }
 
     return {
-      accessToken: await this.issueToken(
-        {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          sessionVersion: user.sessionVersion,
-        },
-        nowInSeconds(),
-      ),
+      accessToken: await this.issueToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        sessionVersion: user.sessionVersion,
+      }),
     };
   }
 
@@ -70,14 +67,19 @@ export class AuthService {
 
   private async issueToken(
     user: Pick<SessionUser, 'id' | 'email' | 'role' | 'sessionVersion'>,
-    authAt: number,
+    previousAuthAt?: number,
   ): Promise<string> {
+    // Un solo reloj para todo el token: si no, cambiar de segundo entre dos
+    // lecturas lo dejaría vencer 1 segundo después del límite.
+    const now = nowInSeconds();
+    const authAt = previousAuthAt ?? now;
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
       ver: user.sessionVersion,
       authAt,
+      iat: now,
     };
     const sign = (expiresIn: string | number | undefined) =>
       this.jwt.signAsync(payload, {
@@ -91,6 +93,6 @@ export class AuthService {
     // puede estirar renovándolo.
     const limit = sessionLimit(authAt);
     const { exp } = this.jwt.decode<{ exp: number }>(token);
-    return exp <= limit ? token : sign(limit - nowInSeconds());
+    return exp <= limit ? token : sign(limit - now);
   }
 }

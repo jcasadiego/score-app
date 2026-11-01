@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -35,4 +36,19 @@ export class AuthController {
   refresh(@Req() req: { user: SessionUser }) {
     return this.auth.refresh(req.user);
   }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  logout(@Req() req: { user: SessionUser }) {
+    return this.auth.logout(req.user);
+  }
+
+  /** 204 si la sesión sigue valiendo; si no, `JwtAuthGuard` responde 401. */
+  @Get('session')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  checkSession(): void {}
 }

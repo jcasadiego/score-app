@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/auth/dal";
 import { getToken } from "@/lib/auth/session";
+import { redirectIfSessionExpired } from "@/lib/auth/expire-session";
 import { ApiError } from "@/lib/api/errors";
 import { updateLeadStatus, type Lead } from "@/lib/api/leads";
 import { isLeadStatus, type LeadStatus } from "@/lib/leads/labels";
@@ -31,6 +32,7 @@ export async function updateLeadStatusAction(
     revalidatePath("/leads");
     return { ok: true, lead };
   } catch (error) {
+    await redirectIfSessionExpired(error);
     const message =
       error instanceof ApiError
         ? error.message

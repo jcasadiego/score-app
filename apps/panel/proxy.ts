@@ -1,11 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE_NAME, HOME_ROUTE } from "@/lib/auth/constants";
+import {
+  HOME_ROUTE,
+  SESSION_COOKIE_NAME,
+  SESSION_EXPIRED_ROUTE,
+} from "@/lib/auth/constants";
 import { decodeToken } from "@/lib/auth/jwt";
 
 const PUBLIC_ROUTES = [
   "/login",
   "/forgot-password",
   "/reset-password",
+  SESSION_EXPIRED_ROUTE,
 ];
 
 /**

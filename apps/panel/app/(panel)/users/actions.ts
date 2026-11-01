@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/auth/dal";
 import { deleteSession, getToken } from "@/lib/auth/session";
+import { redirectIfSessionExpired } from "@/lib/auth/expire-session";
 import { ApiError } from "@/lib/api/errors";
 import {
   updateUser,
@@ -35,7 +36,8 @@ async function authenticatedToken(): Promise<string> {
   return token;
 }
 
-function handleError(error: unknown): UserActionResult {
+async function handleError(error: unknown): Promise<UserActionResult> {
+  await redirectIfSessionExpired(error);
   const message =
     error instanceof ApiError
       ? error.message
@@ -52,7 +54,7 @@ export async function createUserAction(
     revalidatePath("/users");
     return { ok: true, user };
   } catch (error) {
-    return handleError(error);
+    return await handleError(error);
   }
 }
 
@@ -68,7 +70,7 @@ export async function updateUserAction(
     user = await updateUser(token, id, data);
     changedOwnPassword = !!data.password && session.id === id;
   } catch (error) {
-    return handleError(error);
+    return await handleError(error);
   }
 
   // Cambiar la contraseña cierra todas las sesiones de esa cuenta en la
@@ -91,7 +93,7 @@ export async function activateUserAction(
     revalidatePath("/users");
     return { ok: true, user };
   } catch (error) {
-    return handleError(error);
+    return await handleError(error);
   }
 }
 
@@ -104,6 +106,6 @@ export async function deactivateUserAction(
     revalidatePath("/users");
     return { ok: true, user };
   } catch (error) {
-    return handleError(error);
+    return await handleError(error);
   }
 }

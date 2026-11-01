@@ -6,3 +6,6 @@ export const SESSION_COOKIE_NAME = "score_panel_session";
  * exista la bandeja de casos, pasa a ser esa ruta.
  */
 export const HOME_ROUTE = "/users";
+
+/** Borra la cookie cuando la API rechaza el token (ver su `route.ts`). */
+export const SESSION_EXPIRED_ROUTE = "/session-expired";

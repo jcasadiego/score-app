@@ -7,6 +7,18 @@ interface JwtPayload {
   sub: string;
   /** `User.sessionVersion` al emitir el token. */
   ver?: number;
+  /** Momento del login, en segundos; se conserva al renovar el token. */
+  authAt?: number;
+  iat?: number;
+}
+
+/** Lo que `JwtAuthGuard` deja en `request.user`. */
+export interface SessionUser {
+  id: string;
+  email: string;
+  role: string;
+  sessionVersion: number;
+  authAt: number;
 }
 
 @Injectable()
@@ -29,11 +41,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * existiera) cuenta como versión 0, para no cerrar todas las sesiones
    * al desplegar.
    */
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<SessionUser> {
     const user = await this.users.findById(payload.sub);
     if (!user || !user.active || (payload.ver ?? 0) !== user.sessionVersion) {
       throw new UnauthorizedException();
     }
-    return { id: user.id, email: user.email, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      sessionVersion: user.sessionVersion,
+      // Un token emitido antes de existir `authAt` cuenta desde su emisión.
+      // Sin ninguno de los dos, 0 hace que la renovación lo rechace.
+      authAt: payload.authAt ?? payload.iat ?? 0,
+    };
   }
 }

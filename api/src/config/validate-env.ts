@@ -20,6 +20,11 @@ const EnvSchema = z
     CORS_ORIGINS: z.string().min(1),
     JWT_SECRET: z.string().min(32, 'debe tener al menos 32 caracteres'),
     JWT_EXPIRES_IN: z.string().default('1d'),
+    JWT_MAX_SESSION_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(604_800),
     ACCESS_LINK_JWT_SECRET: z
       .string()
       .min(32, 'debe tener al menos 32 caracteres'),

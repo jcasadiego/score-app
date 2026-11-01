@@ -74,6 +74,10 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
 - `src/rules/` — versión de reglas aplicada a cada caso (requisito
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
+- `POST /auth/refresh` renueva el JWT de una sesión en uso. El token conserva
+  `authAt` (momento del login) y nunca vence después de
+  `authAt + JWT_MAX_SESSION_SECONDS`. No hay tabla de refresh tokens:
+  `JwtStrategy` ya valida cuenta y `sessionVersion` en cada petición.
 - `src/users/` + `src/auth/` — login JWT y guards de roles para
   `apps/panel`. `UsersController` (`/users`) es el CRUD interno de
   cuentas (`name`, `email`, `active`) — sin autoservicio, lo administra el

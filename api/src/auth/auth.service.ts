@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { UsersService } from '../users/users.service';
+import type { SessionUser } from './jwt.strategy';
 
 /**
  * Hash de un valor fijo que nunca corresponde a ningún usuario real. Se
@@ -11,6 +12,14 @@ import { UsersService } from '../users/users.service';
  */
 const DUMMY_HASH =
   '$argon2id$v=19$m=65536,p=4,t=3$dH7iJkavPNPh9KiRhrPJKQ$FfOCWWAr/yqjYGpgcrnwgndfrpqCnoqwCD5G7DLR2vA';
+
+function nowInSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function sessionLimit(authAt: number): number {
+  return authAt + Number(process.env.JWT_MAX_SESSION_SECONDS);
+}
 
 @Injectable()
 export class AuthService {
@@ -34,19 +43,54 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const accessToken = await this.jwt.signAsync(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-        ver: user.sessionVersion,
-      },
-      {
-        secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRES_IN,
-      } as JwtSignOptions,
-    );
+    return {
+      accessToken: await this.issueToken(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          sessionVersion: user.sessionVersion,
+        },
+        nowInSeconds(),
+      ),
+    };
+  }
 
-    return { accessToken };
+  /**
+   * Token nuevo para una sesión en uso. `JwtAuthGuard` ya comprobó el token
+   * y que la cuenta siga activa, así que una sesión revocada no llega aquí.
+   * `authAt` no cambia: renovar no alarga el límite absoluto de la sesión.
+   */
+  async refresh(user: SessionUser) {
+    if (nowInSeconds() >= sessionLimit(user.authAt)) {
+      throw new UnauthorizedException('La sesión llegó a su límite');
+    }
+    return { accessToken: await this.issueToken(user, user.authAt) };
+  }
+
+  private async issueToken(
+    user: Pick<SessionUser, 'id' | 'email' | 'role' | 'sessionVersion'>,
+    authAt: number,
+  ): Promise<string> {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      ver: user.sessionVersion,
+      authAt,
+    };
+    const sign = (expiresIn: string | number | undefined) =>
+      this.jwt.signAsync(payload, {
+        secret: process.env.JWT_SECRET,
+        expiresIn,
+      } as JwtSignOptions);
+
+    const token = await sign(process.env.JWT_EXPIRES_IN);
+
+    // El token nunca vive más allá del límite: ni siquiera uno robado se
+    // puede estirar renovándolo.
+    const limit = sessionLimit(authAt);
+    const { exp } = this.jwt.decode<{ exp: number }>(token);
+    return exp <= limit ? token : sign(limit - nowInSeconds());
   }
 }

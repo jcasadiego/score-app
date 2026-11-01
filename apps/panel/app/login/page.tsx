@@ -21,7 +21,7 @@ const NOTICES: Record<string, LoginNotice> = {
   },
   "session-expired": {
     type: "warning",
-    text: "Tu sesión expiró. Vuelve a iniciar sesión.",
+    text: "Tu sesión terminó: venció o se inició en otro dispositivo. Si no fuiste tú, cambia tu contraseña.",
   },
 };
 

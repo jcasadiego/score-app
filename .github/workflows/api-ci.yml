@@ -45,9 +45,9 @@ jobs:
       DATABASE_URL: postgresql://score:score@localhost:5432/score_test?schema=public
       CORS_ORIGINS: http://localhost:3001,http://localhost:3002
       JWT_SECRET: ci-secret-panel-de-al-menos-32-caracteres
-      JWT_EXPIRACION: 1d
-      ENLACE_JWT_SECRET: ci-secret-enlace-de-al-menos-32-caracteres
-      ENLACE_JWT_EXPIRACION: 24h
+      JWT_EXPIRES_IN: 1d
+      ACCESS_LINK_JWT_SECRET: ci-secret-enlace-de-al-menos-32-caracteres
+      ACCESS_LINK_JWT_EXPIRES_IN: 24h
       THROTTLE_TTL: 60000
       THROTTLE_LIMIT: 100
     steps:

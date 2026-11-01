@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { RedactarEnAuditoria } from '../../auditoria/redactar-en-auditoria.decorator';
+import { RedactInAudit } from '../../audit/redact-in-audit.decorator';
 import { LeadStatus } from '../../../generated/prisma/enums';
 import { LeadsService } from '../leads.service';
 import { LegacyErrorFilter } from './legacy-error.filter';
@@ -42,9 +42,9 @@ export class LegacyPrequalificationController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @RedactarEnAuditoria('nombre', 'email', 'telefono')
+  @RedactInAudit('nombre', 'email', 'telefono')
   async create(@Body() dto: LegacyPrequalificationDto) {
-    const lead = await this.leads.crear({
+    const lead = await this.leads.create({
       name: dto.nombre,
       email: dto.email,
       phone: dto.telefono,

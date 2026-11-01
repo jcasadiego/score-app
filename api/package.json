@@ -19,7 +19,7 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.mts",
-    "correo:probar": "ts-node scripts/probar-correo.ts"
+    "mail:test": "ts-node scripts/send-test-email.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.3.2",

@@ -5,7 +5,7 @@ import { LeadStatus, DiagnosticFamily } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadsService } from './leads.service';
 
-function crearErrorPrisma(code: string) {
+function createPrismaError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('error de prueba', {
     code,
     clientVersion: '7.10.0',
@@ -28,8 +28,8 @@ describe('LeadsService', () => {
   beforeEach(() => {
     prisma = {
       // El servicio usa la forma de arreglo: resuelve las promesas en orden.
-      $transaction: vi.fn((consultas: Promise<unknown>[]) =>
-        Promise.all(consultas),
+      $transaction: vi.fn((queries: Promise<unknown>[]) =>
+        Promise.all(queries),
       ),
       lead: {
         count: vi.fn(),
@@ -45,14 +45,14 @@ describe('LeadsService', () => {
   it('crea el lead y solo pide id y estado de vuelta', async () => {
     prisma.lead.create.mockResolvedValue({ id: 'lead-1', status: 'NEW' });
 
-    const resultado = await service.crear({
+    const result = await service.create({
       name: 'Ana Pérez',
       email: 'ana@example.com',
       family: DiagnosticFamily.B2B,
       utmSource: 'instagram',
     });
 
-    expect(resultado).toEqual({ id: 'lead-1', status: 'NEW' });
+    expect(result).toEqual({ id: 'lead-1', status: 'NEW' });
     expect(prisma.lead.create).toHaveBeenCalledWith({
       data: {
         name: 'Ana Pérez',
@@ -67,12 +67,12 @@ describe('LeadsService', () => {
     });
   });
 
-  describe('listar', () => {
+  describe('list', () => {
     it('pagina y filtra en la base, más recientes primero', async () => {
       prisma.lead.findMany.mockResolvedValue([{ id: 'lead-1' }]);
       prisma.lead.count.mockResolvedValue(41);
 
-      const resultado = await service.listar({
+      const result = await service.list({
         page: 3,
         pageSize: 20,
         search: 'ana',
@@ -97,7 +97,7 @@ describe('LeadsService', () => {
         }),
       );
       expect(prisma.lead.count).toHaveBeenCalledWith({ where });
-      expect(resultado).toEqual({
+      expect(result).toEqual({
         data: [{ id: 'lead-1' }],
         total: 41,
         page: 3,
@@ -109,7 +109,7 @@ describe('LeadsService', () => {
       prisma.lead.findMany.mockResolvedValue([]);
       prisma.lead.count.mockResolvedValue(0);
 
-      await service.listar({ page: 1, pageSize: 20 });
+      await service.list({ page: 1, pageSize: 20 });
 
       expect(prisma.lead.count).toHaveBeenCalledWith({
         where: { family: undefined, status: undefined },
@@ -117,24 +117,24 @@ describe('LeadsService', () => {
     });
   });
 
-  describe('obtener', () => {
+  describe('findOne', () => {
     it('lanza NotFound si el lead no existe', async () => {
       prisma.lead.findUnique.mockResolvedValue(null);
 
-      await expect(service.obtener('nope')).rejects.toBeInstanceOf(
+      await expect(service.findOne('nope')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
   });
 
-  describe('cambiarEstado', () => {
+  describe('updateStatus', () => {
     it('actualiza solo el estado', async () => {
       prisma.lead.update.mockResolvedValue({
         id: 'lead-1',
         status: 'CONVERTED',
       });
 
-      await service.cambiarEstado('lead-1', LeadStatus.CONVERTED);
+      await service.updateStatus('lead-1', LeadStatus.CONVERTED);
 
       expect(prisma.lead.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -145,10 +145,10 @@ describe('LeadsService', () => {
     });
 
     it('traduce P2025 a NotFound', async () => {
-      prisma.lead.update.mockRejectedValue(crearErrorPrisma('P2025'));
+      prisma.lead.update.mockRejectedValue(createPrismaError('P2025'));
 
       await expect(
-        service.cambiarEstado('nope', LeadStatus.CONTACTED),
+        service.updateStatus('nope', LeadStatus.CONTACTED),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

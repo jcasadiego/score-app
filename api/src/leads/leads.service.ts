@@ -2,24 +2,24 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { DiagnosticFamily, LeadStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
-import { CrearLeadDto } from './dto/crear-lead.dto';
+import { CreateLeadDto } from './dto/create-lead.dto';
 
 /**
  * Lo único que vuelve al sitio: ni los datos enviados ni si el email ya
  * había precalificado antes, para no exponer datos personales en un
  * endpoint público.
  */
-const SELECT_RESPUESTA = {
+const PUBLIC_SELECT = {
   id: true,
   status: true,
 } satisfies Prisma.LeadSelect;
 
-export type LeadCreado = Prisma.LeadGetPayload<{
-  select: typeof SELECT_RESPUESTA;
+export type CreatedLead = Prisma.LeadGetPayload<{
+  select: typeof PUBLIC_SELECT;
 }>;
 
 /** Lo que ve el equipo en `apps/panel` (solo ADMIN). */
-const SELECT_PANEL = {
+const PANEL_SELECT = {
   id: true,
   name: true,
   email: true,
@@ -33,11 +33,11 @@ const SELECT_PANEL = {
   updatedAt: true,
 } satisfies Prisma.LeadSelect;
 
-export type LeadPanel = Prisma.LeadGetPayload<{
-  select: typeof SELECT_PANEL;
+export type PanelLead = Prisma.LeadGetPayload<{
+  select: typeof PANEL_SELECT;
 }>;
 
-interface ListarLeadsParams {
+interface ListLeadsParams {
   page: number;
   pageSize: number;
   search?: string;
@@ -45,8 +45,8 @@ interface ListarLeadsParams {
   status?: LeadStatus;
 }
 
-export interface PaginaLeads {
-  data: LeadPanel[];
+export interface LeadsPage {
+  data: PanelLead[];
   total: number;
   page: number;
   pageSize: number;
@@ -56,7 +56,7 @@ export interface PaginaLeads {
 export class LeadsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  crear(dto: CrearLeadDto): Promise<LeadCreado> {
+  create(dto: CreateLeadDto): Promise<CreatedLead> {
     return this.prisma.lead.create({
       data: {
         name: dto.name,
@@ -67,7 +67,7 @@ export class LeadsService {
         utmMedium: dto.utmMedium,
         utmCampaign: dto.utmCampaign,
       },
-      select: SELECT_RESPUESTA,
+      select: PUBLIC_SELECT,
     });
   }
 
@@ -76,13 +76,13 @@ export class LeadsService {
    * aplicados en la base. Los más recientes primero; `id` desempata para
    * que la paginación sea estable.
    */
-  async listar({
+  async list({
     page,
     pageSize,
     search,
     family,
     status,
-  }: ListarLeadsParams): Promise<PaginaLeads> {
+  }: ListLeadsParams): Promise<LeadsPage> {
     const where: Prisma.LeadWhereInput = {
       family,
       status,
@@ -97,7 +97,7 @@ export class LeadsService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.lead.findMany({
         where,
-        select: SELECT_PANEL,
+        select: PANEL_SELECT,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -108,10 +108,10 @@ export class LeadsService {
     return { data, total, page, pageSize };
   }
 
-  async obtener(id: string): Promise<LeadPanel> {
+  async findOne(id: string): Promise<PanelLead> {
     const lead = await this.prisma.lead.findUnique({
       where: { id },
-      select: SELECT_PANEL,
+      select: PANEL_SELECT,
     });
 
     if (!lead) {
@@ -121,12 +121,12 @@ export class LeadsService {
     return lead;
   }
 
-  async cambiarEstado(id: string, status: LeadStatus): Promise<LeadPanel> {
+  async updateStatus(id: string, status: LeadStatus): Promise<PanelLead> {
     try {
       return await this.prisma.lead.update({
         where: { id },
         data: { status },
-        select: SELECT_PANEL,
+        select: PANEL_SELECT,
       });
     } catch (error) {
       if (

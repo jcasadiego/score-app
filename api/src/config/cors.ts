@@ -1,6 +1,6 @@
-export function parsearCorsOrigins(valor: string | undefined): string[] {
-  return (valor ?? '')
+export function parseCorsOrigins(value: string | undefined): string[] {
+  return (value ?? '')
     .split(',')
-    .map((origen) => origen.trim())
-    .filter((origen) => origen.length > 0);
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }

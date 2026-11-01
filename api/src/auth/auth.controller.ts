@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { IniciarSesionDto } from './dto/iniciar-sesion.dto';
+import { LoginDto } from './dto/login.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -14,7 +14,7 @@ export class AuthController {
   // Límite propio, más estricto que el global, como mitigación de fuerza
   // bruta sobre credenciales.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  iniciarSesion(@Body() dto: IniciarSesionDto) {
-    return this.auth.iniciarSesion(dto.email, dto.password);
+  login(@Body() dto: LoginDto) {
+    return this.auth.login(dto.email, dto.password);
   }
 }

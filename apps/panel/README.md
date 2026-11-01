@@ -34,7 +34,7 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   adonde lleva el correo — saca el token de la URL al cargar, pide la
   contraseña dos veces y, al terminar, vuelve a `/login` con un aviso.
   Las llamadas van por `lib/api/recuperacion.ts`. En local el enlace
-  aparece en el log de `api` (`CORREO_MODO=log`). Si un admin cambia su
+  aparece en el log de `api` (`MAIL_DRIVER=log`). Si un admin cambia su
   propia contraseña desde Usuarios, la api cierra también su sesión y
   el panel lo manda al login.
 - El JWT se decodifica sin verificar firma (`lib/auth/jwt.ts`) solo para

@@ -12,14 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { RedactarEnAuditoria } from '../auditoria/redactar-en-auditoria.decorator';
+import { RedactInAudit } from '../audit/redact-in-audit.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../../generated/prisma/enums';
-import { CambiarEstadoLeadDto } from './dto/cambiar-estado-lead.dto';
-import { CrearLeadDto } from './dto/crear-lead.dto';
-import { ListarLeadsDto } from './dto/listar-leads.dto';
+import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { CreateLeadDto } from './dto/create-lead.dto';
+import { ListLeadsDto } from './dto/list-leads.dto';
 import { LeadsService } from './leads.service';
 
 /**
@@ -42,32 +42,32 @@ export class LeadsController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   // Datos personales del lead: ya viven en la tabla Lead, no se duplican
   // en la bitácora.
-  @RedactarEnAuditoria('name', 'email', 'phone')
-  crear(@Body() dto: CrearLeadDto) {
-    return this.leads.crear(dto);
+  @RedactInAudit('name', 'email', 'phone')
+  create(@Body() dto: CreateLeadDto) {
+    return this.leads.create(dto);
   }
 
   @Get()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  listar(@Query() query: ListarLeadsDto) {
-    return this.leads.listar(query);
+  list(@Query() query: ListLeadsDto) {
+    return this.leads.list(query);
   }
 
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  obtener(@Param('id') id: string) {
-    return this.leads.obtener(id);
+  findOne(@Param('id') id: string) {
+    return this.leads.findOne(id);
   }
 
   @Patch(':id/status')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  cambiarEstado(@Param('id') id: string, @Body() dto: CambiarEstadoLeadDto) {
-    return this.leads.cambiarEstado(id, dto.status);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
+    return this.leads.updateStatus(id, dto.status);
   }
 }

@@ -4,14 +4,14 @@ import { PrismaClient } from '../generated/prisma/client';
 
 /**
  * Crea el primer usuario ADMIN si todavía no existe. Necesario porque
- * `UsuariosController` (POST /users) exige estar ya autenticado como
+ * `UsersController` (POST /users) exige estar ya autenticado como
  * ADMIN — sin este seed no hay forma de entrar al panel por primera vez.
  * Idempotente: si el email ya existe, no le toca el password.
  */
 async function main() {
-  const email = requerirEnv('ADMIN_EMAIL');
-  const password = requerirEnv('ADMIN_PASSWORD');
-  const nombre = requerirEnv('ADMIN_NOMBRE');
+  const email = requireEnv('ADMIN_EMAIL');
+  const password = requireEnv('ADMIN_PASSWORD');
+  const name = requireEnv('ADMIN_NAME');
 
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -19,25 +19,25 @@ async function main() {
 
   const passwordHash = await argon2.hash(password);
 
-  const usuario = await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { name: nombre, email, passwordHash, active: true },
+    create: { name: name, email, passwordHash, active: true },
   });
 
-  console.log(`Usuario admin listo: ${usuario.email} (${usuario.id})`);
+  console.log(`Usuario admin listo: ${user.email} (${user.id})`);
 
   await prisma.$disconnect();
 }
 
-function requerirEnv(nombre: string): string {
-  const valor = process.env[nombre];
-  if (!valor) {
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
     throw new Error(
-      `Falta la variable de entorno ${nombre} para correr el seed`,
+      `Falta la variable de entorno ${name} para correr el seed`,
     );
   }
-  return valor;
+  return value;
 }
 
 main().catch((error: unknown) => {

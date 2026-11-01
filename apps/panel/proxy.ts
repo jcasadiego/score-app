@@ -40,7 +40,17 @@ export default function proxy(request: NextRequest) {
   const session = token ? decodeToken(token) : null;
   const hasValidSession = !!session && session.exp * 1000 > Date.now();
 
-  if (!matchesRoute(PUBLIC_ROUTES, pathname) && !hasValidSession) {
+  // El cliente de Next no entiende una redirección del proxy como respuesta
+  // de una Server Action: el formulario queda cargando para siempre. Se deja
+  // pasar para que la propia acción la resuelva con `verifySession`.
+  const isServerAction =
+    request.method === "POST" && request.headers.has("next-action");
+
+  if (
+    !matchesRoute(PUBLIC_ROUTES, pathname) &&
+    !hasValidSession &&
+    !isServerAction
+  ) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

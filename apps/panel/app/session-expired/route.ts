@@ -8,8 +8,9 @@ import { HOME_ROUTE } from "@/lib/auth/constants";
  * token, la página redirige aquí. Sin borrarla habría un bucle, porque el
  * proxy solo lee la cookie y la seguiría viendo válida.
  *
- * Es un GET, así que otro sitio podría enlazarlo: desde fuera no se cierra
- * la sesión de nadie.
+ * Es un GET, así que otro sitio podría enlazarlo: un sitio ajeno no cierra
+ * la sesión de nadie. Un subdominio del mismo dominio sí podría, porque
+ * llega como `same-site`; lo peor que causa es volver a iniciar sesión.
  */
 export async function GET(request: NextRequest) {
   if (request.headers.get("sec-fetch-site") === "cross-site") {

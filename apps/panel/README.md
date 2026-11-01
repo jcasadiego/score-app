@@ -33,7 +33,9 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   Una página no puede borrar la cookie, así que pasa por
   `app/session-expired/route.ts`; sin borrarla habría un bucle con `proxy.ts`,
   que solo lee la cookie. Las Server Actions lo hacen con
-  `redirectIfSessionExpired` (`lib/auth/expire-session.ts`). Si la API
+  `redirectIfSessionExpired` (`lib/auth/expire-session.ts`). `proxy.ts` no
+  redirige las Server Actions sin sesión, porque el formulario quedaría
+  cargando para siempre; las frena `verifySession` dentro de la acción. Si la API
   responde 403, la pantalla muestra `components/forbidden-screen.tsx` con un
   botón para volver.
 - Recuperación de contraseña, pantallas públicas (fuera de la

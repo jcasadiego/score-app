@@ -28,6 +28,14 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verifySession`) es el punto único para exigirla
   en Server Components de este repo.
+- Si la API rechaza el token (401: cuenta desactivada, contraseña cambiada
+  o token vencido), la sesión se cierra y se vuelve al login con un aviso.
+  Una página no puede borrar la cookie, así que pasa por
+  `app/session-expired/route.ts`; sin borrarla habría un bucle con `proxy.ts`,
+  que solo lee la cookie. Las Server Actions lo hacen con
+  `redirectIfSessionExpired` (`lib/auth/expire-session.ts`). Si la API
+  responde 403, la pantalla muestra `components/forbidden-screen.tsx` con un
+  botón para volver.
 - Recuperación de contraseña, pantallas públicas (fuera de la
   protección de `proxy.ts`): `/forgot-password` pide el enlace y
   muestra siempre el mismo aviso; `/reset-password?token=` es

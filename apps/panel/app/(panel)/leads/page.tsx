@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Alert } from "antd";
 import { verifySession } from "@/lib/auth/dal";
 import { getToken } from "@/lib/auth/session";
 import { listLeads, type PaginatedLeads } from "@/lib/api/leads";
 import { ApiError } from "@/lib/api/errors";
+import { PageError } from "@/components/page-error";
 import { isLeadStatus, isFamily } from "@/lib/leads/labels";
 import { PAGE_SIZE } from "@/lib/users/limits";
 import { LeadsScreen } from "@/components/leads/leads-screen";
@@ -45,11 +45,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
       status,
     });
   } catch (error) {
-    const message =
-      error instanceof ApiError
-        ? error.message
-        : "No pudimos cargar los leads. Intenta de nuevo.";
-    return <Alert type="error" showIcon title={message} />;
+    return <PageError error={error} fallback="No pudimos cargar los leads. Intenta de nuevo." />;
   }
 
   return (

@@ -37,8 +37,10 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   los 7 días del login.
 - Cerrar sesión revoca el token en la API (`POST /auth/logout`) y luego borra la
   cookie; si la API no responde, el usuario sale igual y el error queda en el log.
-- Si la API rechaza el token (401: cuenta desactivada, contraseña cambiada
-  o token vencido), la sesión se cierra y se vuelve al login con un aviso.
+- Cada usuario tiene una sola sesión: entrar en otro dispositivo cierra la
+  anterior.
+- Si la API rechaza el token (401: cuenta desactivada, contraseña cambiada, login
+  en otro dispositivo o token vencido), la sesión se cierra y se vuelve al login con un aviso.
   Una página no puede borrar la cookie, así que pasa por
   `app/session-expired/route.ts`; sin borrarla habría un bucle con `proxy.ts`,
   que solo lee la cookie. Esa ruta es un GET que cualquier sitio puede enlazar,

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -6,18 +7,19 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SessionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Abre una sesión y limpia las ya vencidas de ese usuario. */
+  /**
+   * Abre la sesión del usuario y deja sin valor la anterior: cambiar el id hace
+   * que su token ya no encuentre la fila. Un solo `upsert` sobre `userId` único
+   * mantiene una sesión por usuario también con logins simultáneos.
+   */
   async start(userId: string, expiresAt: Date): Promise<string> {
-    const [, session] = await this.prisma.$transaction([
-      this.prisma.userSession.deleteMany({
-        where: { userId, expiresAt: { lte: new Date() } },
-      }),
-      this.prisma.userSession.create({
-        data: { userId, expiresAt },
-        select: { id: true },
-      }),
-    ]);
-    return session.id;
+    const id = randomUUID();
+    await this.prisma.userSession.upsert({
+      where: { userId },
+      create: { id, userId, expiresAt },
+      update: { id, expiresAt, createdAt: new Date() },
+    });
+    return id;
   }
 
   /** Sesión con su usuario en una sola consulta: corre en cada petición. */

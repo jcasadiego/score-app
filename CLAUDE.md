@@ -70,7 +70,8 @@ pendientes:
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
   mismo; cambiar la contraseña cierra sus sesiones), renovación de sesión
   (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), cierre de sesión
-  que revoca el token (`POST /auth/logout`), recuperación de
+  que revoca el token (`POST /auth/logout`), una sola sesión por usuario (un
+  login nuevo cierra la anterior), recuperación de
   contraseña del panel por correo, seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional

@@ -84,9 +84,10 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   `authAt + JWT_MAX_SESSION_SECONDS`. No hay refresh tokens: `JwtStrategy`
   valida sesión, cuenta y `sessionVersion` en cada petición.
 - `POST /auth/logout` borra la fila de `UserSession` que nombra el JWT (`sid`):
-  ese token, y los renovados a partir de él, dejan de valer de inmediato. Las
-  otras sesiones de la cuenta siguen abiertas. `GET /auth/session` responde 204
-  si el token sigue valiendo, sin efectos.
+  ese token, y los renovados a partir de él, dejan de valer de inmediato. Cada
+  usuario tiene una sola sesión, en un solo dispositivo: un login nuevo reemplaza
+  la anterior. `GET /auth/session` responde 204 si el token sigue valiendo, sin
+  efectos.
 - `src/users/` + `src/auth/` — login JWT y guards de roles para
   `apps/panel`. `UsersController` (`/users`) es el CRUD interno de
   cuentas (`name`, `email`, `active`) — sin autoservicio, lo administra el

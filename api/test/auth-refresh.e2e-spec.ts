@@ -124,13 +124,30 @@ describe('Renovación de sesión (e2e)', () => {
       await checkSession(renewed).expect(401);
     });
 
-    it('no cierra las otras sesiones de la misma cuenta', async () => {
+    it('un login nuevo cierra la sesión anterior', async () => {
       const first = await login();
+      const renewed = (await refresh(first).expect(200)).body.accessToken;
+
       const second = await login();
 
-      await logout(first).expect(204);
-
+      await checkSession(first).expect(401);
+      await checkSession(renewed).expect(401);
+      await refresh(first).expect(401);
       await checkSession(second).expect(204);
+    });
+
+    it('con logins simultáneos queda una sola sesión', async () => {
+      const tokens = await Promise.all([login(), login(), login()]);
+
+      const { id: userId } = await prisma.user.findUniqueOrThrow({
+        where: { email: EMAIL },
+      });
+      expect(await prisma.userSession.count({ where: { userId } })).toBe(1);
+
+      const statuses = await Promise.all(
+        tokens.map(async (token) => (await checkSession(token)).status),
+      );
+      expect(statuses.filter((status) => status === 204)).toHaveLength(1);
     });
 
     it('reactivar una cuenta no revive sus tokens anteriores', async () => {
@@ -158,19 +175,6 @@ describe('Renovación de sesión (e2e)', () => {
         );
 
       await checkSession(noSession).expect(401);
-    });
-
-    it('al iniciar sesión limpia las sesiones vencidas del usuario', async () => {
-      const { id: userId } = await prisma.user.findUniqueOrThrow({
-        where: { email: EMAIL },
-      });
-      await prisma.userSession.create({
-        data: { userId, expiresAt: new Date(Date.now() - 1000) },
-      });
-
-      await login();
-
-      expect(await prisma.userSession.count({ where: { userId } })).toBe(1);
     });
   });
 });

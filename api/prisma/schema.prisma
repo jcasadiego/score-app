@@ -91,16 +91,16 @@ model User {
 }
 
 /// Sesión abierta del panel. El JWT la nombra en `sid`: mientras exista la
-/// fila el token vale, y cerrar la sesión la borra. `expiresAt` es el límite
-/// absoluto de la sesión; las vencidas se limpian en el siguiente login.
+/// fila el token vale, y cerrar la sesión la borra. Una por usuario (un solo
+/// dispositivo): `userId` único lo garantiza también ante logins simultáneos.
+/// `expiresAt` es el límite absoluto de la sesión.
 model UserSession {
   id        String   @id @default(cuid())
-  userId    String   @map("user_id")
+  userId    String   @unique @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([userId])
   @@map("user_sessions")
 }
 

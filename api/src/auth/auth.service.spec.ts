@@ -15,6 +15,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
     process.env.JWT_EXPIRES_IN = '1d';
+    process.env.JWT_MAX_SESSION_SECONDS = '604800';
     users = { findByEmail: vi.fn() };
     argon2VerifyMock.mockReset();
     service = new AuthService(
@@ -86,5 +87,44 @@ describe('AuthService', () => {
       Buffer.from(result.accessToken.split('.')[1], 'base64url').toString(),
     );
     expect(payload).toMatchObject({ sub: '1', ver: 4 });
+    expect(payload.authAt).toBe(payload.iat);
+  });
+
+  describe('refresh', () => {
+    const DAY = 86_400;
+    const now = () => Math.floor(Date.now() / 1000);
+    const sessionUser = (authAt: number) => ({
+      id: '1',
+      email: 'admin@test.local',
+      role: 'ADMIN',
+      sessionVersion: 4,
+      authAt,
+    });
+    const decode = (token: string) =>
+      JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+
+    it('emite otro token de 1 día y conserva el momento del login', async () => {
+      const authAt = now() - DAY;
+
+      const { accessToken } = await service.refresh(sessionUser(authAt));
+
+      const payload = decode(accessToken);
+      expect(payload).toMatchObject({ sub: '1', ver: 4, authAt });
+      expect(payload.exp - payload.iat).toBe(DAY);
+    });
+
+    it('recorta el token para que no pase del límite absoluto', async () => {
+      const authAt = now() - 6.5 * DAY;
+
+      const { accessToken } = await service.refresh(sessionUser(authAt));
+
+      expect(decode(accessToken).exp).toBe(authAt + 7 * DAY);
+    });
+
+    it('rechaza renovar una sesión que ya llegó al límite absoluto', async () => {
+      await expect(
+        service.refresh(sessionUser(now() - 7 * DAY)),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 });

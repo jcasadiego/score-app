@@ -71,11 +71,11 @@ async function buildError(
   if (response.status === 404) {
     return new ApiError(404, messages.notFound);
   }
-  if (response.status === 401 || response.status === 403) {
-    return new ApiError(
-      response.status,
-      "No tienes permiso para hacer esto, o tu sesión expiró.",
-    );
+  if (response.status === 401) {
+    return new ApiError(401, "Tu sesión expiró. Vuelve a iniciar sesión.");
+  }
+  if (response.status === 403) {
+    return new ApiError(403, "No tienes permiso para hacer esto.");
   }
   if (response.status === 400) {
     return new ApiError(400, "Revisa los datos ingresados e intenta de nuevo.");

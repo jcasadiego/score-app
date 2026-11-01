@@ -8,7 +8,12 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm({ notice }: { notice?: string }) {
+export interface LoginNotice {
+  type: "success" | "warning";
+  text: string;
+}
+
+export function LoginForm({ notice }: { notice?: LoginNotice }) {
   const [state, formAction, pending] = useActionState(
     loginAction,
     initialState,
@@ -27,7 +32,7 @@ export function LoginForm({ notice }: { notice?: string }) {
         <Form component={false} layout="vertical" disabled={pending}>
           {notice && !state.error && (
             <Form.Item>
-              <Alert type="success" showIcon title={notice} />
+              <Alert type={notice.type} showIcon title={notice.text} />
             </Form.Item>
           )}
 

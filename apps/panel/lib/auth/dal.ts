@@ -12,7 +12,9 @@ import type { SessionPayload } from "./jwt";
 export const verifySession = cache(async (): Promise<SessionPayload> => {
   const session = await getSession();
   if (!session) {
-    redirect("/login");
+    // El proxy ya frena a quien no tiene sesión, así que aquí solo llega
+    // quien la perdió con la pantalla abierta.
+    redirect("/login?notice=session-expired");
   }
   return session;
 });

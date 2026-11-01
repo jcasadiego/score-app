@@ -71,10 +71,28 @@ describe('JwtStrategy', () => {
       sessionVersion: 3,
     });
 
-    await expect(strategy.validate({ sub: '1', ver: 3 })).resolves.toEqual({
+    await expect(
+      strategy.validate({ sub: '1', ver: 3, authAt: 100, iat: 200 }),
+    ).resolves.toEqual({
       id: '1',
       email: 'admin@test.local',
       role: 'ADMIN',
+      sessionVersion: 3,
+      authAt: 100,
     });
+  });
+
+  it('un token sin momento de login cuenta desde su emisión', async () => {
+    users.findById.mockResolvedValue({
+      id: '1',
+      email: 'admin@test.local',
+      role: 'ADMIN',
+      active: true,
+      sessionVersion: 0,
+    });
+
+    await expect(
+      strategy.validate({ sub: '1', iat: 200 }),
+    ).resolves.toMatchObject({ authAt: 200 });
   });
 });

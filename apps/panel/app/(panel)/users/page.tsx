@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Alert } from "antd";
 import { verifySession } from "@/lib/auth/dal";
 import { getToken } from "@/lib/auth/session";
 import { listUsers, type PaginatedUsers } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/errors";
+import { PageError } from "@/components/page-error";
 import { PAGE_SIZE } from "@/lib/users/limits";
 import { UsersScreen } from "@/components/users/users-screen";
 import {
@@ -53,11 +53,7 @@ export default async function UsersPage({
       }
       result = await listUsers(token, filter);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : "No pudimos cargar los usuarios. Intenta de nuevo.";
-      return <Alert type="error" showIcon title={message} />;
+      return <PageError error={error} fallback="No pudimos cargar los usuarios. Intenta de nuevo." />;
     }
   }
 

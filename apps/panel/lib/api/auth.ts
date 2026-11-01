@@ -4,6 +4,35 @@ import { ApiError } from "./errors";
 const GENERIC_ERROR_MESSAGE =
   "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
 
+/** Quien renueva está en plena navegación: no hacerlo esperar por la API. */
+const REFRESH_TIMEOUT_MS = 3_000;
+
+/**
+ * Pide un token nuevo con `POST /auth/refresh`. Devuelve `null` si no se pudo:
+ * el token actual sigue siendo válido, así que se reintenta en la siguiente
+ * petición, y un token revocado ya lo resuelve la pantalla con su 401.
+ */
+export async function refreshAccessToken(
+  token: string,
+): Promise<string | null> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+
+    const body = (await response.json()) as { accessToken?: string };
+    return body.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Llama a `POST /auth/login` de la API desde el servidor (nunca desde el
  * navegador), para no exponer el token al cliente antes de guardarlo en

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/auth/dal";
-import { getToken } from "@/lib/auth/session";
+import { getToken, renewSessionIfNeeded } from "@/lib/auth/session";
+import { redirectIfSessionExpired } from "@/lib/auth/expire-session";
 import { ApiError } from "@/lib/api/errors";
 import { updateLeadStatus, type Lead } from "@/lib/api/leads";
 import { isLeadStatus, type LeadStatus } from "@/lib/leads/labels";
@@ -23,6 +24,7 @@ export async function updateLeadStatusAction(
     if (!token) {
       throw new ApiError(401, "Tu sesión expiró. Vuelve a iniciar sesión.");
     }
+    await renewSessionIfNeeded();
     // Una Server Action es un endpoint público: no confiar en el tipo.
     if (!isLeadStatus(status)) {
       throw new ApiError(400, "Ese estado no es válido.");
@@ -31,6 +33,7 @@ export async function updateLeadStatusAction(
     revalidatePath("/leads");
     return { ok: true, lead };
   } catch (error) {
+    await redirectIfSessionExpired(error);
     const message =
       error instanceof ApiError
         ? error.message

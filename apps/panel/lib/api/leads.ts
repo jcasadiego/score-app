@@ -1,45 +1,45 @@
 import "server-only";
-import { llamarApi, type MensajesRecurso } from "./cliente";
-import type { EstadoLead, FamiliaDiagnostico } from "@/lib/leads/etiquetas";
+import { callApi, type ResourceMessages } from "./client";
+import type { LeadStatus, DiagnosticFamily } from "@/lib/leads/labels";
 
 export interface Lead {
   id: string;
   name: string;
   email: string;
   phone: string | null;
-  family: FamiliaDiagnostico;
+  family: DiagnosticFamily;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
-  status: EstadoLead;
+  status: LeadStatus;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PaginaLeads {
+export interface PaginatedLeads {
   data: Lead[];
   total: number;
   page: number;
   pageSize: number;
 }
 
-export interface FiltroLeads {
+export interface LeadFilters {
   page: number;
   pageSize: number;
   search?: string;
-  family?: FamiliaDiagnostico;
-  status?: EstadoLead;
+  family?: DiagnosticFamily;
+  status?: LeadStatus;
 }
 
-const MENSAJES: MensajesRecurso = {
-  noEncontrado: "No encontramos ese lead. Puede que ya no exista.",
+const MESSAGES: ResourceMessages = {
+  notFound: "No encontramos ese lead. Puede que ya no exista.",
 };
 
 /** Una página de leads; filtros, búsqueda y conteo los resuelve la API. */
-export function listarLeads(
+export function listLeads(
   token: string,
-  { page, pageSize, search, family, status }: FiltroLeads,
-): Promise<PaginaLeads> {
+  { page, pageSize, search, family, status }: LeadFilters,
+): Promise<PaginatedLeads> {
   const params = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
@@ -47,18 +47,18 @@ export function listarLeads(
   if (search) params.set("search", search);
   if (family) params.set("family", family);
   if (status) params.set("status", status);
-  return llamarApi<PaginaLeads>(token, `/leads?${params}`, MENSAJES);
+  return callApi<PaginatedLeads>(token, `/leads?${params}`, MESSAGES);
 }
 
-export function cambiarEstadoLead(
+export function updateLeadStatus(
   token: string,
   id: string,
-  status: EstadoLead,
+  status: LeadStatus,
 ): Promise<Lead> {
-  return llamarApi<Lead>(
+  return callApi<Lead>(
     token,
     `/leads/${encodeURIComponent(id)}/status`,
-    MENSAJES,
+    MESSAGES,
     { method: "PATCH", body: JSON.stringify({ status }) },
   );
 }

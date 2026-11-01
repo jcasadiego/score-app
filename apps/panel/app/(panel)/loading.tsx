@@ -5,6 +5,6 @@ import { Skeleton } from "antd";
  * queda fijo y el contenido muestra un esqueleto mientras el Server
  * Component trae los datos de la API.
  */
-export default function CargandoPanel() {
+export default function PanelLoading() {
   return <Skeleton active title={{ width: 160 }} paragraph={{ rows: 8 }} />;
 }

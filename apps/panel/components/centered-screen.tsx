@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /** Contenedor de las pantallas públicas (login y recuperación). */
-export function PantallaCentrada({ children }: { children: ReactNode }) {
+export function CenteredScreen({ children }: { children: ReactNode }) {
   return (
     <main
       style={{

@@ -1,11 +1,11 @@
-import { verificarSesion } from "@/lib/auth/dal";
+import { verifySession } from "@/lib/auth/dal";
 import { AppShell } from "@/components/app-shell";
 
 export default async function PanelLayout({ children }: LayoutProps<"/">) {
-  const sesion = await verificarSesion();
+  const session = await verifySession();
 
   return (
-    <AppShell usuario={{ email: sesion.email, rol: sesion.role }}>
+    <AppShell user={{ email: session.email, role: session.role }}>
       {children}
     </AppShell>
   );

@@ -3,37 +3,37 @@
 import { useEffect, useState, useTransition } from "react";
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { LockOutlined } from "@ant-design/icons";
-import { PASSWORD_MIN } from "@/lib/usuarios/limites";
+import { PASSWORD_MIN } from "@/lib/users/limits";
 import {
-  accionRestablecerContrasena,
-  type ResultadoRestablecer,
+  confirmPasswordResetAction,
+  type ResetPasswordResult,
 } from "./actions";
 
-interface Valores {
+interface FormValues {
   password: string;
-  confirmacion: string;
+  confirmation: string;
 }
 
-export function FormularioRestablecer({ token }: { token: string }) {
-  const [pendiente, iniciarTransicion] = useTransition();
-  const [resultado, setResultado] = useState<ResultadoRestablecer | null>(null);
+export function ResetPasswordForm({ token }: { token: string }) {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<ResetPasswordResult | null>(null);
 
   // Saca el token de la barra de direcciones y del historial: ya está en
   // memoria y no hace falta que quede a la vista.
   useEffect(() => {
-    window.history.replaceState(null, "", "/restablecer-contrasena");
+    window.history.replaceState(null, "", "/reset-password");
   }, []);
 
-  function enviar({ password }: Valores) {
-    setResultado(null);
-    iniciarTransicion(async () => {
+  function submit({ password }: FormValues) {
+    setResult(null);
+    startTransition(async () => {
       // Si sale bien, la acción redirige al login.
-      setResultado(await accionRestablecerContrasena(token, password));
+      setResult(await confirmPasswordResetAction(token, password));
     });
   }
 
-  if (resultado?.enlaceInvalido) {
-    return <EnlaceInvalido mensaje={resultado.error} />;
+  if (result?.invalidLink) {
+    return <InvalidLink message={result.error} />;
   }
 
   return (
@@ -46,10 +46,10 @@ export function FormularioRestablecer({ token }: { token: string }) {
       </Typography.Paragraph>
 
       {/* Ant Form conserva lo escrito si la API rechaza el cambio. */}
-      <Form layout="vertical" onFinish={enviar} disabled={pendiente}>
-        {resultado && (
+      <Form layout="vertical" onFinish={submit} disabled={pending}>
+        {result && (
           <Form.Item>
-            <Alert type="error" showIcon title={resultado.error} />
+            <Alert type="error" showIcon title={result.error} />
           </Form.Item>
         )}
 
@@ -72,14 +72,14 @@ export function FormularioRestablecer({ token }: { token: string }) {
         </Form.Item>
 
         <Form.Item
-          name="confirmacion"
+          name="confirmation"
           label="Confirma la contraseña"
           dependencies={["password"]}
           rules={[
             { required: true, message: "Vuelve a escribir la contraseña." },
             ({ getFieldValue }) => ({
-              validator: (_, valor) =>
-                !valor || valor === getFieldValue("password")
+              validator: (_, value) =>
+                !value || value === getFieldValue("password")
                   ? Promise.resolve()
                   : Promise.reject(new Error("Las contraseñas no coinciden.")),
             }),
@@ -92,7 +92,7 @@ export function FormularioRestablecer({ token }: { token: string }) {
         </Form.Item>
 
         <Form.Item style={{ marginTop: 24, marginBottom: 0 }}>
-          <Button type="primary" htmlType="submit" block loading={pendiente}>
+          <Button type="primary" htmlType="submit" block loading={pending}>
             Guardar contraseña
           </Button>
         </Form.Item>
@@ -101,17 +101,17 @@ export function FormularioRestablecer({ token }: { token: string }) {
   );
 }
 
-export function EnlaceInvalido({ mensaje }: { mensaje: string }) {
+export function InvalidLink({ message }: { message: string }) {
   return (
     <Card>
       <Typography.Title level={3} style={{ marginTop: 0 }}>
         Enlace no válido
       </Typography.Title>
-      <Alert type="warning" showIcon title={mensaje} />
+      <Alert type="warning" showIcon title={message} />
       <Button
         type="primary"
         block
-        href="/recuperar-contrasena"
+        href="/forgot-password"
         style={{ marginTop: 24 }}
       >
         Pedir un enlace nuevo

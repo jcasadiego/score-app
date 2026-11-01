@@ -8,7 +8,7 @@ import type { ThemeConfig } from "antd";
  * TODO(José): `colorPrimary` es provisional; reemplazar por el color de
  * marca de Music Finance Pro cuando esté definido.
  */
-export const tema: ThemeConfig = {
+export const panelTheme: ThemeConfig = {
   token: {
     colorPrimary: "#3a4fd8",
     borderRadius: 8,
@@ -29,6 +29,6 @@ export const tema: ThemeConfig = {
   },
 };
 
-export const ETIQUETAS_ROL: Record<string, string> = {
+export const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
 };

@@ -1,13 +1,13 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { NOMBRE_COOKIE_SESION } from "./constants";
-import { decodificarToken, type PayloadSesion } from "./jwt";
+import { SESSION_COOKIE_NAME } from "./constants";
+import { decodeToken, type SessionPayload } from "./jwt";
 
-export async function crearSesion(accessToken: string): Promise<void> {
-  const payload = decodificarToken(accessToken);
+export async function createSession(accessToken: string): Promise<void> {
+  const payload = decodeToken(accessToken);
   const cookieStore = await cookies();
 
-  cookieStore.set(NOMBRE_COOKIE_SESION, accessToken, {
+  cookieStore.set(SESSION_COOKIE_NAME, accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -16,17 +16,17 @@ export async function crearSesion(accessToken: string): Promise<void> {
   });
 }
 
-export async function eliminarSesion(): Promise<void> {
+export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(NOMBRE_COOKIE_SESION);
+  cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
-export async function obtenerSesion(): Promise<PayloadSesion | null> {
+export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(NOMBRE_COOKIE_SESION)?.value;
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const payload = decodificarToken(token);
+  const payload = decodeToken(token);
   if (!payload || payload.exp * 1000 <= Date.now()) return null;
 
   return payload;
@@ -34,11 +34,11 @@ export async function obtenerSesion(): Promise<PayloadSesion | null> {
 
 /**
  * Token crudo de la cookie de sesión, para usarlo como Bearer al llamar a
- * la API desde el servidor. Se usa junto a `verificarSesion` (que ya
+ * la API desde el servidor. Se usa junto a `verifySession` (que ya
  * exige sesión activa) en las Server Actions que llaman a endpoints
  * protegidos.
  */
-export async function obtenerToken(): Promise<string | null> {
+export async function getToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get(NOMBRE_COOKIE_SESION)?.value ?? null;
+  return cookieStore.get(SESSION_COOKIE_NAME)?.value ?? null;
 }

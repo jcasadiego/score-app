@@ -22,35 +22,35 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   el navegador) y lo guarda como cookie de sesión `httpOnly` — ver
   `lib/auth/session.ts`.
 - `proxy.ts` hace un chequeo optimista (solo lee la cookie) para
-  redirigir a `/login` sin sesión, o a `RUTA_INICIO`
-  (`lib/auth/constants.ts`, hoy `/usuarios`) si ya hay una. `/` también
+  redirigir a `/login` sin sesión, o a `HOME_ROUTE`
+  (`lib/auth/constants.ts`, hoy `/users`) si ya hay una. `/` también
   redirige ahí mientras no exista la bandeja de casos. La
   verificación real ocurre en `api` en cada llamada autenticada;
-  `lib/auth/dal.ts` (`verificarSesion`) es el punto único para exigirla
+  `lib/auth/dal.ts` (`verifySession`) es el punto único para exigirla
   en Server Components de este repo.
 - Recuperación de contraseña, pantallas públicas (fuera de la
-  protección de `proxy.ts`): `/recuperar-contrasena` pide el enlace y
-  muestra siempre el mismo aviso; `/restablecer-contrasena?token=` es
+  protección de `proxy.ts`): `/forgot-password` pide el enlace y
+  muestra siempre el mismo aviso; `/reset-password?token=` es
   adonde lleva el correo — saca el token de la URL al cargar, pide la
   contraseña dos veces y, al terminar, vuelve a `/login` con un aviso.
-  Las llamadas van por `lib/api/recuperacion.ts`. En local el enlace
+  Las llamadas van por `lib/api/password-reset.ts`. En local el enlace
   aparece en el log de `api` (`MAIL_DRIVER=log`). Si un admin cambia su
   propia contraseña desde Usuarios, la api cierra también su sesión y
   el panel lo manda al login.
 - El JWT se decodifica sin verificar firma (`lib/auth/jwt.ts`) solo para
-  leer `email`/`rol` a mostrar en la UI y el `exp` para expirar la
+  leer `email`/`role` a mostrar en la UI y el `exp` para expirar la
   cookie — el panel no tiene `JWT_SECRET` (es un secreto exclusivo de
   `api`).
 - Todas las pantallas autenticadas cuelgan de `app/(panel)/layout.tsx`,
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
   pantallas de cada módulo se agregan ahí: Usuarios
-  (`app/(panel)/usuarios/`) y Leads (`app/(panel)/leads/`, lista con
+  (`app/(panel)/users/`) y Leads (`app/(panel)/leads/`, lista con
   filtros, detalle en un `Drawer` y cambio de estado). Las llamadas a la
-  api pasan por `lib/api/cliente.ts`.
-- Fechas con `components/fecha-local.tsx`: se formatean en la zona del
+  api pasan por `lib/api/client.ts`.
+- Fechas con `components/local-date.tsx`: se formatean en la zona del
   navegador solo en el cliente, para no romper la hidratación.
-- Tema único en `lib/tema.ts` (colores, radio, fuente) aplicado por
-  `components/proveedor-antd.tsx`, que además da `message`/`modal` vía
+- Tema único en `lib/theme.ts` (colores, radio, fuente) aplicado por
+  `components/antd-provider.tsx`, que además da `message`/`modal` vía
   `App.useApp()` y apaga las animaciones si el sistema pide reducir
   movimiento. Nada de colores sueltos en `style`: usar `theme.useToken()`.
 - `app/(panel)/loading.tsx` muestra un esqueleto al navegar entre
@@ -59,14 +59,14 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
 ### Datos y rendimiento
 
 - Las listas se paginan en la API; la página y la búsqueda viven en la
-  URL (`?pagina=&q=`) y el Server Component pide solo esa página.
+  URL (`?page=&q=`) y el Server Component pide solo esa página.
 - Las pantallas no copian los datos a `useState`: las Server Actions
   llaman a `revalidatePath` y el RSC actualizado llega en la misma
   respuesta de la acción — una sola petición del navegador por cambio.
 
 ### Datos de prueba (solo desarrollo)
 
-En `pnpm dev`, la pantalla de Usuarios acepta `?data=peor|vacio|uno|mil`
+En `pnpm dev`, la pantalla de Usuarios acepta `?data=worst|empty|one|many`
 para renderizar con datos del peor caso (nombres largos, emails sin
 cortes, CJK/RTL/emoji, 1.284 filas) en vez de la API, con un selector
 fijo abajo al centro. Sirve de prueba de regresión visual cada vez que

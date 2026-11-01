@@ -5,7 +5,7 @@ sección 7). Cualquier cambio de campos, tipos, límites o códigos de
 respuesta se coordina con José **antes** de mergear.
 
 > **Cambio en curso (2026-10-31):** la api pasó a nombres en inglés
-> (`CLAUDE.md`, sección 10). La ruta nueva es `POST
+> (`CLAUDE.md`, sección 6). La ruta nueva es `POST
 > /leads/prequalification`, documentada abajo. La ruta vieja `POST
 > /leads/precalificacion` **sigue funcionando igual que antes** (mismos
 > campos en español, misma respuesta `{ id, estado: "NUEVO" }` y mismos

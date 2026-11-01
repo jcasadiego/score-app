@@ -56,11 +56,12 @@
     ]
   },
   "critical_rules": {
-    "motor_rule": "⚠️ Ninguna tarea llama al motor de cálculo directo — siempre pasa por MotorCalculoPort (interfaz propia). Mientras el escenario real no esté confirmado, se usa un adapter simulado.",
+    "motor_rule": "⚠️ Ninguna tarea llama al motor de cálculo directo — siempre pasa por ScoringEnginePort (interfaz propia). Mientras el escenario real no esté confirmado, se usa un adapter simulado.",
     "modulos_bloqueados": "⚠️ CRM, Voz/Transcripción y el adapter real del motor NO se inician sin respuesta explícita del cliente, aunque Claude Code lo sugiera.",
     "alcance_cerrado": "⚠️ Lo que no aparece en Propuesta_MVP_SCORE.docx o Alcance_Preliminar_MVP_SCORE.docx es señal de cambio de alcance — se avisa antes de construirlo.",
     "que_no_como": "⚠️ Todo ticket y todo prompt para Claude Code describe QUÉ hace falta y QUÉ NO, nunca el diseño interno de la implementación — esa decisión es de quien lo ejecuta.",
-    "ui_panel_rule": "⚠️ apps/panel usa Ant Design, UI funcional y amigable, sin diseño a la medida ni sistema de diseño propio."
+    "ui_panel_rule": "⚠️ apps/panel usa Ant Design, UI funcional y amigable, sin diseño a la medida ni sistema de diseño propio.",
+    "nombres_en_ingles": "⚠️ Los nombres técnicos de un ticket o su prompt (rutas, modelos, campos, enums, variables de entorno, URLs del panel, archivos) van en inglés, con el glosario de CLAUDE.md sección 6. El texto del ticket y los textos de pantalla van en español."
   },
   "tasks": {
     "jira-ticket-score": {
@@ -127,7 +128,7 @@
     "enforce_motor_port_rule": true,
     "enforce_blocked_modules_rule": true,
     "critical_validations": {
-      "motor_port_required": "✅ Ninguna tarea de cálculo omite MotorCalculoPort",
+      "motor_port_required": "✅ Ninguna tarea de cálculo omite ScoringEnginePort",
       "blocked_modules_flagged": "✅ CRM / Voz / adapter real del motor quedan marcados bloqueados, no accionables",
       "que_no_como": "✅ Ningún ticket ni prompt dicta diseño interno de implementación",
       "ant_design_ui": "✅ Tareas de apps/panel usan Ant Design, sin diseño a la medida"

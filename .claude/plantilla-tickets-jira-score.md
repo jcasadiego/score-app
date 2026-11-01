@@ -63,10 +63,15 @@ módulo de negocio del cliente).
 ## ⚠️ REGLA CRÍTICA DEL PROYECTO
 
 **El motor de cálculo nunca se llama directo.** Toda tarea relacionada con
-el cálculo del diagnóstico pasa por `MotorCalculoPort` (interfaz propia).
+el cálculo del diagnóstico pasa por `ScoringEnginePort` (interfaz propia).
 Mientras el escenario real del motor no esté confirmado, se usa un adapter
 simulado — nunca se bloquea el resto del sistema por esto, y nunca se
 construye lógica de cálculo propia.
+
+**Los nombres técnicos van en inglés.** Rutas, modelos, campos, enums,
+variables de entorno, URLs del panel y archivos que mencione un ticket o su
+prompt se escriben en inglés, con el glosario de `CLAUDE.md` (sección 6). El
+texto del ticket y los textos de pantalla van en español.
 
 **Los módulos bloqueados (11, 12, 13) no se inician** aunque Claude Code
 lo sugiera — primero necesitan respuesta del cliente. Un ticket de estos
@@ -96,7 +101,7 @@ FUERA DE ALCANCE (a propósito):
 
 REQUERIMIENTOS TÉCNICOS:
 [Piezas del stack ya decidido que aplican — Prisma, NestJS, Next.js,
-Ant Design, JWT, MotorCalculoPort, etc. Describe QUÉ interviene, no CÓMO
+Ant Design, JWT, ScoringEnginePort, etc. Describe QUÉ interviene, no CÓMO
 construirlo por dentro — esa decisión es de quien lo implemente.]
 
 CRITERIOS DE ACEPTACIÓN:
@@ -135,12 +140,12 @@ para quien implemente (Claude Code).
 
 DESCRIPCIÓN GENERAL:
 Da acceso al panel interno (apps/panel) al equipo de Music Finance Pro.
-Vive en api/src/auth y api/src/usuarios. Sin esto, nadie entra al panel
+Vive en api/src/auth y api/src/users. Sin esto, nadie entra al panel
 ni queda identificado como actor en la auditoría.
 
 ALCANCE FUNCIONAL:
 1️⃣ Login JWT (POST /auth/login) con protección anti-enumeración
-2️⃣ CRUD de usuarios (/usuarios): crear, listar, editar, activar/desactivar
+2️⃣ CRUD de usuarios (/users): crear, listar, editar, activar/desactivar
 3️⃣ Un solo rol (ADMIN) por ahora, con RolesGuard ya listo para más
 4️⃣ Primer usuario admin vía prisma/seed.ts (idempotente)
 
@@ -149,13 +154,13 @@ FUERA DE ALCANCE (a propósito):
 - Roles/permisos diferenciados — se agregan si el proyecto lo pide
 
 REQUERIMIENTOS TÉCNICOS:
-Prisma (modelo Usuario, ids cuid), NestJS (JwtStrategy, JwtAuthGuard,
+Prisma (modelo User, ids cuid), NestJS (JwtStrategy, JwtAuthGuard,
 RolesGuard), password con hash, nunca se devuelve en respuestas.
 
 CRITERIOS DE ACEPTACIÓN:
 [x] Login válido devuelve JWT; inválido devuelve el mismo mensaje
     genérico que una cuenta desactivada (anti-enumeración)
-[x] CRUD de /usuarios protegido por JWT + rol ADMIN
+[x] CRUD de /users protegido por JWT + rol ADMIN
 [x] Desactivar un usuario revoca también sus JWT ya emitidos
 [x] seed.ts crea el primer admin sin pasar por la API
 
@@ -169,7 +174,7 @@ DEFINITION OF DONE:
 ✅ Verificado manualmente end-to-end contra Postgres local
 
 DEPENDENCIAS:
-Ninguna — es la base de la que depende Auditoría (actor USUARIO_PANEL)
+Ninguna — es la base de la que depende Auditoría (actor PANEL_USER)
 y toda pantalla del panel.
 
 ---
@@ -208,8 +213,9 @@ Jira), se crea como:
 ```
 ✅ Separa claramente alcance (qué sí / qué no) antes de cualquier detalle técnico
 ✅ Nunca dicta el diseño interno de la implementación — solo el qué y el por qué
+✅ Pide los nombres técnicos en inglés y deja en español el texto del ticket y de la UI
 ✅ Señala módulos bloqueados por el cliente, para que nadie los empiece por error
 ✅ Deja un prompt listo para Claude Code en cada tarea pendiente
 ✅ Referencia el PR cuando una tarea ya está implementada, en vez de dejarlo ambiguo
-✅ Respeta el patrón MotorCalculoPort — ninguna tarea llama al motor directo
+✅ Respeta el patrón ScoringEnginePort — ninguna tarea llama al motor directo
 ```

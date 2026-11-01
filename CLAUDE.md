@@ -185,8 +185,8 @@ el diff antes de reemplazarla.
 
 ## 6. Convenciones rápidas
 
-**Idioma** (decidido el 2026-10-31; el código anterior se migra según la
-sección 10):
+**Idioma** (decidido el 2026-10-31; la migración del código anterior ya
+terminó):
 
 - **En inglés todo lo técnico:** identificadores (variables, funciones,
   clases, tipos, DTOs), nombres de archivos y carpetas, rutas y campos
@@ -196,9 +196,22 @@ sección 10):
 - **En español:** los textos que ve el usuario final (UI, correos,
   mensajes de error que muestra el panel), los comentarios de código,
   los nombres de los tests, los commits y los PRs.
-- Código **nuevo** ya va en inglés aunque el módulo vecino siga en
-  español. No se renombra código existente "de paso" en un PR de otra
-  cosa: eso va en su fase de la sección 10.
+- Excepción a propósito: el contrato legacy de precalificación
+  (`api/src/leads/legacy/`) sigue en español hasta que se borre (ver
+  sección 7).
+
+**Glosario** (usar siempre los mismos términos):
+
+| Español | Inglés |
+|---|---|
+| Usuario / RolUsuario | User / UserRole |
+| RegistroAuditoria / ActorAuditoria | AuditLog / AuditActorType (`PANEL_USER`, `END_CLIENT`, `SYSTEM`) |
+| VersionReglas | RuleSetVersion |
+| TokenRecuperacionContrasena | PasswordResetToken |
+| FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
+| EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
+| Caso / diagnóstico / enlace | Case / diagnostic / access link |
+| correo / auditoría / reglas / motor de cálculo | mail / audit / rules / scoring engine |
 
 **Estándares:**
 
@@ -228,6 +241,11 @@ El único punto de contacto entre los dos es el endpoint que consume el
 formulario de precalificación del sitio, dentro de `api`. Si cambias su
 forma (campos, tipos, códigos de respuesta), coordínalo con José antes de
 mergear — el cambio afecta al otro repo y él es quien ve los dos lados.
+
+**Pendiente:** `POST /leads/precalificacion` sigue como alias con el
+contrato viejo completo (`src/leads/legacy/`). Borrarlo cuando
+`score-sitio` use `POST /leads/prequalification` — coordinar con José (ver
+`api/docs/contrato-precalificacion.md`).
 
 ## 8. Seguimiento en Jira
 
@@ -287,12 +305,15 @@ revisar la regla correspondiente.
   `request.accessLink` (cliente final), nunca de un campo que ningún guard
   setea (#5).
 - **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el
-  chequeo de `activo` vive en `JwtStrategy.validate`, no solo en el login
+  chequeo de `active` vive en `JwtStrategy.validate`, no solo en el login
   (#7). El login verifica siempre contra un hash (real o de relleno) para
   no filtrar por tiempo qué emails existen (#4). Ids de quien hace la
   acción, del JWT (`req.user.id`), nunca del cliente.
 - Listados paginados y filtrados en la base (página + conteo en una
   transacción, orden estable), nunca en memoria (#13).
+- **Migraciones de renombre:** Prisma resuelve un rename como DROP +
+  CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
+  de aplicarlo (#26).
 
 **`apps/panel`**
 
@@ -309,80 +330,3 @@ revisar la regla correspondiente.
   desde `lib/theme.ts`, sin hex sueltos.
 - Revisar la consola del navegador (avisos de Ant Design, hidratación)
   antes de dar por buena una pantalla — así se detectó #16.
-
-## 10. Plan: migrar el código existente a inglés
-
-Contexto: el código nació en español y se pasa a los estándares de la
-sección 6. Como todavía no hay producción, es el momento más barato para
-renombrar base de datos y API. **Una fase = un PR desde `develop`**, en
-este orden, sin apilar ramas (sección 9) y sin mezclarla con features.
-Cada PR pasa lint, build, tests unitarios y e2e, prueba manual en el
-navegador y `/security-review` (las fases 1–3 tocan auth y la bitácora:
-también `security-audit` en modo guía). Al cerrar una fase, marcarla
-aquí.
-
-Glosario de base (usarlo igual en todas las fases):
-
-| Español | Inglés |
-|---|---|
-| Usuario / RolUsuario | User / UserRole |
-| RegistroAuditoria / ActorAuditoria | AuditLog / AuditActorType (`PANEL_USER`, `END_CLIENT`, `SYSTEM`) |
-| VersionReglas | RuleSetVersion |
-| TokenRecuperacionContrasena | PasswordResetToken |
-| FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
-| EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
-| Caso / diagnóstico / enlace | Case / diagnostic / access link |
-| correo / auditoría / reglas / motor de cálculo | mail / audit / rules / scoring engine |
-
-- [x] **Fases 1 y 2 — Contrato HTTP y base de datos (un solo PR).** Se
-  juntaron porque las respuestas de la api son los `select` de Prisma: los
-  campos JSON salen de los nombres del schema, y separarlas obligaba a una
-  capa de traducción que se tiraba en la fase siguiente. Hecho:
-  - Modelos, campos y enums en inglés (glosario), con tablas y columnas
-    `snake_case` vía `@@map`/`@map`. Migración escrita a mano
-    (`20261031140000_nombres_en_ingles`): solo `RENAME`, más un `UPDATE`
-    de las acciones y entidades viejas de la bitácora (`CORREO_ENVIADO` →
-    `EMAIL_SENT`, `Usuario` → `User`, etc.). Prisma por defecto resuelve
-    un rename como DROP + CREATE: en próximas migraciones de renombre,
-    revisar siempre el SQL antes de aplicarlo.
-  - Rutas: `/users` (`/activate`, `/deactivate`), `/leads/:id/status`,
-    `/leads/prequalification`, `POST /access-links`,
-    `/auth/password-reset/request|confirm`. Campos JSON y query params en
-    inglés; paginación `?page=&pageSize=&search=` → `{ data, total, page,
-    pageSize }`; error `{ statusCode, message, error }`; claim `role` en
-    el JWT. El panel se adaptó en el mismo PR (sus URLs siguen en
-    español hasta la fase 4).
-  - **Pendiente de esta fase:** `POST /leads/precalificacion` queda como
-    alias con el contrato viejo completo (`src/leads/legacy/`). Borrarlo
-    cuando `score-sitio` use la ruta nueva — coordinar con José (ver
-    `api/docs/contrato-precalificacion.md`).
-- [x] **Fase 3 — Resto del código de `api` y variables de entorno.**
-  Carpetas y módulos (`auditoria` → `audit`, `correo` → `mail`,
-  `usuarios` → `users`, `recuperacion-contrasena` → `password-reset`,
-  `token-enlace` → `access-link`, `motor-calculo` → `scoring-engine`,
-  `reglas` → `rules`), clases, métodos, DTOs y constantes. Variables de
-  entorno: `JWT_EXPIRACION` → `JWT_EXPIRES_IN`, `ENLACE_JWT_SECRET|
-  EXPIRACION` → `ACCESS_LINK_JWT_SECRET|EXPIRES_IN`, `CORREO_MODO` →
-  `MAIL_DRIVER`, `CORREO_REMITENTE` → `MAIL_FROM`, `CORREO_REPLY_TO` →
-  `MAIL_REPLY_TO`, `CORREO_LOGO_URL` → `MAIL_LOGO_URL`, `ADMIN_NOMBRE` →
-  `ADMIN_NAME`. Actualizar en el mismo PR `.env.example`, el workflow de
-  CI y los README; avisar a José para que cambie las variables de QA
-  antes de mergear. Hecho también: el script `pnpm correo:probar` pasó a
-  `pnpm mail:test`, `GET /health` responde `detail` en vez de `detalle`
-  y el puerto del motor usa `answers`/`result`. El contrato legacy
-  (`src/leads/legacy/`) sigue en español a propósito.
-- [x] **Fase 4 — `apps/panel`.** Código (`lib/`, `components/`, Server
-  Actions, tipos) y URLs: `/usuarios` → `/users`,
-  `/recuperar-contrasena` → `/forgot-password`, `/restablecer-contrasena`
-  → `/reset-password` (el enlace del correo lo arma `api`: se cambió en
-  el mismo PR). Los textos de pantalla siguen en español. `lib/tema.ts`
-  → `lib/theme.ts`. Hecho también: query params del panel en inglés
-  (`pagina` → `page`, `familia` → `family`, `estado` → `status`, `?data=`
-  con `worst|empty|one|many`) y `?contrasena=` del login → `?notice=
-  password-reset|password-changed`. `q` se queda: no está en español.
-- [ ] **Fase 5 — Cierre.** `apps/diagnostico` (hoy solo scaffold) ya
-  nace en inglés. Revisar la plantilla de tickets
-  (`.claude/plantilla-tickets-jira-score.md`) para que los prompts pidan
-  nombres en inglés, actualizar esta sección y borrar el plan cuando
-  todas las fases estén hechas.
-

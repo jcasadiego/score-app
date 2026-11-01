@@ -68,7 +68,7 @@ sesión tiene Jira conectado, con:
 ## Reglas que este prompt siempre respeta
 
 - El motor de cálculo nunca se llama directo — siempre vía
-  `MotorCalculoPort`.
+  `ScoringEnginePort`.
 - CRM, Voz/Transcripción y el adapter real del motor quedan marcados como
   **bloqueados** hasta que el cliente responda — no se detallan como
   tareas accionables.
@@ -76,6 +76,8 @@ sesión tiene Jira conectado, con:
   solo el qué y el por qué; el cómo lo decide quien lo ejecuta.
 - `apps/panel` usa Ant Design, funcional y amigable, sin diseño a la
   medida.
+- Los nombres técnicos que mencione un ticket o su prompt van en inglés;
+  el texto del ticket y los textos de pantalla, en español.
 
 ## Nota
 

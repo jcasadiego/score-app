@@ -85,8 +85,23 @@ model User {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   passwordResetTokens PasswordResetToken[]
+  sessions            UserSession[]
 
   @@map("users")
+}
+
+/// Sesión abierta del panel. El JWT la nombra en `sid`: mientras exista la
+/// fila el token vale, y cerrar la sesión la borra. `expiresAt` es el límite
+/// absoluto de la sesión; las vencidas se limpian en el siguiente login.
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("user_sessions")
 }
 
 /// Enlace de recuperación de contraseña del panel: un solo uso, vence en

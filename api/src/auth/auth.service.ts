@@ -3,6 +3,7 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { UsersService } from '../users/users.service';
 import type { SessionUser } from './jwt.strategy';
+import { SessionsService } from './sessions.service';
 
 /**
  * Hash de un valor fijo que nunca corresponde a ningún usuario real. Se
@@ -26,6 +27,7 @@ export class AuthService {
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
+    private readonly sessions: SessionsService,
   ) {}
 
   async login(email: string, password: string) {
@@ -43,12 +45,20 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    const authAt = nowInSeconds();
+    const sessionId = await this.sessions.start(
+      user.id,
+      new Date(sessionLimit(authAt) * 1000),
+    );
+
     return {
       accessToken: await this.issueToken({
         id: user.id,
         email: user.email,
         role: user.role,
         sessionVersion: user.sessionVersion,
+        sessionId,
+        authAt,
       }),
     };
   }
@@ -62,23 +72,29 @@ export class AuthService {
     if (nowInSeconds() >= sessionLimit(user.authAt)) {
       throw new UnauthorizedException('La sesión llegó a su límite');
     }
-    return { accessToken: await this.issueToken(user, user.authAt) };
+    return { accessToken: await this.issueToken(user) };
   }
 
-  private async issueToken(
-    user: Pick<SessionUser, 'id' | 'email' | 'role' | 'sessionVersion'>,
-    previousAuthAt?: number,
-  ): Promise<string> {
+  /**
+   * Revoca solo esta sesión: el token deja de valer aunque no haya vencido,
+   * y también cualquiera renovado a partir de él, porque todos nombran la
+   * misma sesión.
+   */
+  logout(user: SessionUser): Promise<void> {
+    return this.sessions.end(user.sessionId);
+  }
+
+  private async issueToken(user: SessionUser): Promise<string> {
     // Un solo reloj para todo el token: si no, cambiar de segundo entre dos
     // lecturas lo dejaría vencer 1 segundo después del límite.
     const now = nowInSeconds();
-    const authAt = previousAuthAt ?? now;
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
       ver: user.sessionVersion,
-      authAt,
+      sid: user.sessionId,
+      authAt: user.authAt,
       iat: now,
     };
     const sign = (expiresIn: string | number | undefined) =>
@@ -91,7 +107,7 @@ export class AuthService {
 
     // El token nunca vive más allá del límite: ni siquiera uno robado se
     // puede estirar renovándolo.
-    const limit = sessionLimit(authAt);
+    const limit = sessionLimit(user.authAt);
     const { exp } = this.jwt.decode<{ exp: number }>(token);
     return exp <= limit ? token : sign(limit - now);
   }

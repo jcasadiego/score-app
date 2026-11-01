@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { UsersService } from './../src/users/users.service';
 
 const EMAIL = 'renovacion.e2e@example.com';
 const PASSWORD = 'clave-renovacion-123';
@@ -88,5 +90,87 @@ describe('Renovación de sesión (e2e)', () => {
     });
 
     await refresh(token).expect(401);
+  });
+
+  describe('cierre de sesión', () => {
+    function logout(token: string) {
+      return request(app.getHttpServer())
+        .post('/api/v1/auth/logout')
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    function checkSession(token: string) {
+      return request(app.getHttpServer())
+        .get('/api/v1/auth/session')
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('revoca el token aunque no haya vencido', async () => {
+      const token = await login();
+      await checkSession(token).expect(204);
+
+      await logout(token).expect(204);
+
+      await checkSession(token).expect(401);
+      await refresh(token).expect(401);
+    });
+
+    it('revoca también un token renovado antes del logout', async () => {
+      const token = await login();
+      const renewed = (await refresh(token).expect(200)).body.accessToken;
+
+      await logout(token).expect(204);
+
+      await checkSession(renewed).expect(401);
+    });
+
+    it('no cierra las otras sesiones de la misma cuenta', async () => {
+      const first = await login();
+      const second = await login();
+
+      await logout(first).expect(204);
+
+      await checkSession(second).expect(204);
+    });
+
+    it('reactivar una cuenta no revive sus tokens anteriores', async () => {
+      const token = await login();
+      const users = app.get(UsersService);
+      const { id } = await prisma.user.findUniqueOrThrow({
+        where: { email: EMAIL },
+      });
+
+      await users.deactivate(id);
+      await users.activate(id);
+
+      await checkSession(token).expect(401);
+      await checkSession(await login()).expect(204);
+    });
+
+    it('rechaza un token firmado sin sesión', async () => {
+      const token = await login();
+      const { sub, email, role, ver, authAt } = decode(token);
+      const noSession = await app
+        .get(JwtService)
+        .signAsync(
+          { sub, email, role, ver, authAt },
+          { secret: process.env.JWT_SECRET, expiresIn: '1h' },
+        );
+
+      await checkSession(noSession).expect(401);
+    });
+
+    it('al iniciar sesión limpia las sesiones vencidas del usuario', async () => {
+      const { id: userId } = await prisma.user.findUniqueOrThrow({
+        where: { email: EMAIL },
+      });
+      await prisma.userSession.create({
+        data: { userId, expiresAt: new Date(Date.now() - 1000) },
+      });
+
+      await login();
+
+      expect(await prisma.userSession.count({ where: { userId } })).toBe(1);
+    });
   });
 });

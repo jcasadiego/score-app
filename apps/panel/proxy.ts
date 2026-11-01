@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { NOMBRE_COOKIE_SESION, RUTA_INICIO } from "@/lib/auth/constants";
-import { decodificarToken } from "@/lib/auth/jwt";
+import { SESSION_COOKIE_NAME, HOME_ROUTE } from "@/lib/auth/constants";
+import { decodeToken } from "@/lib/auth/jwt";
 
-const RUTAS_PUBLICAS = [
+const PUBLIC_ROUTES = [
   "/login",
-  "/recuperar-contrasena",
-  "/restablecer-contrasena",
+  "/forgot-password",
+  "/reset-password",
 ];
 
 /**
@@ -13,11 +13,11 @@ const RUTAS_PUBLICAS = [
  * no están: el enlace del correo debe funcionar aunque el navegador tenga
  * una sesión (por ejemplo, la de otra persona del equipo).
  */
-const RUTAS_SOLO_SIN_SESION = ["/login"];
+const GUEST_ONLY_ROUTES = ["/login"];
 
-function coincide(rutas: string[], pathname: string): boolean {
-  return rutas.some(
-    (ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`),
+function matchesRoute(routes: string[], pathname: string): boolean {
+  return routes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 }
 
@@ -25,22 +25,22 @@ function coincide(rutas: string[], pathname: string): boolean {
  * Chequeo optimista de sesión (solo lee la cookie, sin llamar a la API)
  * para redirigir antes de renderizar. La verificación real — que el
  * usuario siga existiendo y activo — ocurre en la API en cada llamada
- * autenticada; ver `verificarSesion` (`lib/auth/dal.ts`) para el chequeo
+ * autenticada; ver `verifySession` (`lib/auth/dal.ts`) para el chequeo
  * de cada Server Component.
  */
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const token = request.cookies.get(NOMBRE_COOKIE_SESION)?.value;
-  const sesion = token ? decodificarToken(token) : null;
-  const haySesionValida = !!sesion && sesion.exp * 1000 > Date.now();
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const session = token ? decodeToken(token) : null;
+  const hasValidSession = !!session && session.exp * 1000 > Date.now();
 
-  if (!coincide(RUTAS_PUBLICAS, pathname) && !haySesionValida) {
+  if (!matchesRoute(PUBLIC_ROUTES, pathname) && !hasValidSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (coincide(RUTAS_SOLO_SIN_SESION, pathname) && haySesionValida) {
-    return NextResponse.redirect(new URL(RUTA_INICIO, request.url));
+  if (matchesRoute(GUEST_ONLY_ROUTES, pathname) && hasValidSession) {
+    return NextResponse.redirect(new URL(HOME_ROUTE, request.url));
   }
 
   return NextResponse.next();

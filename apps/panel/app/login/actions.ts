@@ -1,19 +1,19 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { iniciarSesion } from "@/lib/api/auth";
-import { ErrorApi } from "@/lib/api/errors";
-import { crearSesion } from "@/lib/auth/session";
-import { RUTA_INICIO } from "@/lib/auth/constants";
+import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/errors";
+import { createSession } from "@/lib/auth/session";
+import { HOME_ROUTE } from "@/lib/auth/constants";
 
-export interface EstadoLogin {
+export interface LoginState {
   error?: string;
 }
 
-export async function accionLogin(
-  _estadoPrevio: EstadoLogin,
+export async function loginAction(
+  _prevState: LoginState,
   formData: FormData,
-): Promise<EstadoLogin> {
+): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -23,15 +23,15 @@ export async function accionLogin(
 
   let accessToken: string;
   try {
-    accessToken = await iniciarSesion(email, password);
+    accessToken = await login(email, password);
   } catch (error) {
-    const mensaje =
-      error instanceof ErrorApi
+    const message =
+      error instanceof ApiError
         ? error.message
         : "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
-    return { error: mensaje };
+    return { error: message };
   }
 
-  await crearSesion(accessToken);
-  redirect(RUTA_INICIO);
+  await createSession(accessToken);
+  redirect(HOME_ROUTE);
 }

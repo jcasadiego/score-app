@@ -47,7 +47,7 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 - **Modelo de permisos de `apps/panel`:** el modelo real de roles y
   permisos todavía no está definido. El login ya funciona de punta a
   punta (JWT en `api` + pantalla de login y sesión en `apps/panel`) y
-  hay CRUD de usuarios, pero todo contra un `Usuario` con un solo rol
+  hay CRUD de usuarios, pero todo contra un `User` con un solo rol
   placeholder (`ADMIN`) — ver TODO en `api/prisma/schema.prisma`. No
   agregar roles nuevos ni permisos por caso sin confirmarlo con José.
 
@@ -77,9 +77,9 @@ pendientes:
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la
-  pantalla de Usuarios (`app/(panel)/usuarios/`), Leads y la
-  recuperación de contraseña (`/recuperar-contrasena`,
-  `/restablecer-contrasena`). Detalle en
+  pantalla de Usuarios (`app/(panel)/users/`), Leads y la
+  recuperación de contraseña (`/forgot-password`,
+  `/reset-password`). Detalle en
   `apps/panel/README.md`.
 - **`apps/diagnostico`:** solo scaffold — su flujo depende de la
   especificación del cuestionario.
@@ -306,7 +306,7 @@ revisar la regla correspondiente.
   `clearOnDestroy` (con StrictMode borra los `initialValues`) (#16).
 - No copiar datos del servidor a `useState`: la Server Action +
   `revalidatePath` ya devuelve el RSC actualizado (#13). Colores solo
-  desde `lib/tema.ts`, sin hex sueltos.
+  desde `lib/theme.ts`, sin hex sueltos.
 - Revisar la consola del navegador (avisos de Ant Design, hidratación)
   antes de dar por buena una pantalla — así se detectó #16.
 
@@ -371,12 +371,15 @@ Glosario de base (usarlo igual en todas las fases):
   `pnpm mail:test`, `GET /health` responde `detail` en vez de `detalle`
   y el puerto del motor usa `answers`/`result`. El contrato legacy
   (`src/leads/legacy/`) sigue en español a propósito.
-- [ ] **Fase 4 — `apps/panel`.** Código (`lib/`, `components/`, Server
+- [x] **Fase 4 — `apps/panel`.** Código (`lib/`, `components/`, Server
   Actions, tipos) y URLs: `/usuarios` → `/users`,
   `/recuperar-contrasena` → `/forgot-password`, `/restablecer-contrasena`
-  → `/reset-password` (el enlace del correo lo arma `api`: cambiarlo en
+  → `/reset-password` (el enlace del correo lo arma `api`: se cambió en
   el mismo PR). Los textos de pantalla siguen en español. `lib/tema.ts`
-  → `lib/theme.ts`.
+  → `lib/theme.ts`. Hecho también: query params del panel en inglés
+  (`pagina` → `page`, `familia` → `family`, `estado` → `status`, `?data=`
+  con `worst|empty|one|many`) y `?contrasena=` del login → `?notice=
+  password-reset|password-changed`. `q` se queda: no está en español.
 - [ ] **Fase 5 — Cierre.** `apps/diagnostico` (hoy solo scaffold) ya
   nace en inglés. Revisar la plantilla de tickets
   (`.claude/plantilla-tickets-jira-score.md`) para que los prompts pidan

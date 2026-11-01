@@ -4,14 +4,14 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import { accionLogin, type EstadoLogin } from "./actions";
+import { loginAction, type LoginState } from "./actions";
 
-const estadoInicial: EstadoLogin = {};
+const initialState: LoginState = {};
 
-export function FormularioLogin({ aviso }: { aviso?: string }) {
-  const [estado, accionFormulario, pendiente] = useActionState(
-    accionLogin,
-    estadoInicial,
+export function LoginForm({ notice }: { notice?: string }) {
+  const [state, formAction, pending] = useActionState(
+    loginAction,
+    initialState,
   );
 
   return (
@@ -23,17 +23,17 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
         Inicia sesión con tu cuenta del equipo Music Finance Pro.
       </Typography.Paragraph>
 
-      <form action={accionFormulario}>
-        <Form component={false} layout="vertical" disabled={pendiente}>
-          {aviso && !estado.error && (
+      <form action={formAction}>
+        <Form component={false} layout="vertical" disabled={pending}>
+          {notice && !state.error && (
             <Form.Item>
-              <Alert type="success" showIcon title={aviso} />
+              <Alert type="success" showIcon title={notice} />
             </Form.Item>
           )}
 
-          {estado.error && (
+          {state.error && (
             <Form.Item>
-              <Alert type="error" showIcon title={estado.error} />
+              <Alert type="error" showIcon title={state.error} />
             </Form.Item>
           )}
 
@@ -61,10 +61,10 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
             />
           </Form.Item>
 
-          <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
+          <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
 
           <Form.Item style={{ marginTop: 24, marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" block loading={pendiente}>
+            <Button type="primary" htmlType="submit" block loading={pending}>
               Iniciar sesión
             </Button>
           </Form.Item>

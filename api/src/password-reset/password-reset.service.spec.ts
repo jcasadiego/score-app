@@ -97,7 +97,7 @@ describe('PasswordResetService', () => {
       const { link } = mail.sendPasswordReset.mock.calls[0][0];
       const token = new URL(link).searchParams.get('token');
       expect(link).toMatch(
-        /^https:\/\/panel\.example\.com\/restablecer-contrasena\?token=/,
+        /^https:\/\/panel\.example\.com\/reset-password\?token=/,
       );
       const { data } = prisma.passwordResetToken.create.mock.calls[0][0];
       expect(data.tokenHash).toBe(hashToken(token));

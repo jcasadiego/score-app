@@ -15,34 +15,34 @@ import {
   type MenuProps,
 } from "antd";
 import { DownOutlined, LogoutOutlined, MenuOutlined } from "@ant-design/icons";
-import { accionCerrarSesion } from "@/lib/auth/actions";
-import { ETIQUETAS_ROL } from "@/lib/tema";
+import { logoutAction } from "@/lib/auth/actions";
+import { ROLE_LABELS } from "@/lib/theme";
 
 const { Header, Sider, Content } = Layout;
 
 interface AppShellProps {
-  usuario: { email: string; rol: string };
+  user: { email: string; role: string };
   children: ReactNode;
 }
 
-const ITEMS_MENU = [
+const MENU_ITEMS = [
   { key: "/leads", label: <Link href="/leads">Leads</Link> },
-  { key: "/usuarios", label: <Link href="/usuarios">Usuarios</Link> },
+  { key: "/users", label: <Link href="/users">Usuarios</Link> },
 ];
 
-export function AppShell({ usuario, children }: AppShellProps) {
+export function AppShell({ user, children }: AppShellProps) {
   const pathname = usePathname();
   const { token } = theme.useToken();
-  const pantallas = Grid.useBreakpoint();
-  const [colapsado, setColapsado] = useState(false);
-  const [cerrandoSesion, iniciarCierre] = useTransition();
+  const screens = Grid.useBreakpoint();
+  const [collapsed, setCollapsed] = useState(false);
+  const [loggingOut, startLogout] = useTransition();
 
-  const rol = ETIQUETAS_ROL[usuario.rol] ?? usuario.rol;
-  const inicial = Array.from(usuario.email)[0]?.toUpperCase() ?? "?";
+  const role = ROLE_LABELS[user.role] ?? user.role;
+  const initial = Array.from(user.email)[0]?.toUpperCase() ?? "?";
 
-  const itemsCuenta: MenuProps["items"] = [
+  const accountItems: MenuProps["items"] = [
     {
-      key: "identidad",
+      key: "identity",
       type: "group",
       label: (
         <div style={{ maxWidth: 260 }}>
@@ -50,19 +50,19 @@ export function AppShell({ usuario, children }: AppShellProps) {
             strong
             style={{ display: "block", overflowWrap: "anywhere" }}
           >
-            {usuario.email}
+            {user.email}
           </Typography.Text>
-          <Typography.Text type="secondary">{rol}</Typography.Text>
+          <Typography.Text type="secondary">{role}</Typography.Text>
         </div>
       ),
     },
     { type: "divider" },
     {
-      key: "cerrar-sesion",
+      key: "logout",
       icon: <LogoutOutlined />,
       label: "Cerrar sesión",
-      disabled: cerrandoSesion,
-      onClick: () => iniciarCierre(() => accionCerrarSesion()),
+      disabled: loggingOut,
+      onClick: () => startLogout(() => logoutAction()),
     },
   ];
 
@@ -71,8 +71,8 @@ export function AppShell({ usuario, children }: AppShellProps) {
       <Sider
         breakpoint="lg"
         collapsedWidth={0}
-        collapsed={colapsado}
-        onBreakpoint={setColapsado}
+        collapsed={collapsed}
+        onBreakpoint={setCollapsed}
         trigger={null}
       >
         <div
@@ -94,9 +94,9 @@ export function AppShell({ usuario, children }: AppShellProps) {
           theme="dark"
           mode="inline"
           selectedKeys={[pathname]}
-          items={ITEMS_MENU}
+          items={MENU_ITEMS}
           onClick={() => {
-            if (!pantallas.lg) setColapsado(true);
+            if (!screens.lg) setCollapsed(true);
           }}
         />
       </Sider>
@@ -109,17 +109,17 @@ export function AppShell({ usuario, children }: AppShellProps) {
             borderBottom: `1px solid ${token.colorSplit}`,
           }}
         >
-          {colapsado && (
+          {collapsed && (
             <Button
               type="text"
               icon={<MenuOutlined />}
               aria-label="Abrir menú"
-              onClick={() => setColapsado(false)}
+              onClick={() => setCollapsed(false)}
             />
           )}
           <div style={{ flex: 1 }} />
           <Dropdown
-            menu={{ items: itemsCuenta }}
+            menu={{ items: accountItems }}
             trigger={["click"]}
             placement="bottomRight"
           >
@@ -132,11 +132,11 @@ export function AppShell({ usuario, children }: AppShellProps) {
                 size="small"
                 style={{ background: token.colorPrimary, flexShrink: 0 }}
               >
-                {inicial}
+                {initial}
               </Avatar>
-              {pantallas.md && (
+              {screens.md && (
                 <Typography.Text ellipsis style={{ maxWidth: 220 }}>
-                  {usuario.email}
+                  {user.email}
                 </Typography.Text>
               )}
               <DownOutlined style={{ fontSize: 10 }} />

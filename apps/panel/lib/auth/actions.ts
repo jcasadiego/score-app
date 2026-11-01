@@ -1,9 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eliminarSesion } from "./session";
+import { deleteSession } from "./session";
 
-export async function accionCerrarSesion(): Promise<void> {
-  await eliminarSesion();
+export async function logoutAction(): Promise<void> {
+  await deleteSession();
   redirect("/login");
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
-import { ProveedorAntd } from "@/components/proveedor-antd";
+import { AntdProvider } from "@/components/antd-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="es">
       <body>
         <AntdRegistry>
-          <ProveedorAntd>{children}</ProveedorAntd>
+          <AntdProvider>{children}</AntdProvider>
         </AntdRegistry>
       </body>
     </html>

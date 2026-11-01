@@ -4,27 +4,27 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Alert, Button, Card, Form, Input, Result, Typography } from "antd";
 import { UserOutlined } from "@ant-design/icons";
-import { EMAIL_MAX } from "@/lib/usuarios/limites";
-import { accionSolicitarRecuperacion } from "./actions";
+import { EMAIL_MAX } from "@/lib/users/limits";
+import { requestPasswordResetAction } from "./actions";
 
-export function FormularioSolicitud() {
-  const [pendiente, iniciarTransicion] = useTransition();
+export function ForgotPasswordForm() {
+  const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [enviado, setEnviado] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
-  function enviar({ email }: { email: string }) {
+  function submit({ email }: { email: string }) {
     setError(null);
-    iniciarTransicion(async () => {
-      const resultado = await accionSolicitarRecuperacion(email);
-      if (resultado.ok) {
-        setEnviado(true);
+    startTransition(async () => {
+      const result = await requestPasswordResetAction(email);
+      if (result.ok) {
+        setSubmitted(true);
       } else {
-        setError(resultado.error ?? "Ocurrió un error inesperado.");
+        setError(result.error ?? "Ocurrió un error inesperado.");
       }
     });
   }
 
-  if (enviado) {
+  if (submitted) {
     // Mismo mensaje exista o no el correo: no delata qué cuentas existen.
     return (
       <Card>
@@ -52,7 +52,7 @@ export function FormularioSolicitud() {
         contraseña nueva.
       </Typography.Paragraph>
 
-      <Form layout="vertical" onFinish={enviar} disabled={pendiente}>
+      <Form layout="vertical" onFinish={submit} disabled={pending}>
         {error && (
           <Form.Item>
             <Alert type="error" showIcon title={error} />
@@ -78,7 +78,7 @@ export function FormularioSolicitud() {
         </Form.Item>
 
         <Form.Item style={{ marginTop: 24, marginBottom: 8 }}>
-          <Button type="primary" htmlType="submit" block loading={pendiente}>
+          <Button type="primary" htmlType="submit" block loading={pending}>
             Enviar enlace
           </Button>
         </Form.Item>

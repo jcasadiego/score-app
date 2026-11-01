@@ -101,7 +101,7 @@ también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
   el trabajo en segundo plano (misma respuesta y mismo tiempo exista o
   no el correo); si el usuario existe y está activo, crea un token
   aleatorio de un solo uso que vence en 1 hora, borra los pendientes
-  anteriores y manda el enlace `PANEL_URL/restablecer-contrasena?token=`
+  anteriores y manda el enlace `PANEL_URL/reset-password?token=`
   por `MailService`. En la base solo queda el SHA-256 del token
   (`PasswordResetToken`). `POST /auth/password-reset/confirm`
   (`{ token, password }`, 5/min por IP) responde 204, o 400 con un único

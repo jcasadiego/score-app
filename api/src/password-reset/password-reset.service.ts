@@ -87,7 +87,7 @@ export class PasswordResetService {
 
     const panelUrl =
       this.config.get('PANEL_URL', { infer: true }) ?? DEV_PANEL_URL;
-    const link = new URL('/restablecer-contrasena', panelUrl);
+    const link = new URL('/reset-password', panelUrl);
     link.searchParams.set('token', token);
 
     await this.mail.sendPasswordReset(

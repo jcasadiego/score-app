@@ -2,18 +2,18 @@ import Link from "next/link";
 
 /**
  * Selector solo de desarrollo para alternar entre los datos reales y los
- * escenarios de `datos-prueba-usuarios.ts`. Es "chrome" de prueba, no parte
+ * escenarios de `users-test-data.ts`. Es "chrome" de prueba, no parte
  * del diseño: por eso no usa Ant Design ni el tema del panel.
  */
-const OPCIONES = [
-  { valor: undefined, etiqueta: "Demo" },
-  { valor: "peor", etiqueta: "Peor caso" },
-  { valor: "vacio", etiqueta: "Vacío" },
-  { valor: "uno", etiqueta: "Uno" },
-  { valor: "mil", etiqueta: "1.284 filas" },
+const OPTIONS = [
+  { value: undefined, label: "Demo" },
+  { value: "worst", label: "Peor caso" },
+  { value: "empty", label: "Vacío" },
+  { value: "one", label: "Uno" },
+  { value: "many", label: "1.284 filas" },
 ] as const;
 
-export function SelectorDatosPrueba({ actual }: { actual?: string }) {
+export function TestDataSelector({ current }: { current?: string }) {
   return (
     <nav
       aria-label="Datos de prueba"
@@ -32,22 +32,22 @@ export function SelectorDatosPrueba({ actual }: { actual?: string }) {
         boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
       }}
     >
-      {OPCIONES.map(({ valor, etiqueta }) => {
-        const activo = actual === valor;
+      {OPTIONS.map(({ value, label }) => {
+        const active = current === value;
         return (
           <Link
-            key={etiqueta}
-            href={valor ? `?data=${valor}` : "?"}
+            key={label}
+            href={value ? `?data=${value}` : "?"}
             style={{
               padding: "4px 10px",
               borderRadius: 999,
               color: "#111",
               textDecoration: "none",
-              background: activo ? "#fff" : "transparent",
-              fontWeight: activo ? 600 : 400,
+              background: active ? "#fff" : "transparent",
+              fontWeight: active ? 600 : 400,
             }}
           >
-            {etiqueta}
+            {label}
           </Link>
         );
       })}

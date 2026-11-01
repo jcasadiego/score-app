@@ -5,20 +5,20 @@
  * UI y para el chequeo optimista del proxy. La autorización real ocurre
  * en la API cuando el panel la consuma con este token como Bearer.
  */
-export interface PayloadSesion {
+export interface SessionPayload {
   id: string;
   email: string;
   role: string;
   exp: number;
 }
 
-export function decodificarToken(token: string): PayloadSesion | null {
-  const partes = token.split(".");
-  if (partes.length !== 3) return null;
+export function decodeToken(token: string): SessionPayload | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
 
   try {
     const payload = JSON.parse(
-      Buffer.from(partes[1], "base64url").toString("utf-8"),
+      Buffer.from(parts[1], "base64url").toString("utf-8"),
     ) as { sub?: string; email?: string; role?: string; exp?: number };
 
     if (!payload.sub || !payload.email || !payload.role || !payload.exp) {

@@ -16,62 +16,62 @@ import {
   Typography,
   type TableColumnsType,
 } from "antd";
-import type { Lead, PaginaLeads } from "@/lib/api/leads";
+import type { Lead, PaginatedLeads } from "@/lib/api/leads";
 import {
-  COLORES_ESTADO_LEAD,
-  ESTADOS_LEAD,
-  ETIQUETAS_ESTADO_LEAD,
-  ETIQUETAS_FAMILIA,
-  FAMILIAS,
-  type EstadoLead,
-  type FamiliaDiagnostico,
-} from "@/lib/leads/etiquetas";
-import { accionCambiarEstadoLead } from "@/app/(panel)/leads/actions";
-import { BuscadorReactivo } from "@/components/buscador-reactivo";
-import { FechaLocal } from "@/components/fecha-local";
+  LEAD_STATUS_COLORS,
+  LEAD_STATUSES,
+  LEAD_STATUS_LABELS,
+  FAMILY_LABELS,
+  FAMILIES,
+  type LeadStatus,
+  type DiagnosticFamily,
+} from "@/lib/leads/labels";
+import { updateLeadStatusAction } from "@/app/(panel)/leads/actions";
+import { ReactiveSearch } from "@/components/reactive-search";
+import { LocalDate } from "@/components/local-date";
 
-interface FiltrosLeads {
+interface LeadScreenFilters {
   q: string;
-  familia?: FamiliaDiagnostico;
-  estado?: EstadoLead;
+  family?: DiagnosticFamily;
+  status?: LeadStatus;
 }
 
 interface LeadsScreenProps {
-  pagina: PaginaLeads;
-  filtros: FiltrosLeads;
+  page: PaginatedLeads;
+  filters: LeadScreenFilters;
 }
 
 const pluralLeads = new Intl.PluralRules("es");
 
-function textoTotal(total: number): string {
-  const cantidad = new Intl.NumberFormat("es").format(total);
-  return `${cantidad} ${pluralLeads.select(total) === "one" ? "lead" : "leads"}`;
+function totalText(total: number): string {
+  const count = new Intl.NumberFormat("es").format(total);
+  return `${count} ${pluralLeads.select(total) === "one" ? "lead" : "leads"}`;
 }
 
-const OPCIONES_FAMILIA = FAMILIAS.map((f) => ({
+const FAMILY_OPTIONS = FAMILIES.map((f) => ({
   value: f,
-  label: ETIQUETAS_FAMILIA[f],
+  label: FAMILY_LABELS[f],
 }));
 
-const OPCIONES_ESTADO = ESTADOS_LEAD.map((e) => ({
+const STATUS_OPTIONS = LEAD_STATUSES.map((e) => ({
   value: e,
-  label: ETIQUETAS_ESTADO_LEAD[e],
+  label: LEAD_STATUS_LABELS[e],
 }));
 
 /** "instagram · lanzamiento-2026", o null si el lead no trae UTM. */
-function origen(lead: Lead): string | null {
-  const partes = [lead.utmSource, lead.utmCampaign].filter(Boolean);
-  return partes.length > 0 ? partes.join(" · ") : null;
+function leadSource(lead: Lead): string | null {
+  const parts = [lead.utmSource, lead.utmCampaign].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function SinDato() {
+function NoData() {
   return <Typography.Text type="secondary">—</Typography.Text>;
 }
 
-function TagEstado({ estado }: { estado: EstadoLead }) {
+function StatusTag({ status }: { status: LeadStatus }) {
   return (
-    <Tag color={COLORES_ESTADO_LEAD[estado]} style={{ marginInlineEnd: 0 }}>
-      {ETIQUETAS_ESTADO_LEAD[estado]}
+    <Tag color={LEAD_STATUS_COLORS[status]} style={{ marginInlineEnd: 0 }}>
+      {LEAD_STATUS_LABELS[status]}
     </Tag>
   );
 }
@@ -81,87 +81,87 @@ function TagEstado({ estado }: { estado: EstadoLead }) {
  * El cambio de estado es una Server Action con `revalidatePath`, que trae
  * la lista actualizada en la misma respuesta — no hay copia local.
  */
-export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
+export function LeadsScreen({ page, filters }: LeadsScreenProps) {
   const { message } = App.useApp();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [navegando, iniciarNavegacion] = useTransition();
-  const [guardando, iniciarGuardado] = useTransition();
+  const [navigating, startNavigation] = useTransition();
+  const [saving, startSaving] = useTransition();
 
   // Último lead abierto, solo por si deja de estar en la página actual
   // (p. ej. al cambiarle el estado con un filtro por estado activo). Si
   // sigue en la página, manda la versión del servidor.
-  const [abierto, setAbierto] = useState<Lead | null>(null);
+  const [lastOpenedLead, setLastOpenedLead] = useState<Lead | null>(null);
   // Vacía el buscador al limpiar los filtros.
-  const [reinicioBuscador, setReinicioBuscador] = useState(0);
-  const leadAbierto = abierto
-    ? (pagina.data.find((l) => l.id === abierto.id) ?? abierto)
+  const [searchReset, setSearchReset] = useState(0);
+  const openLead = lastOpenedLead
+    ? (page.data.find((l) => l.id === lastOpenedLead.id) ?? lastOpenedLead)
     : null;
 
-  const hayFiltros = Boolean(filtros.q || filtros.familia || filtros.estado);
+  const hasFilters = Boolean(filters.q || filters.family || filters.status);
 
   /**
    * Cambia filtros/página en la URL; cualquier filtro nuevo vuelve a la
-   * página 1. `reemplazar` no agrega una entrada al historial: es para la
+   * página 1. `replace` no agrega una entrada al historial: es para la
    * búsqueda mientras se escribe.
    */
-  function navegar(
-    cambios: Partial<FiltrosLeads> & { pagina?: number },
-    { reemplazar = false } = {},
+  function navigate(
+    changes: Partial<LeadScreenFilters> & { page?: number },
+    { replace = false } = {},
   ) {
     const params = new URLSearchParams(searchParams);
-    for (const clave of ["q", "familia", "estado"] as const) {
-      if (!(clave in cambios)) continue;
-      const valor = cambios[clave];
-      if (valor) params.set(clave, valor);
-      else params.delete(clave);
+    for (const key of ["q", "family", "status"] as const) {
+      if (!(key in changes)) continue;
+      const value = changes[key];
+      if (value) params.set(key, value);
+      else params.delete(key);
     }
-    const nuevaPagina = cambios.pagina ?? 1;
-    if (nuevaPagina > 1) params.set("pagina", String(nuevaPagina));
-    else params.delete("pagina");
+    const newPage = changes.page ?? 1;
+    if (newPage > 1) params.set("page", String(newPage));
+    else params.delete("page");
 
     const query = params.toString();
-    const destino = query ? `${pathname}?${query}` : pathname;
-    iniciarNavegacion(() => {
-      if (reemplazar) router.replace(destino);
-      else router.push(destino);
+    const target = query ? `${pathname}?${query}` : pathname;
+    startNavigation(() => {
+      if (replace) router.replace(target);
+      else router.push(target);
     });
   }
 
-  function limpiarFiltros() {
-    setReinicioBuscador((n) => n + 1);
-    navegar({ q: "", familia: undefined, estado: undefined });
+  function clearFilters() {
+    setSearchReset((n) => n + 1);
+    navigate({ q: "", family: undefined, status: undefined });
   }
 
-  function cambiarEstado(lead: Lead, estado: EstadoLead) {
-    iniciarGuardado(async () => {
-      const resultado = await accionCambiarEstadoLead(lead.id, estado);
-      if (!resultado.ok) {
-        message.error(resultado.error ?? "No pudimos cambiar el estado.");
+  function changeStatus(lead: Lead, status: LeadStatus) {
+    startSaving(async () => {
+      const result = await updateLeadStatusAction(lead.id, status);
+      if (!result.ok) {
+        message.error(result.error ?? "No pudimos cambiar el estado.");
         return;
       }
-      if (resultado.lead) setAbierto(resultado.lead);
+      if (result.lead) setLastOpenedLead(result.lead);
       message.success(
-        `${lead.name} quedó como ${ETIQUETAS_ESTADO_LEAD[estado].toLowerCase()}.`,
+        `${lead.name} quedó como ${LEAD_STATUS_LABELS[status].toLowerCase()}.`,
       );
     });
   }
 
-  const columnas: TableColumnsType<Lead> = [
+  const columns: TableColumnsType<Lead> = [
     {
       title: "Nombre",
       dataIndex: "name",
       key: "name",
-      render: (nombre: string, lead) => (
+      render: (name: string, lead) => (
         <Typography.Link
           onClick={(e) => {
             e.stopPropagation();
-            setAbierto(lead);
+            setLastOpenedLead(lead);
           }}
           style={{ overflowWrap: "anywhere" }}
         >
-          {nombre}
+          {name}
         </Typography.Link>
       ),
     },
@@ -177,28 +177,28 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       title: "Teléfono",
       dataIndex: "phone",
       key: "phone",
-      render: (telefono: string | null) =>
-        telefono ? (
-          <span style={{ whiteSpace: "nowrap" }}>{telefono}</span>
+      render: (phone: string | null) =>
+        phone ? (
+          <span style={{ whiteSpace: "nowrap" }}>{phone}</span>
         ) : (
-          <SinDato />
+          <NoData />
         ),
     },
     {
       title: "Familia",
       dataIndex: "family",
       key: "family",
-      render: (familia: FamiliaDiagnostico) => ETIQUETAS_FAMILIA[familia],
+      render: (family: DiagnosticFamily) => FAMILY_LABELS[family],
     },
     {
       title: "Origen",
-      key: "origen",
+      key: "source",
       render: (_, lead) => {
-        const texto = origen(lead);
-        return texto ? (
-          <span style={{ overflowWrap: "anywhere" }}>{texto}</span>
+        const text = leadSource(lead);
+        return text ? (
+          <span style={{ overflowWrap: "anywhere" }}>{text}</span>
         ) : (
-          <SinDato />
+          <NoData />
         );
       },
     },
@@ -207,23 +207,23 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       dataIndex: "status",
       key: "status",
       width: 120,
-      render: (estado: EstadoLead) => <TagEstado estado={estado} />,
+      render: (status: LeadStatus) => <StatusTag status={status} />,
     },
     {
       title: "Fecha",
       dataIndex: "createdAt",
       key: "createdAt",
       width: 170,
-      render: (creadoEn: string) => <FechaLocal iso={creadoEn} />,
+      render: (createdAt: string) => <LocalDate iso={createdAt} />,
     },
   ];
 
-  const vacio = hayFiltros ? (
+  const emptyState = hasFilters ? (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
       description="Ningún lead coincide con los filtros."
     >
-      <Button onClick={limpiarFiltros}>Limpiar filtros</Button>
+      <Button onClick={clearFilters}>Limpiar filtros</Button>
     </Empty>
   ) : (
     <Empty
@@ -242,31 +242,31 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       </Typography.Title>
 
       <Flex gap={12} wrap style={{ marginBottom: 16 }}>
-        <BuscadorReactivo
-          reinicio={reinicioBuscador}
-          valorInicial={filtros.q}
-          onBuscar={(q) => navegar({ q }, { reemplazar: true })}
+        <ReactiveSearch
+          resetKey={searchReset}
+          initialValue={filters.q}
+          onSearch={(q) => navigate({ q }, { replace: true })}
           placeholder="Buscar por nombre o correo"
           ariaLabel="Buscar leads"
-          cargando={navegando}
+          loading={navigating}
           style={{ width: 320, maxWidth: "100%" }}
         />
-        <Select<FamiliaDiagnostico>
-          value={filtros.familia}
+        <Select<DiagnosticFamily>
+          value={filters.family}
           placeholder="Todas las familias"
           aria-label="Filtrar por familia"
           allowClear
-          options={OPCIONES_FAMILIA}
-          onChange={(familia) => navegar({ familia })}
+          options={FAMILY_OPTIONS}
+          onChange={(family) => navigate({ family })}
           style={{ width: 200 }}
         />
-        <Select<EstadoLead>
-          value={filtros.estado}
+        <Select<LeadStatus>
+          value={filters.status}
           placeholder="Todos los estados"
           aria-label="Filtrar por estado"
           allowClear
-          options={OPCIONES_ESTADO}
-          onChange={(estado) => navegar({ estado })}
+          options={STATUS_OPTIONS}
+          onChange={(status) => navigate({ status })}
           style={{ width: 200 }}
         />
       </Flex>
@@ -274,34 +274,34 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
       <Table<Lead>
         rowKey="id"
         size="middle"
-        dataSource={pagina.data}
-        columns={columnas}
-        loading={navegando}
+        dataSource={page.data}
+        columns={columns}
+        loading={navigating}
         scroll={{ x: 960 }}
-        locale={{ emptyText: vacio }}
+        locale={{ emptyText: emptyState }}
         onRow={(lead) => ({
-          onClick: () => setAbierto(lead),
+          onClick: () => setLastOpenedLead(lead),
           style: { cursor: "pointer" },
         })}
         pagination={{
-          current: pagina.page,
-          pageSize: pagina.pageSize,
-          total: pagina.total,
+          current: page.page,
+          pageSize: page.pageSize,
+          total: page.total,
           showSizeChanger: false,
           hideOnSinglePage: true,
-          showTotal: textoTotal,
-          onChange: (nueva) => navegar({ pagina: nueva }),
+          showTotal: totalText,
+          onChange: (nextPage) => navigate({ page: nextPage }),
         }}
       />
 
       <Drawer
-        title={leadAbierto?.name}
-        open={leadAbierto !== null}
-        onClose={() => setAbierto(null)}
+        title={openLead?.name}
+        open={openLead !== null}
+        onClose={() => setLastOpenedLead(null)}
         size="large"
         destroyOnHidden
       >
-        {leadAbierto && (
+        {openLead && (
           <Flex vertical gap={24}>
             <div>
               <Typography.Text
@@ -310,13 +310,13 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
               >
                 Estado
               </Typography.Text>
-              <Segmented<EstadoLead>
-                value={leadAbierto.status}
-                options={OPCIONES_ESTADO.map((o) => ({
+              <Segmented<LeadStatus>
+                value={openLead.status}
+                options={STATUS_OPTIONS.map((o) => ({
                   ...o,
-                  disabled: guardando,
+                  disabled: saving,
                 }))}
-                onChange={(estado) => cambiarEstado(leadAbierto, estado)}
+                onChange={(status) => changeStatus(openLead, status)}
               />
             </div>
 
@@ -326,35 +326,35 @@ export function LeadsScreen({ pagina, filtros }: LeadsScreenProps) {
                   copyable
                   style={{ overflowWrap: "anywhere" }}
                 >
-                  {leadAbierto.email}
+                  {openLead.email}
                 </Typography.Text>
               </Descriptions.Item>
               <Descriptions.Item label="Teléfono">
-                {leadAbierto.phone ? (
+                {openLead.phone ? (
                   <Typography.Text copyable>
-                    {leadAbierto.phone}
+                    {openLead.phone}
                   </Typography.Text>
                 ) : (
-                  <SinDato />
+                  <NoData />
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Familia">
-                {ETIQUETAS_FAMILIA[leadAbierto.family]}
+                {FAMILY_LABELS[openLead.family]}
               </Descriptions.Item>
               <Descriptions.Item label="Fuente (utm_source)">
-                {leadAbierto.utmSource ?? <SinDato />}
+                {openLead.utmSource ?? <NoData />}
               </Descriptions.Item>
               <Descriptions.Item label="Medio (utm_medium)">
-                {leadAbierto.utmMedium ?? <SinDato />}
+                {openLead.utmMedium ?? <NoData />}
               </Descriptions.Item>
               <Descriptions.Item label="Campaña (utm_campaign)">
-                {leadAbierto.utmCampaign ?? <SinDato />}
+                {openLead.utmCampaign ?? <NoData />}
               </Descriptions.Item>
               <Descriptions.Item label="Recibido">
-                <FechaLocal iso={leadAbierto.createdAt} />
+                <LocalDate iso={openLead.createdAt} />
               </Descriptions.Item>
               <Descriptions.Item label="Última actualización">
-                <FechaLocal iso={leadAbierto.updatedAt} />
+                <LocalDate iso={openLead.updatedAt} />
               </Descriptions.Item>
             </Descriptions>
           </Flex>

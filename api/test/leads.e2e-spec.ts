@@ -193,8 +193,8 @@ describe('Leads del panel (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    // Usuario directo en la base (sin login): `JwtStrategy` solo necesita
-    // que exista y esté active.
+    // Usuario y sesión directos en la base (sin login): `JwtStrategy` solo
+    // necesita que la sesión exista y el usuario esté activo.
     const user = await prisma.user.create({
       data: {
         name: 'Admin e2e leads',
@@ -203,9 +203,15 @@ describe('Leads del panel (e2e)', () => {
       },
     });
     userId = user.id;
+    const session = await prisma.userSession.create({
+      data: { userId: user.id, expiresAt: new Date(Date.now() + 3_600_000) },
+    });
     token = await app
       .get(JwtService)
-      .signAsync({ sub: user.id }, { secret: process.env.JWT_SECRET });
+      .signAsync(
+        { sub: user.id, ver: user.sessionVersion, sid: session.id },
+        { secret: process.env.JWT_SECRET },
+      );
 
     // Marca única para que los filtros no choquen con otros leads de la base.
     const marker = `e2epanel${Date.now()}`;

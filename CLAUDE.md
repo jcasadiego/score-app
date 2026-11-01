@@ -69,7 +69,8 @@ pendientes:
   de usuarios internos (`/users`, solo ADMIN; `active: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
   mismo; cambiar la contraseña cierra sus sesiones), renovación de sesión
-  (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), recuperación de
+  (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), cierre de sesión
+  que revoca el token (`POST /auth/logout`), recuperación de
   contraseña del panel por correo, seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional
@@ -209,6 +210,7 @@ terminó):
 | RegistroAuditoria / ActorAuditoria | AuditLog / AuditActorType (`PANEL_USER`, `END_CLIENT`, `SYSTEM`) |
 | VersionReglas | RuleSetVersion |
 | TokenRecuperacionContrasena | PasswordResetToken |
+| Sesión del panel | UserSession |
 | FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
 | EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
 | Caso / diagnóstico / enlace | Case / diagnostic / access link |

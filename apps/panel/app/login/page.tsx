@@ -22,7 +22,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   const { notice: noticeKey } = await searchParams;
-  const notice = typeof noticeKey === "string" ? NOTICES[noticeKey] : undefined;
+  // `hasOwn`: la clave viene de la URL y `constructor` o `__proto__` no son
+  // avisos, aunque el objeto los herede.
+  const notice =
+    typeof noticeKey === "string" && Object.hasOwn(NOTICES, noticeKey)
+      ? NOTICES[noticeKey]
+      : undefined;
 
   return (
     <CenteredScreen>

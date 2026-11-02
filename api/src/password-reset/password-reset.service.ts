@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import { panelLink } from '../config/panel-url';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,8 +17,6 @@ export const REQUEST_MESSAGE =
 /** Mismo mensaje para inválido, vencido o usado: no da pistas de cuál. */
 export const INVALID_LINK_MESSAGE =
   'El enlace no es válido, ya se usó o venció. Pide uno nuevo.';
-
-const DEV_PANEL_URL = 'http://localhost:3002';
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -85,9 +84,7 @@ export class PasswordResetService {
       entityId: user.id,
     });
 
-    const panelUrl =
-      this.config.get('PANEL_URL', { infer: true }) ?? DEV_PANEL_URL;
-    const link = new URL('/reset-password', panelUrl);
+    const link = panelLink(this.config, '/reset-password');
     link.searchParams.set('token', token);
 
     await this.mail.sendPasswordReset(

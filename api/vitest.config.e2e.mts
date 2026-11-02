@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     ...configBase.test,
     include: ['test/**/*.e2e-spec.ts'],
+    // Gana sobre el `.env`: los tests nunca le envían correos al proveedor real.
+    env: { MAIL_DRIVER: 'log' },
   },
 });

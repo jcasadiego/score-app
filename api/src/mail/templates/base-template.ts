@@ -13,6 +13,8 @@ export interface BaseContent {
   button?: { text: string; url: string };
   /** Texto chico bajo el botón (ej. "si no lo pediste, ignora este correo"). */
   note?: string;
+  /** Por qué le llega el correo; por defecto, que se pidió desde la plataforma. */
+  footerReason?: string;
 }
 
 export interface BrandOptions {
@@ -72,7 +74,7 @@ export function renderBaseTemplate(
 ${paragraphsHtml}${buttonHtml}${noteHtml}
 </td></tr>
 <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:#9ca3af;">
-${BRAND_NAME} · SCORE<br>Recibes este correo porque se solicitó desde la plataforma SCORE. Si respondes, le llega al equipo de ${BRAND_NAME}.
+${BRAND_NAME} · SCORE<br>${escapeHtml(content.footerReason ?? 'Recibes este correo porque se solicitó desde la plataforma SCORE.')} Si respondes, le llega al equipo de ${BRAND_NAME}.
 </td></tr>
 </table>
 </td></tr></table>

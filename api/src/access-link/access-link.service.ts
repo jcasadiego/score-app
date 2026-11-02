@@ -15,6 +15,9 @@ export interface AccessLinkPayload {
  * (`subjectId`, no `caseId`): cuando exista `Case`, emitir un
  * enlace real es firmar con su id; falta agregar el registro de uso.
  */
+/** Un token emitido para otra cosa no abre un enlace, aunque la firma coincida. */
+const ACCESS_LINK_AUDIENCE = 'access-link';
+
 @Injectable()
 export class AccessLinkService {
   constructor(private readonly jwt: JwtService) {}
@@ -23,6 +26,7 @@ export class AccessLinkService {
     return this.jwt.signAsync({ sub: subjectId, ...extraClaims }, {
       secret: process.env.ACCESS_LINK_JWT_SECRET,
       expiresIn: process.env.ACCESS_LINK_JWT_EXPIRES_IN,
+      audience: ACCESS_LINK_AUDIENCE,
     } as JwtSignOptions);
   }
 
@@ -30,6 +34,8 @@ export class AccessLinkService {
     try {
       return await this.jwt.verifyAsync<AccessLinkPayload>(token, {
         secret: process.env.ACCESS_LINK_JWT_SECRET,
+        algorithms: ['HS256'],
+        audience: ACCESS_LINK_AUDIENCE,
       });
     } catch {
       throw new UnauthorizedException('Enlace inválido o expirado');

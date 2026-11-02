@@ -46,6 +46,15 @@ describe('AccessLinkService', () => {
     );
   });
 
+  it('rechaza un token con la misma firma emitido para otra cosa', async () => {
+    const token = await new JwtService().signAsync(
+      { sub: 'usuario-del-panel' },
+      { secret: process.env.ACCESS_LINK_JWT_SECRET },
+    );
+
+    await expect(service.verify(token)).rejects.toThrow(UnauthorizedException);
+  });
+
   it('rechaza un token con formato inválido', async () => {
     await expect(service.verify('token-invalido')).rejects.toThrow(
       UnauthorizedException,

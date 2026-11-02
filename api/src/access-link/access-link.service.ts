@@ -10,9 +10,9 @@ export interface AccessLinkPayload {
  * TODO(pendiente #2): esta pieza es deliberadamente stateless — firma y
  * verifica un JWT de vida corta, sin tabla de "enlaces de acceso" ni
  * invalidación de un solo uso. Esa persistencia depende de la forma de
- * `Case` (especificación del cuestionario), que todavía no está definida
+ * `Diagnostic` (especificación del cuestionario), que todavía no está definida
  * — ver CLAUDE.md sección 3. Por eso el identificador es genérico
- * (`subjectId`, no `caseId`): cuando exista `Case`, emitir un
+ * (`subjectId`, no `diagnosticId`): cuando exista `Diagnostic`, emitir un
  * enlace real es firmar con su id; falta agregar el registro de uso.
  */
 /** Un token emitido para otra cosa no abre un enlace, aunque la firma coincida. */

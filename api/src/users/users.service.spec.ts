@@ -174,8 +174,38 @@ describe('UsersService', () => {
           data: {
             name: 'Ana',
             passwordHash: 'hash-generado',
+            passwordResetTokens: { deleteMany: { usedAt: null } },
             sessionVersion: { increment: 1 },
           },
+        }),
+      );
+    });
+  });
+
+  describe('update · enlaces de recuperación', () => {
+    const REVOKE = { passwordResetTokens: { deleteMany: { usedAt: null } } };
+
+    beforeEach(() => {
+      prisma.user.update.mockResolvedValue({ id: '1' });
+      prisma.user.findUnique.mockResolvedValue({ email: 'ana@example.com' });
+    });
+
+    it('cambiar el correo invalida los enlaces pendientes', async () => {
+      await service.update('1', { email: 'nuevo@example.com' });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { email: 'nuevo@example.com', ...REVOKE },
+        }),
+      );
+    });
+
+    it('reenviar el mismo correo los conserva', async () => {
+      await service.update('1', { name: 'Ana', email: 'ana@example.com' });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { name: 'Ana', email: 'ana@example.com' },
         }),
       );
     });
@@ -196,7 +226,11 @@ describe('UsersService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: '1' },
-          data: { active: false, sessions: { deleteMany: {} } },
+          data: {
+            active: false,
+            sessions: { deleteMany: {} },
+            passwordResetTokens: { deleteMany: { usedAt: null } },
+          },
         }),
       );
       expect(result.active).toBe(false);

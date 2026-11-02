@@ -6,6 +6,7 @@ import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
 import { MAIL_PORT, MailMessage } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { UsersService } from './../src/users/users.service';
 
 const BASE = '/api/v1/auth/password-reset';
 const EMAIL = 'recuperacion.e2e@example.com';
@@ -159,5 +160,68 @@ describe('Recuperación de contraseña (e2e)', () => {
       .send({ email: 'nadie.e2e@example.com' })
       .expect(429)
       .expect((r) => expect(r.body.error).toBe('Too Many Requests'));
+  });
+
+  describe('acciones del admin sobre un enlace pendiente', () => {
+    const NEW_PASSWORD = 'clave-del-enlace-123';
+    const OTHER_EMAIL = 'recuperacion.otro.e2e@example.com';
+
+    function confirm(token: string) {
+      return request(app.getHttpServer())
+        .post(`${BASE}/confirm`)
+        .send({ token, password: NEW_PASSWORD });
+    }
+
+    async function userId(): Promise<string> {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { email: EMAIL },
+      });
+      return user.id;
+    }
+
+    it('cambiar la contraseña invalida el enlace', async () => {
+      const token = await requestLink();
+
+      await app
+        .get(UsersService)
+        .update(await userId(), { password: 'clave-del-admin-123' });
+
+      await confirm(token).expect(400);
+    });
+
+    it('cambiar el correo invalida el enlace', async () => {
+      const token = await requestLink();
+      const id = await userId();
+
+      try {
+        await app.get(UsersService).update(id, { email: OTHER_EMAIL });
+        await confirm(token).expect(400);
+      } finally {
+        await prisma.user.update({
+          where: { id },
+          data: { email: EMAIL },
+        });
+      }
+    });
+
+    it('desactivar y reactivar la cuenta no revive el enlace', async () => {
+      const token = await requestLink();
+      const id = await userId();
+
+      await app.get(UsersService).deactivate(id);
+      await app.get(UsersService).activate(id);
+
+      await confirm(token).expect(400);
+    });
+
+    it('editar el nombre sin cambiar el correo conserva el enlace', async () => {
+      const token = await requestLink();
+
+      await app
+        .get(UsersService)
+        .update(await userId(), { name: 'Otro Nombre', email: EMAIL });
+
+      await confirm(token).expect(204);
+    });
   });
 });

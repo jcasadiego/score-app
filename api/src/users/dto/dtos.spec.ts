@@ -40,4 +40,11 @@ describe('DTOs de usuarios', () => {
     const errors = await validate(dto);
     expect(errors.map((e) => e.property)).toEqual(['pageSize']);
   });
+
+  it('rechaza una página enorme aunque sea un entero', async () => {
+    const dto = plainToInstance(ListUsersDto, { page: '1e21' });
+
+    const errors = await validate(dto);
+    expect(errors.map((e) => e.property)).toEqual(['page']);
+  });
 });

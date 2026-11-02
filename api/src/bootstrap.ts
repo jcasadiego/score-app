@@ -18,11 +18,13 @@ import { GlobalExceptionFilter } from './common/global-exception.filter';
  * validación de DTOs ni versionado.
  */
 export function configureApp(app: INestApplication): void {
-  // Necesario para que el throttler (y cualquier lectura de IP) vea la IP
-  // real del cliente y no la del proxy/balanceador, una vez desplegado
-  // detrás de uno (Vercel, nginx, etc.) — sin esto, el rate limiting
-  // termina agrupando a todos los clientes bajo una sola IP.
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  // Para que el throttler vea la IP real del cliente, no la del proxy. Debe ser
+  // el número exacto de proxies: confiar en uno que no existe deja que el cliente
+  // invente su IP con `X-Forwarded-For` y se salte el límite de login.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
 
   app.use(helmet());
 
@@ -57,7 +59,8 @@ export function configureApp(app: INestApplication): void {
     defaultVersion: '1',
   });
 
-  if (process.env.NODE_ENV !== 'production') {
+  // Lista de permitidos: un entorno no reconocido no publica la documentación.
+  if (['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
     const config = new DocumentBuilder()
       .setTitle('SCORE API')
       .setDescription(

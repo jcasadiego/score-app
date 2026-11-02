@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSecureOrigin, parseCorsOrigins } from './cors';
 
 /** Vacío en `.env` (`VAR=""`) cuenta como no definido. */
 const optional = <T extends z.ZodType>(schema: T) =>
@@ -12,9 +13,9 @@ const optional = <T extends z.ZodType>(schema: T) =>
  */
 const EnvSchema = z
   .object({
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
+    // Sin valor por defecto: si faltara en un servidor, la API arrancaría como
+    // desarrollo, con Swagger público y sin las exigencias de producción.
+    NODE_ENV: z.enum(['development', 'test', 'production']),
     PORT: z.coerce.number().default(3000),
     DATABASE_URL: z.string().min(1),
     CORS_ORIGINS: z.string().min(1),
@@ -31,6 +32,10 @@ const EnvSchema = z
     ACCESS_LINK_JWT_EXPIRES_IN: z.string().default('24h'),
     THROTTLE_TTL: z.coerce.number().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().default(100),
+    // Proxies de confianza delante de la API. De más, un cliente puede inventar
+    // su IP con `X-Forwarded-For` y saltarse el límite de login; de menos, todos
+    // los clientes comparten un contador.
+    TRUST_PROXY_HOPS: optional(z.coerce.number().int().min(0)),
     // Con este secreto, el panel informa la IP real de quien inicia sesión.
     PANEL_API_SECRET: optional(
       z.string().min(32, 'debe tener al menos 32 caracteres'),
@@ -45,6 +50,30 @@ const EnvSchema = z
     MAIL_LOGO_URL: optional(z.url()),
   })
   .superRefine((env, ctx) => {
+    // Con el mismo secreto, un token del panel serviría como enlace de cliente.
+    if (env.JWT_SECRET === env.ACCESS_LINK_JWT_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ACCESS_LINK_JWT_SECRET'],
+        message: 'debe ser distinto de JWT_SECRET',
+      });
+    }
+    if (env.NODE_ENV === 'production') {
+      if (env.TRUST_PROXY_HOPS === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TRUST_PROXY_HOPS'],
+          message: 'obligatoria en producción (0 si no hay proxy delante)',
+        });
+      }
+      if (!parseCorsOrigins(env.CORS_ORIGINS).every(isSecureOrigin)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CORS_ORIGINS'],
+          message: 'en producción, solo orígenes https exactos, sin comodines',
+        });
+      }
+    }
     // Fuera de desarrollo, un correo que no sale debe impedir el arranque,
     // no descubrirse cuando un cliente reclama que no le llegó el enlace.
     if (env.NODE_ENV === 'production' && !env.PANEL_URL) {

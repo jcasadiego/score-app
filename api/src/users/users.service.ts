@@ -17,6 +17,15 @@ const PUBLIC_SELECT = {
   updatedAt: true,
 } satisfies Prisma.UserSelect;
 
+/**
+ * Deja sin valor los enlaces de recuperación pendientes. Va junto a cada acción
+ * que le quita el acceso a quien pudo pedirlos: si no, un enlace ya enviado
+ * seguiría sirviendo para tomar la cuenta durante su hora de vigencia.
+ */
+const REVOKE_RESET_LINKS = {
+  passwordResetTokens: { deleteMany: { usedAt: null } },
+} satisfies Prisma.UserUpdateInput;
+
 export type PublicUser = Prisma.UserGetPayload<{
   select: typeof PUBLIC_SELECT;
 }>;
@@ -133,12 +142,16 @@ export class UsersService {
     id: string,
     { password, ...data }: UpdateUserParams,
   ): Promise<PublicUser> {
+    const revokeResetLinks =
+      !!password || (await this.emailChanges(id, data.email));
+
     try {
       return await this.prisma.user.update({
         where: { id },
         data: {
           ...data,
           ...(password ? await passwordChangeData(password) : {}),
+          ...(revokeResetLinks ? REVOKE_RESET_LINKS : {}),
         },
         select: PUBLIC_SELECT,
       });
@@ -153,11 +166,25 @@ export class UsersService {
     }
     // Cierra sus sesiones: si no, reactivar la cuenta revivía los tokens que
     // aún no habían vencido.
-    return this.setActive(id, { active: false, sessions: { deleteMany: {} } });
+    return this.setActive(id, {
+      active: false,
+      sessions: { deleteMany: {} },
+      ...REVOKE_RESET_LINKS,
+    });
   }
 
   async activate(id: string): Promise<PublicUser> {
     return this.setActive(id, { active: true });
+  }
+
+  /** El panel manda el correo en cada edición, aunque no haya cambiado. */
+  private async emailChanges(id: string, email?: string): Promise<boolean> {
+    if (!email) return false;
+    const current = await this.prisma.user.findUnique({
+      where: { id },
+      select: { email: true },
+    });
+    return current?.email !== email;
   }
 
   private async setActive(

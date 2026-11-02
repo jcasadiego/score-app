@@ -4,7 +4,7 @@ import { getToken } from "@/lib/auth/session";
 import { listUsers, type PaginatedUsers } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/errors";
 import { PageError } from "@/components/page-error";
-import { PAGE_SIZE } from "@/lib/users/limits";
+import { MAX_PAGE, PAGE_SIZE } from "@/lib/users/limits";
 import { UsersScreen } from "@/components/users/users-screen";
 import {
   TEST_SCENARIOS,
@@ -36,7 +36,11 @@ export default async function UsersPage({
 
   const requestedPage = Number(firstValue(params.page));
   const page =
-    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    Number.isInteger(requestedPage) &&
+    requestedPage > 0 &&
+    requestedPage <= MAX_PAGE
+      ? requestedPage
+      : 1;
   const q = firstValue(params.q)?.trim().slice(0, 100) || undefined;
   const filter = { page, pageSize: PAGE_SIZE, search: q };
 

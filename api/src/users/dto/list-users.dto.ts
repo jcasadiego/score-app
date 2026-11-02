@@ -12,14 +12,17 @@ import { Trim } from './normalize-text';
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
+/** Sin tope, una página enorme llega a la base como un `skip` que no cabe. */
+export const MAX_PAGE = 1_000_000;
 
 /** Paginación y búsqueda comunes a los listados del panel. */
 export class ListUsersDto {
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_PAGE, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE)
   page: number = 1;
 
   @ApiPropertyOptional({

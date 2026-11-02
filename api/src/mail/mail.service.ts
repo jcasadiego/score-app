@@ -5,14 +5,23 @@ import { AuditService } from '../audit/audit.service';
 import { ValidatedEnv } from '../config/validate-env';
 import { MAIL_PORT, MailPort, SendResult } from './mail.port';
 import {
+  diagnosticCompletedNoticeEmail,
+  DiagnosticCompletedNoticeData,
   diagnosticLinkEmail,
   linkRecoveryEmail,
   LinkMailData,
+  newLeadNoticeEmail,
+  NewLeadNoticeData,
   passwordResetEmail,
 } from './templates/emails';
 import { RenderedEmail } from './templates/base-template';
 
-export type MailType = 'DIAGNOSTIC_LINK' | 'LINK_RECOVERY' | 'PASSWORD_RESET';
+export type MailType =
+  | 'DIAGNOSTIC_LINK'
+  | 'LINK_RECOVERY'
+  | 'PASSWORD_RESET'
+  | 'NEW_LEAD_NOTICE'
+  | 'DIAGNOSTIC_COMPLETED_NOTICE';
 
 /** A qué se asocia el envío en la bitácora (ej. el Caso que lo pidió). */
 export interface MailContext {
@@ -80,6 +89,32 @@ export class MailService {
       'PASSWORD_RESET',
       recipient.to,
       passwordResetEmail(recipient, this.brand()),
+      context,
+    );
+  }
+
+  sendNewLeadNotice(
+    to: string,
+    data: NewLeadNoticeData,
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'NEW_LEAD_NOTICE',
+      to,
+      newLeadNoticeEmail(data, this.brand()),
+      context,
+    );
+  }
+
+  sendDiagnosticCompletedNotice(
+    to: string,
+    data: DiagnosticCompletedNoticeData,
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'DIAGNOSTIC_COMPLETED_NOTICE',
+      to,
+      diagnosticCompletedNoticeEmail(data, this.brand()),
       context,
     );
   }

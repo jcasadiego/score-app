@@ -131,6 +131,58 @@ describe('MailService', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
   });
+
+  it('el aviso de lead nuevo lleva sus datos en el cuerpo, escapados y fuera del asunto', async () => {
+    provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
+
+    await service.sendNewLeadNotice(
+      'equipo@mfp.com',
+      {
+        name: '<b>Ana</b>',
+        family: 'CATALOG',
+        utmSource: 'instagram',
+        utmCampaign: 'lanzamiento',
+        link: 'https://panel.example.com/leads',
+      },
+      { entity: 'Lead', entityId: 'lead-1' },
+    );
+
+    const message = provider.send.mock.calls[0][0];
+    expect(message.subject).toBe('Nuevo lead en SCORE');
+    expect(message.html).toContain('&lt;b&gt;Ana&lt;/b&gt;');
+    expect(message.html).not.toContain('<b>Ana');
+    expect(message.text).toContain('Familia: Catálogo');
+    expect(message.text).toContain(
+      'Origen de campaña: instagram / lanzamiento',
+    );
+    expect(message.html).toContain('href="https://panel.example.com/leads"');
+    expect(message.html).toContain('cuenta activa en el panel');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'EMAIL_SENT',
+        entity: 'Lead',
+        entityId: 'lead-1',
+        data: expect.objectContaining({ type: 'NEW_LEAD_NOTICE' }),
+      }),
+    );
+    // Los datos del lead no se duplican en la bitácora.
+    expect(JSON.stringify(audit.record.mock.calls)).not.toContain('Ana');
+  });
+
+  it('el aviso de diagnóstico completado lleva lead, familia y enlace', async () => {
+    provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
+
+    await service.sendDiagnosticCompletedNotice('equipo@mfp.com', {
+      leadName: 'Ana Pérez',
+      family: 'PROFESSIONAL',
+      link: 'https://panel.example.com/diagnostics/d-1',
+    });
+
+    const { text } = provider.send.mock.calls[0][0];
+    expect(text).toContain('Lead: Ana Pérez');
+    expect(text).toContain('Familia: Profesional');
+    expect(text).toContain('https://panel.example.com/diagnostics/d-1');
+  });
 });
 
 describe('maskEmail', () => {

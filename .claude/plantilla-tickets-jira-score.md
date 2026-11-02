@@ -22,8 +22,8 @@ Error, Subtarea
   Tailwind CSS, Vercel. Diseño entregado por el cliente en Figma — este
   repo maqueta, no diseña.
 - `score-app` (monorepo P2/P4/P5):
-  - `apps/diagnostico` — Next.js. Cuestionario del cliente final, acceso
-    por enlace único sin contraseña.
+  - `apps/diagnostico` — Next.js + Tailwind, sin Ant Design (es para móvil).
+    Cuestionario del cliente final, acceso por enlace único sin contraseña.
   - `apps/panel` — Next.js + **Ant Design**. Panel interno del equipo,
     con login JWT. UI funcional y amigable, sin diseño a la medida.
   - `api` — NestJS/TypeScript + **Prisma** (PostgreSQL, ids `cuid`).
@@ -73,6 +73,21 @@ variables de entorno, URLs del panel y archivos que mencione un ticket o su
 prompt se escriben en inglés, con el glosario de `CLAUDE.md` (sección 6). El
 texto del ticket y los textos de pantalla van en español.
 
+**Datos, API y seguridad siguen estándares internacionales.** Todo ticket
+los revisa antes de publicarse:
+- **Base de datos:** normalización (3NF), sin datos derivados ni duplicados
+  sin justificar, tablas puente en vez de arreglos o JSON, integridad
+  garantizada con FK y restricciones en la base, índice en cada FK,
+  `onDelete: Restrict` en el dominio y `@db.Timestamptz(3)` en las fechas. Un
+  `jsonb` solo con motivo escrito en el ticket.
+- **API:** rutas y códigos según RFC 9110, errores RFC 9457, fechas RFC 3339,
+  paginación y filtros en la base, sin N+1. Las acciones que se pueden repetir
+  no duplican efectos.
+- **Seguridad:** OWASP API Top 10 (autorización por objeto incluida), OWASP
+  ASVS y OWASP LLM Top 10 si hay IA. Tokens guardados como hash. Datos del
+  cliente fuera de logs y bitácora.
+- **UI del cliente final:** WCAG 2.2 AA.
+
 **Los módulos bloqueados (11, 12, 13) no se inician** aunque Claude Code
 lo sugiera — primero necesitan respuesta del cliente. Un ticket de estos
 módulos existe en el tablero para que quede visible, pero permanece en
@@ -86,7 +101,7 @@ Al crear un ticket (Epic o Tarea) para `score-app` o `score-sitio`, usa
 siempre esta estructura:
 
 ```
-[NestJS/Next.js] Componente — Descripción breve
+[NestJS | Next.js | Infra] Componente — Descripción breve
 
 DESCRIPCIÓN GENERAL:
 [3-4 líneas: qué es, por qué hace falta, en qué repo/carpeta vive]
@@ -104,6 +119,11 @@ REQUERIMIENTOS TÉCNICOS:
 Ant Design, JWT, ScoringEnginePort, etc. Describe QUÉ interviene, no CÓMO
 construirlo por dentro — esa decisión es de quien lo implemente.]
 
+DATOS, API Y SEGURIDAD:
+- Datos: [modelos, relaciones, únicos e índices que la base debe garantizar]
+- API: [rutas, métodos, códigos y formatos que forman el contrato]
+- Seguridad: [quién puede hacer qué, datos sensibles y estándar que aplica]
+
 CRITERIOS DE ACEPTACIÓN:
 [ ] ...
 [ ] ...
@@ -115,7 +135,8 @@ DEFINITION OF DONE:
 ✅ ...
 
 DEPENDENCIAS:
-[Otros tickets/módulos de los que depende, o "Ninguna"]
+[Claves de los tickets de los que depende, o "Ninguna". Nunca "tarea hermana".
+Además, se crean como enlaces "Blocks" en Jira.]
 
 ---
 PROMPT PARA CLAUDE CODE (copiar y pegar):
@@ -129,7 +150,8 @@ está implementada, esta sección dice "No aplica, ya implementado — PR #N".]
 **Principio que gobierna toda la plantilla:** cada sección dice qué hace
 falta y por qué, nunca cómo construirlo internamente — ni en "Requerimientos
 técnicos" ni en el prompt final. Las decisiones de diseño de código quedan
-para quien implemente (Claude Code).
+para quien implemente (Claude Code). El contrato de la API y las reglas de
+integridad de los datos no son diseño interno: sí se fijan en el ticket.
 
 ---
 
@@ -150,12 +172,19 @@ ALCANCE FUNCIONAL:
 4️⃣ Primer usuario admin vía prisma/seed.ts (idempotente)
 
 FUERA DE ALCANCE (a propósito):
-- Recuperación de contraseña — descartada por ahora
+- Recuperación de contraseña — ticket aparte
 - Roles/permisos diferenciados — se agregan si el proyecto lo pide
 
 REQUERIMIENTOS TÉCNICOS:
 Prisma (modelo User, ids cuid), NestJS (JwtStrategy, JwtAuthGuard,
 RolesGuard), password con hash, nunca se devuelve en respuestas.
+
+DATOS, API Y SEGURIDAD:
+- Datos: email único en User; `active: false` conserva el historial.
+- API: POST /auth/login y /users paginado en la base. Sin datos de más en la
+  respuesta.
+- Seguridad: OWASP API2 y API5. Los ids de quien actúa salen del JWT, nunca del
+  cliente.
 
 CRITERIOS DE ACEPTACIÓN:
 [x] Login válido devuelve JWT; inválido devuelve el mismo mensaje
@@ -195,7 +224,7 @@ Necesito el ticket Jira para [módulo/tarea de SCORE].
 Genera el ticket siguiendo la plantilla.
 ```
 
-El resultado debe tener las 7 secciones + el prompt para Claude Code,
+El resultado debe tener las 9 secciones + el prompt para Claude Code,
 listo para copiar al tablero `PF` sin cambios.
 
 **Al crear el ticket en Jira directamente** (si la sesión tiene conectado
@@ -205,6 +234,7 @@ Jira), se crea como:
 - **Tarea** dentro del Epic por cada pieza entregable (backend, UI, etc.)
 - Estado inicial: "Por hacer"; se marca "Listo" solo si ya está
   implementada (con su PR referenciado en Definition of Done)
+- Enlaces "Blocks" hacia y desde los tickets de los que depende
 
 ---
 
@@ -218,4 +248,6 @@ Jira), se crea como:
 ✅ Deja un prompt listo para Claude Code en cada tarea pendiente
 ✅ Referencia el PR cuando una tarea ya está implementada, en vez de dejarlo ambiguo
 ✅ Respeta el patrón ScoringEnginePort — ninguna tarea llama al motor directo
+✅ Fija datos, contrato de API y seguridad según estándares internacionales
+✅ Deja las dependencias como enlaces de Jira, no solo como texto
 ```

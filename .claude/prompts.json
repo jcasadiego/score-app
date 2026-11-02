@@ -1,4 +1,3 @@
-
 {
   "name": "SCORE - Music Finance Pro",
   "version": "1.0",
@@ -28,7 +27,7 @@
         "producto": "P2 (diagnóstico), P4 (API + motor), P5 (panel interno)",
         "tipo": "monorepo",
         "apps": {
-          "apps/diagnostico": "Next.js — cuestionario del cliente final, acceso por enlace único sin contraseña",
+          "apps/diagnostico": "Next.js + Tailwind, sin Ant Design — cuestionario del cliente final, acceso por enlace único sin contraseña",
           "apps/panel": "Next.js + Ant Design — panel interno del equipo, login JWT, UI funcional y amigable sin diseño a la medida",
           "api": "NestJS/TypeScript + Prisma (PostgreSQL, ids cuid)"
         }
@@ -59,16 +58,18 @@
     "motor_rule": "⚠️ Ninguna tarea llama al motor de cálculo directo — siempre pasa por ScoringEnginePort (interfaz propia). Mientras el escenario real no esté confirmado, se usa un adapter simulado.",
     "modulos_bloqueados": "⚠️ CRM, Voz/Transcripción y el adapter real del motor NO se inician sin respuesta explícita del cliente, aunque Claude Code lo sugiera.",
     "alcance_cerrado": "⚠️ Lo que no aparece en Propuesta_MVP_SCORE.docx o Alcance_Preliminar_MVP_SCORE.docx es señal de cambio de alcance — se avisa antes de construirlo.",
-    "que_no_como": "⚠️ Todo ticket y todo prompt para Claude Code describe QUÉ hace falta y QUÉ NO, nunca el diseño interno de la implementación — esa decisión es de quien lo ejecuta.",
+    "que_no_como": "⚠️ Todo ticket y todo prompt para Claude Code describe QUÉ hace falta y QUÉ NO, nunca el diseño interno de la implementación — esa decisión es de quien lo ejecuta. El contrato de la API y las reglas de integridad de los datos sí se fijan en el ticket.",
     "ui_panel_rule": "⚠️ apps/panel usa Ant Design, UI funcional y amigable, sin diseño a la medida ni sistema de diseño propio.",
-    "nombres_en_ingles": "⚠️ Los nombres técnicos de un ticket o su prompt (rutas, modelos, campos, enums, variables de entorno, URLs del panel, archivos) van en inglés, con el glosario de CLAUDE.md sección 6. El texto del ticket y los textos de pantalla van en español."
+    "nombres_en_ingles": "⚠️ Los nombres técnicos de un ticket o su prompt (rutas, modelos, campos, enums, variables de entorno, URLs del panel, archivos) van en inglés, con el glosario de CLAUDE.md sección 6. El texto del ticket y los textos de pantalla van en español.",
+    "estandares": "⚠️ Todo ticket sigue normalización (3NF), integridad con FK y restricciones en la base, HTTP según RFC 9110, errores RFC 9457, fechas RFC 3339, OWASP API Top 10, ASVS, LLM Top 10 si hay IA y WCAG 2.2 AA en la UI del cliente final.",
+    "dependencias_en_jira": "⚠️ Las dependencias se escriben con la clave del ticket y se crean como enlaces Blocks en Jira, nunca como \"tarea hermana\"."
   },
   "tasks": {
     "jira-ticket-score": {
       "id": "task_score_001",
       "name": "Generar Ticket Jira - SCORE",
       "prompt_file": ".claude/plantilla-tickets-jira-score.md",
-      "description": "Genera tickets para el tablero Jira (proyecto PF) de la plataforma SCORE, siguiendo la estructura acordada: Descripción general, Alcance funcional, Fuera de alcance, Requerimientos técnicos, Criterios de aceptación, Manejo de errores, Definition of Done, Dependencias, y un prompt para Claude Code cuando la tarea esté pendiente.",
+      "description": "Genera tickets para el tablero Jira (proyecto PF) de la plataforma SCORE, siguiendo la estructura acordada: Descripción general, Alcance funcional, Fuera de alcance, Requerimientos técnicos, Datos API y seguridad, Criterios de aceptación, Manejo de errores, Definition of Done, Dependencias, y un prompt para Claude Code cuando la tarea esté pendiente.",
       "type": "jira_saas_score",
       "language": "typescript",
       "framework": "nestjs_nextjs",
@@ -104,7 +105,8 @@
         "Verifica primero si el módulo está bloqueado (ver critical_rules.modulos_bloqueados) — si lo está, el ticket se crea pero se marca bloqueado, no se detalla como si fuera accionable",
         "Respeta que_no_como: nunca dicta diseño interno, solo qué hace falta y por qué",
         "Si la tarea ya está implementada, el prompt para Claude Code dice 'No aplica, ya implementado' con referencia al PR",
-        "Si hay sesión de Jira conectada, crea como Epic (por módulo) + Tarea (por pieza entregable: backend, UI, etc.)"
+        "Si hay sesión de Jira conectada, crea como Epic (por módulo) + Tarea (por pieza entregable: backend, UI, etc.)",
+        "Completa la sección Datos, API y seguridad según critical_rules.estandares, y crea los enlaces Blocks de sus dependencias"
       ],
       "output_format": "jira_ticket_score",
       "required_sections": [
@@ -112,6 +114,7 @@
         "alcance_funcional",
         "fuera_de_alcance",
         "requerimientos_tecnicos",
+        "datos_api_seguridad",
         "criterios_de_aceptacion",
         "manejo_de_errores",
         "definition_of_done",

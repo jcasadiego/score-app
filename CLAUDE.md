@@ -42,7 +42,7 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   bloquear el resto por esto — hoy solo hay un adaptador de ejemplo.
 - **Especificación completa del cuestionario** de las cuatro familias
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
-  dominio real de `api` (modelos de caso/respuestas, detección de
+  dominio real de `api` (modelos de diagnóstico/respuestas, detección de
   contradicciones) y el flujo de `apps/diagnostico`.
 - **Modelo de permisos de `apps/panel`:** el modelo real de roles y
   permisos todavía no está definido. El login ya funciona de punta a
@@ -214,7 +214,10 @@ terminó):
 | Sesión del panel | UserSession |
 | FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
 | EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
-| Caso / diagnóstico / enlace | Case / diagnostic / access link |
+| Diagnóstico / enlace | Diagnostic / AccessLink |
+| Revisión (el "caso" del revisor; "caso" solo en textos de pantalla) | Review |
+| Versión de cuestionario / Pregunta / Opción / Respuesta | QuestionnaireVersion / Question / AnswerOption / Answer |
+| Cálculo / Último intento / Cálculo vigente | Calculation / latest attempt / current calculation (el último exitoso) |
 | correo / auditoría / reglas / motor de cálculo | mail / audit / rules / scoring engine |
 
 **Estándares:**
@@ -222,13 +225,22 @@ terminó):
 - **API (REST):** recursos en plural y `kebab-case` (`/users`,
   `/password-reset`), sin verbos salvo acciones que no son CRUD
   (`/users/:id/activate`). Campos JSON y query params en `camelCase`.
-  Error con la forma estándar de NestJS: `{ statusCode, message, error }`.
+  Métodos y códigos según RFC 9110, fechas en RFC 3339. Errores: se migra a
+  RFC 9457 (`application/problem+json`, PF-45); hasta entonces, la forma
+  estándar de NestJS: `{ statusCode, message, error }`.
   Paginación: `?page=1&pageSize=20&search=` → `{ data, total, page,
   pageSize }`.
 - **Base de datos (PostgreSQL + Prisma):** modelos en `PascalCase`
   singular y campos en `camelCase` en el schema, mapeados a tablas y
   columnas `snake_case` con `@@map`/`@map` (tablas en plural). Valores
-  de enum en `UPPER_SNAKE_CASE`.
+  de enum en `UPPER_SNAKE_CASE`. Normalizada (3NF): sin datos derivados ni
+  duplicados sin justificar, tablas puente en vez de arreglos o JSON, e
+  integridad garantizada en la base. Índice en cada FK, `onDelete: Restrict`
+  en el dominio y `@db.Timestamptz(3)` en toda fecha nueva (PF-46 migra las
+  existentes).
+- **Seguridad:** OWASP API Top 10, OWASP ASVS y, si hay IA, OWASP LLM Top 10.
+  Tokens guardados como hash. Datos del cliente fuera de logs y bitácora.
+- **Accesibilidad:** WCAG 2.2 AA en `apps/diagnostico`.
 - **Código:** convenciones de NestJS (`users.service.ts`,
   `UsersService`) y de Next.js. Archivos en `kebab-case`, componentes en
   `PascalCase`, constantes en `UPPER_SNAKE_CASE`.
@@ -263,9 +275,8 @@ Estructura: épicas por módulo (ej. Auditoría = módulo M7 de
 `Alcance_Preliminar_MVP_SCORE.docx`) con tareas hijas. Cada tarea trae
 descripción, alcance, fuera de alcance, criterios de aceptación, DoD y un
 "prompt para Claude Code" — ese prompt es el punto de partida al
-implementarla. Épicas actuales: **PF-1** Auditoría, **PF-3** Usuarios y
-permisos, **PF-6** Infraestructura y DevEx — al abrir un módulo nuevo,
-crear su épica antes que sus tareas. Los tickets nuevos se redactan con
+implementarla. Al abrir un módulo nuevo, crear su épica antes que sus tareas.
+Las dependencias van como enlaces "Blocks", no solo como texto. Los tickets nuevos se redactan con
 `.claude/plantilla-tickets-jira-score.md` (índice en
 `.claude/prompts.json`). Al cerrar una tarea, marcar sus
 criterios y DoD y pasarla a "Listo" con el número de PR. El estado de cada tarea se consulta en Jira,

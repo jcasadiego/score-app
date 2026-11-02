@@ -314,9 +314,11 @@ revisar la regla correspondiente.
   incluye `prisma.config.ts` y `generated/`). No mover `rootDir`: rompe
   los imports del cliente de Prisma generado (#14). Si cambia la
   estructura del build, comprobar `pnpm build && pnpm start:prod`.
-- **Bitácora de auditoría:** todo lo que se persiste de body/params/query
-  pasa por `redactSensitiveData()` — el login quedó guardando passwords
-  en claro (#4). El actor sale de `request.user` (panel) o
+- **Bitácora de auditoría:** toda ruta que cambia datos declara
+  `@AuditRoute()`, y solo se guardan los campos declarados, también pasados
+  por `redactSensitiveData()` — el login quedó guardando passwords en claro
+  (#4). `audit_logs` es de solo inserción: los tests no pueden limpiarla. Un
+  evento crítico pasa su `tx` a `AuditService.record` (PF-47). El actor sale de `request.user` (panel) o
   `request.accessLink` (cliente final), nunca de un campo que ningún guard
   setea (#5).
 - **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el

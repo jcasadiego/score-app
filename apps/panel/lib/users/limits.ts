@@ -6,3 +6,4 @@ export const NAME_MAX = 120;
 export const EMAIL_MAX = 254;
 export const PASSWORD_MIN = 8;
 export const PAGE_SIZE = 20;
+export const MAX_PAGE = 1_000_000;

@@ -225,9 +225,8 @@ terminó):
 - **API (REST):** recursos en plural y `kebab-case` (`/users`,
   `/password-reset`), sin verbos salvo acciones que no son CRUD
   (`/users/:id/activate`). Campos JSON y query params en `camelCase`.
-  Métodos y códigos según RFC 9110, fechas en RFC 3339. Errores: se migra a
-  RFC 9457 (`application/problem+json`, PF-45); hasta entonces, la forma
-  estándar de NestJS: `{ statusCode, message, error }`.
+  Métodos y códigos según RFC 9110, fechas en RFC 3339. Errores en RFC 9457
+  (`application/problem+json`, catálogo en `api/docs/errores.md`).
   Paginación: `?page=1&pageSize=20&search=` → `{ data, total, page,
   pageSize }`.
 - **Base de datos (PostgreSQL + Prisma):** modelos en `PascalCase`

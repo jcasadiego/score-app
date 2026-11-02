@@ -57,8 +57,8 @@ y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor
 - `src/config/` — validación de variables de entorno al boot (Zod) y
   parseo de `CORS_ORIGINS`.
 - `src/common/` — `GlobalExceptionFilter`, forma de error única para
-  toda la API: la estándar de NestJS, `{ statusCode, message, error }`
-  (`message` es una lista en los errores de validación). Un error que no
+  toda la API: RFC 9457 (`application/problem+json`), catálogo en
+  `docs/errores.md`. Un error que no
   es `HttpException` va al log y responde un 500 genérico.
 - `src/prisma/` — `PrismaService` global, conecta vía driver adapter
   (`@prisma/adapter-pg`), requerido por Prisma 7.

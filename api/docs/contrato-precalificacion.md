@@ -65,22 +65,28 @@ No se devuelven los datos enviados, y la respuesta es la misma aunque el
 email ya haya precalificado antes. El `id` es el que usarán después
 Pagos y Diagnóstico.
 
-Todos los errores tienen la forma estándar de NestJS:
-`{ statusCode, message, error }`.
+Todos los errores son RFC 9457 (`application/problem+json`, ver
+[errores.md](errores.md)). Esta ruta incluye además `message`, con el texto
+de antes, para no romper el formulario: **está en desuso** y se quita cuando
+el sitio lea `errors`.
 
 **400 Bad Request**: faltan datos o están mal formados. Si los datos no
-pasan la validación, `message` es una lista con un texto por cada
-problema encontrado. Si el body ni siquiera es JSON válido, `message` es
-un solo texto. El sitio tiene que aceptar los dos casos.
+pasan la validación, `errors` trae cada campo con su motivo (y `message`, una
+lista de textos). Si el body ni siquiera es JSON válido, no hay `errors` y
+`message` es un solo texto. El sitio tiene que aceptar los dos casos.
 
 ```json
 {
-  "statusCode": 400,
-  "message": [
-    "email must be an email",
-    "family must be one of the following values: PROJECT, B2B, PROFESSIONAL, CATALOG"
+  "type": "urn:score:problem:validation-failed",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Los datos enviados no son válidos.",
+  "instance": "/api/v1/leads/prequalification",
+  "code": "VALIDATION_FAILED",
+  "errors": [
+    { "field": "email", "message": "email must be an email" }
   ],
-  "error": "Bad Request"
+  "message": ["email must be an email"]
 }
 ```
 
@@ -89,9 +95,13 @@ un solo texto. El sitio tiene que aceptar los dos casos.
 
 ```json
 {
-  "statusCode": 429,
-  "message": "ThrottlerException: Too Many Requests",
-  "error": "Too Many Requests"
+  "type": "urn:score:problem:too-many-requests",
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too Many Requests",
+  "instance": "/api/v1/leads/prequalification",
+  "code": "TOO_MANY_REQUESTS",
+  "message": "ThrottlerException: Too Many Requests"
 }
 ```
 
@@ -108,7 +118,7 @@ const res = await fetch(`${API_URL}/api/v1/leads/prequalification`, {
 if (res.status === 201) {
   const { id } = await res.json();
 } else if (res.status === 400) {
-  const { message } = await res.json(); // string[] | string
+  const { errors } = await res.json(); // { field?, message }[] o ausente
 } else if (res.status === 429) {
   // límite de envíos
 }
@@ -127,7 +137,7 @@ contrato anterior: campos `nombre`, `email`, `telefono`, `familia`
 nuevos (`CATALOGO` → `CATALOG`).
 
 Para migrar el sitio: cambiar la ruta, renombrar los campos y los
-valores de `familia`, leer `status` en vez de `estado` y `message` en vez
+valores de `familia`, leer `status` en vez de `estado` y `errors` en vez
 de `mensaje`. Cuando el sitio ya no use la ruta vieja, se borra
 (`api/src/leads/legacy/`) — avisar a José para coordinarlo.
 

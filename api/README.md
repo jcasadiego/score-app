@@ -22,15 +22,21 @@ pnpm start:dev                # http://localhost:3000
 vivos (fuera del prefijo `/api` y del versionado, a propósito — es la
 ruta que usa cualquier orquestador/healthcheck de infraestructura).
 
-Con `NODE_ENV` distinto de `production`, `GET /docs` sirve Swagger UI
+Con `NODE_ENV` en `development` o `test`, `GET /docs` sirve Swagger UI
 con todos los endpoints documentados automáticamente — rutas, DTOs de
 entrada (tipos, campos requeridos, tal como los valida
 `class-validator`) y seguridad, sin decorar nada a mano por endpoint;
 el plugin de compilación `@nestjs/swagger` (`nest-cli.json`) es lo que
 genera esa documentación a partir del código en cada build. Tiene el
 botón "Authorize" para pegar un JWT (de `POST /auth/login`) y probar
-también las rutas protegidas. Con `NODE_ENV=production`, `/docs` y
-`/docs-json` devuelven 404 — no queda expuesto.
+también las rutas protegidas. Con cualquier otro valor, `/docs` y
+`/docs-json` devuelven 404 — no queda expuesto. `NODE_ENV` es obligatoria: sin
+ella, la API no arranca.
+
+En producción la API tampoco arranca sin `TRUST_PROXY_HOPS` (el número exacto
+de proxies delante de ella; 0 si no hay ninguno) ni con un `CORS_ORIGINS` que
+no sea una lista de orígenes `https` exactos. Esa lista lleva `apps/diagnostico`
+y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor.
 
 ## Scripts
 

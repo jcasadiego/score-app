@@ -15,6 +15,16 @@ const RESEND = {
   MAIL_REPLY_TO: 'equipo@example.com',
 };
 
+const PRODUCTION = {
+  ...BASE,
+  ...RESEND,
+  NODE_ENV: 'production',
+  CORS_ORIGINS: 'https://diagnostico.example.com,https://sitio.example.com',
+  TRUST_PROXY_HOPS: '1',
+  PANEL_API_SECRET: 'z'.repeat(32),
+  PANEL_URL: 'https://panel.example.com',
+};
+
 describe('validateEnv · correo', () => {
   it('en desarrollo usa el modo log por defecto y trata "" como vacío', () => {
     const env = validateEnv({
@@ -48,15 +58,7 @@ describe('validateEnv · correo', () => {
   });
 
   it('con resend completo arranca también en producción', () => {
-    expect(
-      validateEnv({
-        ...BASE,
-        ...RESEND,
-        PANEL_API_SECRET: 'z'.repeat(32),
-        NODE_ENV: 'production',
-        PANEL_URL: 'https://panel.example.com',
-      }).MAIL_DRIVER,
-    ).toBe('resend');
+    expect(validateEnv(PRODUCTION).MAIL_DRIVER).toBe('resend');
   });
 
   it('en producción exige PANEL_URL para los enlaces por correo', () => {
@@ -81,5 +83,43 @@ describe('validateEnv · PANEL_API_SECRET', () => {
     expect(() => validateEnv({ ...BASE, PANEL_API_SECRET: 'corto' })).toThrow(
       /PANEL_API_SECRET: debe tener al menos 32 caracteres/,
     );
+  });
+});
+
+describe('validateEnv · despliegue', () => {
+  it('no arranca sin NODE_ENV', () => {
+    expect(() => validateEnv({ ...BASE, NODE_ENV: undefined })).toThrow(
+      /NODE_ENV/,
+    );
+  });
+
+  it('en producción exige TRUST_PROXY_HOPS y acepta 0', () => {
+    expect(() => validateEnv({ ...PRODUCTION, TRUST_PROXY_HOPS: '' })).toThrow(
+      /TRUST_PROXY_HOPS: obligatoria en producción/,
+    );
+    expect(
+      validateEnv({ ...PRODUCTION, TRUST_PROXY_HOPS: '0' }).TRUST_PROXY_HOPS,
+    ).toBe(0);
+  });
+
+  it('es opcional en desarrollo', () => {
+    expect(validateEnv(BASE).TRUST_PROXY_HOPS).toBeUndefined();
+  });
+
+  it.each([
+    'http://sitio.example.com',
+    '*',
+    'https://*.example.com',
+    'https://sitio.example.com/',
+  ])('en producción rechaza el origen %s', (origin) => {
+    expect(() => validateEnv({ ...PRODUCTION, CORS_ORIGINS: origin })).toThrow(
+      /CORS_ORIGINS: en producción/,
+    );
+  });
+
+  it('no arranca con el mismo secreto para el panel y los enlaces', () => {
+    expect(() =>
+      validateEnv({ ...BASE, ACCESS_LINK_JWT_SECRET: BASE.JWT_SECRET }),
+    ).toThrow(/ACCESS_LINK_JWT_SECRET: debe ser distinto/);
   });
 });

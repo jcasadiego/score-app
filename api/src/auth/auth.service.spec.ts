@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from './sessions.service';
@@ -28,6 +29,7 @@ describe('AuthService', () => {
       users as unknown as UsersService,
       new JwtService(),
       sessions as unknown as SessionsService,
+      { record: vi.fn().mockResolvedValue({}) } as unknown as AuditService,
     );
   });
 

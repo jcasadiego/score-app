@@ -26,11 +26,7 @@ export class AuthController {
   // Límite propio, más estricto que el global, como mitigación de fuerza
   // bruta sobre credenciales.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @AuditRoute({
-    action: 'LOGIN_SUCCEEDED',
-    entity: 'UserSession',
-    fields: ['email'],
-  })
+  @AuditRoute({ byService: true })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto.email, dto.password);
   }

@@ -9,12 +9,8 @@ const SENSITIVE_KEYS = [
 
 const REDACTED_MARKER = '[REDACTADO]';
 
-function isSensitiveKey(key: string, extraKeys: string[]): boolean {
-  const normalized = key.toLowerCase();
-  return (
-    SENSITIVE_KEYS.includes(normalized) ||
-    extraKeys.some((extra) => extra.toLowerCase() === normalized)
-  );
+function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEYS.includes(key.toLowerCase());
 }
 
 /**
@@ -22,24 +18,19 @@ function isSensitiveKey(key: string, extraKeys: string[]): boolean {
  * reemplaza el contenido de cualquier clave sensible (password, tokens,
  * secretos) antes de persistirlo en la bitácora de auditoría. Sin esto,
  * `POST /auth/login` guardaría el password en texto plano en
- * `AuditLog`. `extraKeys` agrega claves a redactar solo para
- * esa llamada (ver `@RedactInAudit()`).
+ * `AuditLog`. Es la segunda defensa: lo primero es que `@AuditRoute()` solo
+ * deja pasar los campos declarados.
  */
-export function redactSensitiveData(
-  value: unknown,
-  extraKeys: string[] = [],
-): unknown {
+export function redactSensitiveData(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map((v) => redactSensitiveData(v, extraKeys));
+    return value.map((v) => redactSensitiveData(v));
   }
 
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([key, v]) => [
         key,
-        isSensitiveKey(key, extraKeys)
-          ? REDACTED_MARKER
-          : redactSensitiveData(v, extraKeys),
+        isSensitiveKey(key) ? REDACTED_MARKER : redactSensitiveData(v),
       ]),
     );
   }

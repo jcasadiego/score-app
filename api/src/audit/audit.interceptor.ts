@@ -18,7 +18,8 @@ export const AUDITABLE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 function pickFields(body: unknown, fields: string[]): Record<string, unknown> {
   const source = (body ?? {}) as Record<string, unknown>;
   return Object.fromEntries(
-    fields.filter((field) => field in source).map((f) => [f, source[f]]),
+    // `null` tampoco cambia nada: registrarlo daría a entender que sí.
+    fields.filter((f) => source[f] != null).map((f) => [f, source[f]]),
   );
 }
 

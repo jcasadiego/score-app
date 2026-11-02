@@ -1,8 +1,12 @@
 import { Test } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { DiscoveryModule, DiscoveryService } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { AUDIT_ROUTE } from './../src/audit/audit-route.decorator';
 import { AuditService } from './../src/audit/audit.service';
 import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
@@ -16,7 +20,7 @@ describe('Bitácora de auditoría (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AppModule, DiscoveryModule],
     }).compile();
     app = moduleFixture.createNestApplication();
     configureApp(app);
@@ -37,6 +41,57 @@ describe('Bitácora de auditoría (e2e)', () => {
         .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
     );
   }
+
+  it('toda ruta que cambia datos declara cómo se audita', () => {
+    const controllers = app.get(DiscoveryService).getControllers();
+    const undeclared = controllers.flatMap(({ metatype, name }) => {
+      const prototype = (metatype as { prototype: Record<string, object> })
+        .prototype;
+      return Object.getOwnPropertyNames(prototype)
+        .filter(
+          (method) =>
+            method !== 'constructor' &&
+            Reflect.getMetadata(PATH_METADATA, prototype[method]) !==
+              undefined &&
+            Reflect.getMetadata(METHOD_METADATA, prototype[method]) !==
+              RequestMethod.GET &&
+            !Reflect.getMetadata(AUDIT_ROUTE, prototype[method]),
+        )
+        .map((method) => `${name}.${method}`);
+    });
+
+    expect(controllers.length).toBeGreaterThan(0);
+    expect(undeclared).toEqual([]);
+  });
+
+  it('un login exitoso identifica al usuario', async () => {
+    const password = 'clave-correcta-123';
+    const user = await prisma.user.create({
+      data: {
+        name: 'Con login',
+        email: 'login.audit.e2e@example.com',
+        passwordHash: await argon2.hash(password),
+      },
+    });
+    const since = new Date();
+
+    await request(app.getHttpServer())
+      .post(LOGIN_PATH)
+      .send({ email: user.email, password })
+      .expect(200);
+
+    const log = await waitForLog(
+      { action: 'LOGIN_SUCCEEDED', entityId: user.id },
+      since,
+    );
+    expect(log).toMatchObject({
+      actorType: 'PANEL_USER',
+      actorId: user.id,
+      entity: 'User',
+    });
+    expect(JSON.stringify(log.data)).not.toContain(password);
+    await prisma.user.delete({ where: { id: user.id } });
+  });
 
   it('no guarda campos no declarados, aunque no sean claves sensibles', async () => {
     const since = new Date();

@@ -59,10 +59,11 @@ sesión tiene Jira conectado, con:
 - ✅ Fuera de alcance (a propósito)
 - ✅ Requerimientos técnicos (qué piezas del stack intervienen, no cómo
   construirlas por dentro)
+- ✅ Datos, API y seguridad (reglas de integridad, contrato y estándar aplicable)
 - ✅ Criterios de aceptación
 - ✅ Manejo de errores
 - ✅ Definition of Done
-- ✅ Dependencias
+- ✅ Dependencias (con clave de ticket y enlace "Blocks" en Jira)
 - ✅ Prompt para Claude Code (o "No aplica, ya implementado" con el PR)
 
 ## Reglas que este prompt siempre respeta
@@ -76,6 +77,8 @@ sesión tiene Jira conectado, con:
   solo el qué y el por qué; el cómo lo decide quien lo ejecuta.
 - `apps/panel` usa Ant Design, funcional y amigable, sin diseño a la
   medida.
+- Datos, API y seguridad siguen estándares internacionales: normalización,
+  RFC 9110, RFC 9457, RFC 3339, OWASP y WCAG 2.2 AA.
 - Los nombres técnicos que mencione un ticket o su prompt van en inglés;
   el texto del ticket y los textos de pantalla, en español.
 

@@ -9,7 +9,7 @@ import { AccessLinkService } from './access-link.service';
 
 /**
  * TODO(pendiente #2): endpoint solo para pruebas manuales/QA mientras no
- * existe `Case`. Se reemplaza por el flujo real de emisión de enlaces
+ * existe `Diagnostic`. Se reemplaza por el flujo real de emisión de enlaces
  * cuando esa entidad se defina (ver access-link.service.ts).
  */
 @ApiTags('access-links')

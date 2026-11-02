@@ -46,15 +46,15 @@ describe('MailService', () => {
 
     await service.sendLinkRecovery(
       { to: 'ana@example.com', name: 'Ana', link: LINK },
-      { entity: 'Case', entityId: 'case-1' },
+      { entity: 'Diagnostic', entityId: 'diagnostic-1' },
     );
 
     expect(audit.record).toHaveBeenCalledWith({
       actorType: 'SYSTEM',
       actorId: undefined,
       action: 'EMAIL_SENT',
-      entity: 'Case',
-      entityId: 'case-1',
+      entity: 'Diagnostic',
+      entityId: 'diagnostic-1',
       data: {
         type: 'LINK_RECOVERY',
         recipient: 'a***@example.com',

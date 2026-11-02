@@ -176,12 +176,12 @@ y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor
 
 ## Pendiente a propósito (no construir todavía)
 
-- Modelos de dominio del cuestionario (`Case`, respuestas, etc.) y la
+- Modelos de dominio del cuestionario (`Diagnostic`, respuestas, etc.) y la
   detección de contradicciones — dependen de la especificación completa
   del cuestionario de las 4 familias (Proyecto, B2B, Profesional,
   Catálogo), que todavía no existe. Mientras tanto, `AccessLinkService`
   no persiste enlaces ni los invalida tras un solo uso — eso depende de
-  la forma de `Case`.
+  la forma de `Diagnostic`.
 - El motor de cálculo real detrás de `ScoringEnginePort`.
 - El modelo real de roles/permisos de `apps/panel` — `UserRole` hoy
   solo tiene `ADMIN` (ver TODO en `prisma/schema.prisma`); el mecanismo

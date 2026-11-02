@@ -9,7 +9,11 @@ import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { parseCorsOrigins } from './config/cors';
-import { GlobalExceptionFilter } from './common/global-exception.filter';
+import {
+  GlobalExceptionFilter,
+  PROBLEM_CONTENT_TYPE,
+} from './common/global-exception.filter';
+import { validationExceptionFactory } from './common/validation-exception.factory';
 
 /**
  * Configuración transversal de la app, compartida entre `main.ts` y los
@@ -40,6 +44,7 @@ export function configureApp(app: INestApplication): void {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: validationExceptionFactory,
     }),
   );
 
@@ -68,6 +73,48 @@ export function configureApp(app: INestApplication): void {
       )
       .setVersion('1')
       .addBearerAuth()
+      .addGlobalResponse({
+        status: 'default',
+        description: 'Error (RFC 9457)',
+        content: {
+          [PROBLEM_CONTENT_TYPE]: {
+            schema: {
+              type: 'object',
+              required: [
+                'type',
+                'title',
+                'status',
+                'detail',
+                'instance',
+                'code',
+              ],
+              properties: {
+                type: {
+                  type: 'string',
+                  example: 'urn:score:problem:not-found',
+                },
+                title: { type: 'string', example: 'Not Found' },
+                status: { type: 'integer', example: 404 },
+                detail: { type: 'string' },
+                instance: { type: 'string', example: '/api/v1/leads/abc' },
+                code: { type: 'string', example: 'NOT_FOUND' },
+                errors: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['message'],
+                    properties: {
+                      field: { type: 'string' },
+                      code: { type: 'string' },
+                      message: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('docs', app, document);

@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -21,6 +22,7 @@ import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { ListLeadsDto } from './dto/list-leads.dto';
 import { LeadsService } from './leads.service';
+import { PrequalificationErrorFilter } from './prequalification-error.filter';
 
 /**
  * `POST prequalification` es el endpoint público que consume el formulario
@@ -36,6 +38,7 @@ export class LeadsController {
   constructor(private readonly leads: LeadsService) {}
 
   @Post('prequalification')
+  @UseFilters(PrequalificationErrorFilter)
   @HttpCode(HttpStatus.CREATED)
   // Límite propio por IP, más estricto que el global, contra spam del
   // formulario público.

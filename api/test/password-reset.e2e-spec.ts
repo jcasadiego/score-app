@@ -159,7 +159,7 @@ describe('Recuperación de contraseña (e2e)', () => {
       .post(`${BASE}/request`)
       .send({ email: 'nadie.e2e@example.com' })
       .expect(429)
-      .expect((r) => expect(r.body.error).toBe('Too Many Requests'));
+      .expect((r) => expect(r.body.code).toBe('TOO_MANY_REQUESTS'));
   });
 
   describe('acciones del admin sobre un enlace pendiente', () => {

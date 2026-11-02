@@ -15,6 +15,7 @@ export const REQUEST_MESSAGE =
   'Si el correo está registrado, te enviamos un enlace para restablecer la contraseña.';
 
 /** Mismo mensaje para inválido, vencido o usado: no da pistas de cuál. */
+const INVALID_LINK_CODE = 'INVALID_RESET_LINK';
 export const INVALID_LINK_MESSAGE =
   'El enlace no es válido, ya se usó o venció. Pide uno nuevo.';
 
@@ -105,7 +106,10 @@ export class PasswordResetService {
       resetToken.expiresAt <= new Date() ||
       !resetToken.user.active
     ) {
-      throw new BadRequestException(INVALID_LINK_MESSAGE);
+      throw new BadRequestException({
+        message: INVALID_LINK_MESSAGE,
+        code: INVALID_LINK_CODE,
+      });
     }
 
     const passwordData = await passwordChangeData(password);
@@ -118,7 +122,10 @@ export class PasswordResetService {
         data: { usedAt: new Date() },
       });
       if (count === 0) {
-        throw new BadRequestException(INVALID_LINK_MESSAGE);
+        throw new BadRequestException({
+          message: INVALID_LINK_MESSAGE,
+          code: INVALID_LINK_CODE,
+        });
       }
 
       await tx.user.update({

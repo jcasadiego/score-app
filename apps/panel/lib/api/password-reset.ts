@@ -60,12 +60,11 @@ export async function confirmPasswordReset(
 
   if (response.status === 400) {
     const body = (await response.json().catch(() => null)) as {
-      message?: string | string[];
+      code?: string;
+      detail?: string;
     } | null;
-    // Enlace inválido, usado o vencido llega como un único mensaje; los
-    // errores de validación del body (ValidationPipe) llegan como lista.
-    if (typeof body?.message === "string") {
-      throw new ApiError(INVALID_LINK_STATUS, body.message);
+    if (body?.code === "INVALID_RESET_LINK" && body.detail) {
+      throw new ApiError(INVALID_LINK_STATUS, body.detail);
     }
     throw new ApiError(
       400,

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   HttpException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
@@ -90,6 +91,17 @@ describe('GlobalExceptionFilter', () => {
     expect(body).toMatchObject({ status: 500, code: 'INTERNAL_ERROR' });
     expect(JSON.stringify(body)).not.toContain('SELECT');
     expect(JSON.stringify(body)).not.toContain('/srv/app');
+  });
+
+  it('usa el `detail` propio de la excepción', () => {
+    const { body } = run(
+      new ServiceUnavailableException({ detail: 'sin conexión a la base' }),
+    );
+
+    expect(body).toMatchObject({
+      status: 503,
+      detail: 'sin conexión a la base',
+    });
   });
 
   it('da un código a cualquier otro estado HTTP', () => {

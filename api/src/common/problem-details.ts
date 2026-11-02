@@ -70,6 +70,7 @@ export function normalizeError(exception: unknown): NormalizedError {
       ? { message: response }
       : (response as {
           message?: string | string[];
+          detail?: string;
           error?: string;
           code?: string;
           errors?: ProblemError[];
@@ -77,7 +78,7 @@ export function normalizeError(exception: unknown): NormalizedError {
 
   return {
     statusCode,
-    message: body.message ?? exception.message,
+    message: body.message ?? body.detail ?? exception.message,
     // Sin `error` propio (ej. ThrottlerException), la frase HTTP estándar.
     error: body.error ?? statusPhrase(statusCode),
     code: body.code ?? defaultCode(statusCode),

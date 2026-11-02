@@ -1,10 +1,13 @@
+import type { Mock, MockInstance } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
+import { MAIL_PORT, MailMessage, SendResult } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { UsersService } from './../src/users/users.service';
 
 const PATH = '/api/v1/leads/prequalification';
 
@@ -324,5 +327,116 @@ describe('Leads del panel (e2e)', () => {
       .get('/api/v1/leads/no-existe')
       .set('Authorization', `Bearer ${token}`)
       .expect(404);
+  });
+});
+
+describe('Aviso al equipo por lead nuevo (e2e)', () => {
+  const ACTIVE_EMAIL = 'aviso-activo.e2e@example.com';
+  const INACTIVE_EMAIL = 'aviso-inactivo.e2e@example.com';
+
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let send: Mock<(message: MailMessage) => Promise<SendResult>>;
+  let findActiveEmails: MockInstance<UsersService['findActiveEmails']>;
+  let leadId: string | undefined;
+
+  beforeEach(async () => {
+    send = vi.fn();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(MAIL_PORT)
+      .useValue({ send })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+    prisma = app.get(PrismaService);
+    findActiveEmails = vi.spyOn(app.get(UsersService), 'findActiveEmails');
+
+    await prisma.user.createMany({
+      data: [
+        { name: 'Activo', email: ACTIVE_EMAIL, passwordHash: 'x' },
+        {
+          name: 'Inactivo',
+          email: INACTIVE_EMAIL,
+          passwordHash: 'x',
+          active: false,
+        },
+      ],
+    });
+  });
+
+  afterEach(async () => {
+    await prisma.user.deleteMany({
+      where: { email: { in: [ACTIVE_EMAIL, INACTIVE_EMAIL] } },
+    });
+    if (leadId) {
+      await prisma.lead.delete({ where: { id: leadId } });
+      leadId = undefined;
+    }
+    await app.close();
+  });
+
+  /**
+   * Espera a que el aviso, que va en segundo plano, termine. Toma los
+   * destinatarios de la consulta real: otros archivos de e2e crean usuarios en
+   * paralelo, así que contarlos aparte daría un número distinto.
+   */
+  async function waitForNotice(action: string): Promise<string[]> {
+    await vi.waitFor(() => expect(findActiveEmails).toHaveBeenCalled());
+    const recipients = await (findActiveEmails.mock.results[0].value as Promise<
+      string[]
+    >);
+    await vi.waitFor(async () => {
+      const logs = await prisma.auditLog.count({
+        where: { entity: 'Lead', entityId: leadId, action },
+      });
+      expect(logs).toBe(recipients.length);
+    });
+    return recipients;
+  }
+
+  it('avisa a los usuarios activos, no a los desactivados, y queda en la bitácora', async () => {
+    send.mockResolvedValue({ sent: true, providerId: 'em_1' });
+
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send(VALID)
+      .expect(201);
+    leadId = response.body.id;
+
+    await waitForNotice('EMAIL_SENT');
+
+    const recipients = send.mock.calls.map(([message]) => message.to);
+    expect(recipients).toContain(ACTIVE_EMAIL);
+    expect(recipients).not.toContain(INACTIVE_EMAIL);
+    const message = send.mock.calls[0][0];
+    expect(message.text).toContain('Nombre: Ana Pérez');
+    expect(message.text).toContain('Familia: Catálogo');
+    expect(message.text).toContain('instagram / social / lanzamiento');
+    expect(message.text).toContain('/leads');
+
+    const log = await prisma.auditLog.findFirstOrThrow({
+      where: { entity: 'Lead', entityId: leadId, action: 'EMAIL_SENT' },
+    });
+    expect(JSON.stringify(log.data)).not.toContain('Ana Pérez');
+  });
+
+  it('si el correo falla, el lead se registra igual y el fallo queda en la bitácora', async () => {
+    send.mockResolvedValue({ sent: false, reason: 'proveedor caído' });
+
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send(VALID)
+      .expect(201);
+    leadId = response.body.id;
+
+    await waitForNotice('EMAIL_FAILED');
+
+    await expect(
+      prisma.lead.findUnique({ where: { id: leadId } }),
+    ).resolves.not.toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { LeadStatus, DiagnosticFamily } from '../../generated/prisma/enums';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadsService } from './leads.service';
 
@@ -23,6 +24,7 @@ describe('LeadsService', () => {
       update: Mock;
     };
   };
+  let notifications: { notifyNewLead: Mock };
   let service: LeadsService;
 
   beforeEach(() => {
@@ -39,7 +41,11 @@ describe('LeadsService', () => {
         update: vi.fn(),
       },
     };
-    service = new LeadsService(prisma as unknown as PrismaService);
+    notifications = { notifyNewLead: vi.fn() };
+    service = new LeadsService(
+      prisma as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
   });
 
   it('crea el lead y solo pide id y estado de vuelta', async () => {
@@ -65,6 +71,27 @@ describe('LeadsService', () => {
       },
       select: { id: true, status: true },
     });
+    expect(notifications.notifyNewLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'lead-1',
+        name: 'Ana Pérez',
+        family: DiagnosticFamily.B2B,
+        utmSource: 'instagram',
+      }),
+    );
+  });
+
+  it('si no se pudo crear el lead, no avisa al equipo', async () => {
+    prisma.lead.create.mockRejectedValue(new Error('db caída'));
+
+    await expect(
+      service.create({
+        name: 'Ana Pérez',
+        email: 'ana@example.com',
+        family: DiagnosticFamily.B2B,
+      }),
+    ).rejects.toThrow('db caída');
+    expect(notifications.notifyNewLead).not.toHaveBeenCalled();
   });
 
   describe('list', () => {

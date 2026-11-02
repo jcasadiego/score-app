@@ -164,6 +164,14 @@ y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor
   Prueba manual: `pnpm mail:test tu@email.com` (necesita Postgres);
   con `MAIL_DRIVER=resend` y remitente `onboarding@resend.dev` llega de
   verdad, pero solo al email dueño de la cuenta de Resend.
+- `src/notifications/` — avisos por correo al equipo, a todos los usuarios
+  activos del panel: lead nuevo (lo dispara `LeadsService.create`, también
+  desde el alias legacy) y diagnóstico completado
+  (`notifyDiagnosticCompleted`, todavía sin quien lo llame: se conecta con
+  PF-16). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
+  un fallo del correo afectan a la operación que los dispara. Cada envío queda
+  en la bitácora asociado al lead o al diagnóstico, sin sus datos personales.
+  Los enlaces salen de `PANEL_URL`.
 - `src/health/` — `GET /health`.
 
 ## Pendiente a propósito (no construir todavía)

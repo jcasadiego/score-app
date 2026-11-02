@@ -71,6 +71,15 @@ export async function passwordChangeData(password: string) {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Correos de quienes reciben los avisos al equipo. */
+  async findActiveEmails(): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: { active: true },
+      select: { email: true },
+    });
+    return users.map((user) => user.email);
+  }
+
   findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
   }

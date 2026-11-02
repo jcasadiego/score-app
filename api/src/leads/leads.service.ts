@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { DiagnosticFamily, LeadStatus } from '../../generated/prisma/enums';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 
@@ -54,10 +55,13 @@ export interface LeadsPage {
 
 @Injectable()
 export class LeadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
-  create(dto: CreateLeadDto): Promise<CreatedLead> {
-    return this.prisma.lead.create({
+  async create(dto: CreateLeadDto): Promise<CreatedLead> {
+    const lead = await this.prisma.lead.create({
       data: {
         name: dto.name,
         email: dto.email,
@@ -69,6 +73,10 @@ export class LeadsService {
       },
       select: PUBLIC_SELECT,
     });
+
+    this.notifications.notifyNewLead({ ...dto, id: lead.id });
+
+    return lead;
   }
 
   /**

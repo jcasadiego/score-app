@@ -16,8 +16,16 @@ export interface RecordAuditParams {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  record(params: RecordAuditParams) {
-    return this.prisma.auditLog.create({
+  /**
+   * Un evento crítico (aprobar, corregir, emitir o revocar un enlace) pasa el
+   * `tx` de su `$transaction`: si falla el registro se revierte la operación, y
+   * viceversa. Sin `tx`, escribe por su cuenta.
+   */
+  record(
+    params: RecordAuditParams,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    return client.auditLog.create({
       data: {
         actorType: params.actorType,
         actorId: params.actorId,
@@ -30,7 +38,7 @@ export class AuditService {
   }
 
   /**
-   * Historial de eventos de una entidad puntual (ej. un Caso), en orden
+   * Historial de eventos de una entidad puntual (ej. un Diagnostic), en orden
    * cronológico. Sin filtros ni paginación — para eso hace falta
    * reportería, que es deliberadamente parte de un módulo aparte.
    */

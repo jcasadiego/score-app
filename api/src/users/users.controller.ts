@@ -1,3 +1,4 @@
+import { AuditRoute } from '../audit/audit-route.decorator';
 import {
   Body,
   Controller,
@@ -39,6 +40,11 @@ export class UsersController {
 
   @Post()
   @Roles(UserRole.ADMIN)
+  @AuditRoute({
+    action: 'USER_CREATED',
+    entity: 'User',
+    fields: ['name', 'email'],
+  })
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);
   }
@@ -57,18 +63,26 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
+  // `password` queda como [REDACTADO]: deja constancia de que cambió.
+  @AuditRoute({
+    action: 'USER_UPDATED',
+    entity: 'User',
+    fields: ['name', 'email', 'password'],
+  })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(id, dto);
   }
 
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
+  @AuditRoute({ action: 'USER_DEACTIVATED', entity: 'User' })
   deactivate(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.users.deactivate(id, req.user.id);
   }
 
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN)
+  @AuditRoute({ action: 'USER_ACTIVATED', entity: 'User' })
   activate(@Param('id') id: string) {
     return this.users.activate(id);
   }

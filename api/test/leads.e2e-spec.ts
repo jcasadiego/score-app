@@ -136,20 +136,21 @@ describe('LeadsController (e2e)', () => {
     // La auditoría se escribe sin bloquear la respuesta.
     const auditEntry = await vi.waitFor(() =>
       prisma.auditLog
-        .findFirst({ where: { entity: PATH, createdAt: { gte: since } } })
+        .findFirst({
+          where: {
+            action: 'LEAD_CREATED',
+            entityId: response.body.id,
+            createdAt: { gte: since },
+          },
+        })
         .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
     );
 
     expect(auditEntry.actorType).toBe('SYSTEM');
     expect(auditEntry.data).toMatchObject({
-      body: {
-        name: '[REDACTADO]',
-        email: '[REDACTADO]',
-        phone: '[REDACTADO]',
-        family: 'CATALOG',
-      },
+      body: { family: 'CATALOG' },
     });
-    await prisma.auditLog.delete({ where: { id: auditEntry.id } });
+    expect(JSON.stringify(auditEntry.data)).not.toContain(VALID.email);
   });
 
   it.each([
@@ -244,9 +245,6 @@ describe('Leads del panel (e2e)', () => {
 
   afterAll(async () => {
     await prisma.lead.deleteMany({ where: { id: { in: leadIds } } });
-    await prisma.auditLog.deleteMany({
-      where: { actorId: userId },
-    });
     await prisma.user.delete({ where: { id: userId } });
     await app.close();
   });
@@ -305,7 +303,9 @@ describe('Leads del panel (e2e)', () => {
 
     const auditEntry = await vi.waitFor(() =>
       prisma.auditLog
-        .findFirst({ where: { entity: path } })
+        .findFirst({
+          where: { action: 'LEAD_STATUS_CHANGED', entityId: leadIds[1] },
+        })
         .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
     );
     expect(auditEntry).toMatchObject({

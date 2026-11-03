@@ -77,11 +77,13 @@ y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor
   guarda actor tipado (`PANEL_USER` / `END_CLIENT` / `SYSTEM` + id
   cuando aplica), acción, entidad afectada por referencia (tipo + id,
   sin llave foránea) y un detalle libre en `data` (tabla `audit_logs`). El
-  `AuditInterceptor` registra automáticamente toda request mutante
-  (POST/PUT/PATCH/DELETE) resolviendo el actor desde `request.user`
-  (JWT de panel) o `request.accessLink` (token de enlace de diagnóstico); los
-  servicios de dominio pueden llamar a `AuditService.record(...)`
-  directamente para un registro más específico.
+  `AuditInterceptor` registra toda request exitosa que cambia datos, con la
+  acción, la entidad y los campos que declara su `@AuditRoute()`; el actor sale
+  de `request.user` (JWT de panel) o `request.accessLink` (token de enlace).
+  `auditFailures` registra los intentos fallidos o denegados, sin guardar el
+  body. Un evento crítico se registra desde su servicio, pasando el `tx` a
+  `AuditService.record(...)`, para que ambos se confirmen o se reviertan juntos.
+  La base rechaza `UPDATE`, `DELETE` y `TRUNCATE` sobre `audit_logs`.
 - `src/rules/` — versión de reglas aplicada a cada caso (requisito
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
@@ -139,7 +141,7 @@ y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor
   /leads/precalificacion` (`src/leads/legacy/`) sigue aceptando el
   contrato viejo en español, con su forma de error `{ statusCode,
   mensaje }`. Los datos personales (`nombre`, `email`,
-  `telefono`) se redactan en la bitácora con `@RedactInAudit()`.
+  `telefono`) no entran a la bitácora: `@AuditRoute()` solo guarda lo declarado.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):

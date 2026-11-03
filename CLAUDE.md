@@ -236,8 +236,7 @@ terminó):
   de enum en `UPPER_SNAKE_CASE`. Normalizada (3NF): sin datos derivados ni
   duplicados sin justificar, tablas puente en vez de arreglos o JSON, e
   integridad garantizada en la base. Índice en cada FK, `onDelete: Restrict`
-  en el dominio y `@db.Timestamptz(3)` en toda fecha nueva (PF-46 migra las
-  existentes).
+  en el dominio y `@db.Timestamptz(3)` en toda fecha.
 - **Seguridad:** OWASP API Top 10, OWASP ASVS y, si hay IA, OWASP LLM Top 10.
   Tokens guardados como hash. Datos del cliente fuera de logs y bitácora.
 - **Accesibilidad:** WCAG 2.2 AA en `apps/diagnostico`.
@@ -331,6 +330,9 @@ revisar la regla correspondiente.
 - **Migraciones de renombre:** Prisma resuelve un rename como DROP +
   CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
   de aplicarlo (#26).
+- **Migraciones con varios pasos:** Prisma no las envuelve en una transacción;
+  un fallo deja aplicado lo anterior. Escribir `BEGIN`/`COMMIT` en el SQL y
+  probarlo con un fallo forzado sobre una base aparte (PF-46).
 
 **`apps/panel`**
 

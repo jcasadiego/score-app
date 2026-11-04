@@ -7,6 +7,8 @@ export interface User {
   email: string;
   active: boolean;
   role: string;
+  /** Nulo si todavía no configuró la verificación en dos pasos. */
+  mfaEnabledAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +86,12 @@ export function activateUser(token: string, id: string): Promise<User> {
 
 export function deactivateUser(token: string, id: string): Promise<User> {
   return callApi<User>(token, `/users/${encodeURIComponent(id)}/deactivate`, MESSAGES, {
+    method: "PATCH",
+  });
+}
+
+export function resetUserMfa(token: string, id: string): Promise<User> {
+  return callApi<User>(token, `/users/${encodeURIComponent(id)}/reset-mfa`, MESSAGES, {
     method: "PATCH",
   });
 }

@@ -15,6 +15,7 @@ import {
   activateUser,
   createUser,
   deactivateUser,
+  resetUserMfa,
   type UpdateUserData,
   type CreateUserData,
   type User,
@@ -108,6 +109,19 @@ export async function deactivateUserAction(
   try {
     const token = await authenticatedToken();
     const user = await deactivateUser(token, id);
+    revalidatePath("/users");
+    return { ok: true, user };
+  } catch (error) {
+    return await handleError(error);
+  }
+}
+
+export async function resetUserMfaAction(
+  id: string,
+): Promise<UserActionResult> {
+  try {
+    const token = await authenticatedToken();
+    const user = await resetUserMfa(token, id);
     revalidatePath("/users");
     return { ok: true, user };
   } catch (error) {

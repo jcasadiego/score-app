@@ -1,7 +1,12 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { refreshAccessToken } from "@/lib/api/auth";
-import { SESSION_COOKIE_NAME, sessionCookieOptions } from "./constants";
+import {
+  MFA_CHALLENGE_COOKIE_NAME,
+  MFA_CHALLENGE_MAX_AGE_SECONDS,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "./constants";
 import { decodeToken, shouldRenew, type SessionPayload } from "./jwt";
 
 export async function createSession(accessToken: string): Promise<void> {
@@ -26,6 +31,26 @@ export async function renewSessionIfNeeded(): Promise<void> {
 
   const freshToken = await refreshAccessToken(token);
   if (freshToken) await createSession(freshToken);
+}
+
+export async function saveMfaChallenge(mfaToken: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(MFA_CHALLENGE_COOKIE_NAME, mfaToken, {
+    ...sessionCookieOptions(),
+    sameSite: "strict",
+    expires: undefined,
+    maxAge: MFA_CHALLENGE_MAX_AGE_SECONDS,
+  });
+}
+
+export async function getMfaChallenge(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(MFA_CHALLENGE_COOKIE_NAME)?.value ?? null;
+}
+
+export async function deleteMfaChallenge(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(MFA_CHALLENGE_COOKIE_NAME);
 }
 
 export async function deleteSession(): Promise<void> {

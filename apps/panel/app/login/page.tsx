@@ -19,6 +19,10 @@ const NOTICES: Record<string, LoginNotice> = {
     type: "success",
     text: "Cambiaste tu contraseña. Inicia sesión de nuevo con la nueva.",
   },
+  "mfa-expired": {
+    type: "warning",
+    text: "Pasó demasiado tiempo. Vuelve a iniciar sesión.",
+  },
   "session-expired": {
     type: "warning",
     text: "Tu sesión terminó: venció o se inició en otro dispositivo. Si no fuiste tú, cambia tu contraseña.",

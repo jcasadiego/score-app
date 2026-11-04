@@ -17,7 +17,11 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
 
 ## Autenticación
 
-- `POST /auth/login` de `api` devuelve un `accessToken` (JWT). El panel
+- El acceso tiene dos pasos, ambos desde Server Actions: `POST /auth/login`
+  entrega un reto de 5 minutos, que se guarda en una cookie `httpOnly`, y
+  `/login/two-factor` (o `/login/two-factor/setup`, la primera vez) lo cambia por
+  la sesión con un código TOTP o de recuperación. El MFA es obligatorio.
+- Completar ese paso devuelve un `accessToken` (JWT). El panel
   lo pide desde una Server Action (`app/login/actions.ts`, nunca desde
   el navegador) y lo guarda como cookie de sesión `httpOnly` — ver
   `lib/auth/session.ts`.

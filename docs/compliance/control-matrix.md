@@ -60,11 +60,11 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Código fuente con acceso restringido | A.8.4 | CC6.1 | Riesgo aceptado | El repo es público en GitHub: decisión de José del 2026-11-04. Exige que ningún secreto ni dato real llegue al repo (gitleaks) y que el auditor vea esta decisión justificada |
 | Cambios por PR, con CI obligatorio en `develop` | A.8.32 | CC8.1 | Implementado | Protección de rama, plantilla de PR |
-| CI obligatorio también en `main` | A.8.32 | CC8.1 | **Pendiente** | José lo aprobó el 2026-11-04. Falta aplicar el ajuste en GitHub |
+| CI obligatorio también en `main` | A.8.32 | CC8.1 | Implementado | Protección de rama: `api`, `diagnostico` y `panel`, con la rama al día. Aplicado por José el 2026-11-04 |
 | Separación de funciones: quien escribe no aprueba solo | A.5.3, A.8.32 | CC8.1 | Riesgo aceptado | 0 aprobaciones exigidas con un solo desarrollador: decisión de José del 2026-11-04. Un auditor lo va a objetar; revisar al sumar a alguien al repo |
 | Análisis de secretos, de dependencias y estático | A.8.8, A.8.28 | CC7.1 | Implementado | `.github/workflows/security.yml`. Revisión de dependencias y CodeQL solo corren con el repo público |
 | `pnpm audit` bloqueante en las tres piezas | A.8.8 | CC7.1 | Implementado | Workflows de CI |
-| Actualizaciones automáticas de dependencias | A.8.8 | CC7.1 | Parcial | `.github/dependabot.yml`. José aprobó las alertas de Dependabot el 2026-11-04; falta activarlas en GitHub |
+| Actualizaciones y alertas automáticas de dependencias | A.8.8 | CC7.1 | Implementado | `.github/dependabot.yml` y alertas de Dependabot, activadas por José el 2026-11-04 |
 | Actions fijadas por SHA y permisos mínimos | A.5.21, A.8.28 | CC9.2 | Implementado | `.github/workflows/` |
 | Revisión de seguridad por PR y por release | A.8.25, A.8.29 | CC8.1 | Implementado | `CLAUDE.md`, sección 5.1 |
 | Entornos separados; sin datos reales en pruebas | A.8.31, A.8.33 | CC8.1 | Parcial | Variables y e2e separados. QA y producción: PF-30 |

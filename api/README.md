@@ -119,7 +119,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 - `src/users/` + `src/auth/` — login JWT y guards de roles para
   `apps/panel`. `UsersController` (`/users`) es el CRUD interno de
   cuentas (`name`, `email`, `active`) — sin autoservicio, lo administra el
-  propio equipo y exige estar ya autenticado como ADMIN. `active: false`
+  propio equipo y exige estar ya autenticado como Aprobador. `active: false`
   revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
   usuario ni su historial. Cambiar la contraseña (`password` opcional en
   `PATCH /users/:id`, o por recuperación) cierra todas las sesiones
@@ -134,9 +134,10 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   limitan `name` a 120 y `email` a 254 caracteres. `prisma/seed.ts` (`pnpm prisma db seed`) crea
   el primer ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/
   `ADMIN_NAME`, porque sin un usuario ya autenticado no se puede llegar
-  a `POST /users`. `User.role` es un placeholder de un solo valor
-  (`ADMIN`) hasta que se defina el modelo real de permisos (ver
-  "Pendiente a propósito" abajo).
+  a `POST /users`. `User.role` es `ADMIN` (Aprobador) o `REVIEWER` (Revisor), sin
+  valor por defecto; la matriz está en `CLAUDE.md`, sección 5.3. Cambiarlo
+  cierra las sesiones del usuario y queda como `USER_ROLE_CHANGED`. Siempre
+  debe quedar un Aprobador activo: si no, 409.
 - `src/password-reset/` — recuperación de contraseña de
   `apps/panel`, rutas públicas: `POST /auth/password-reset/request`
   (`{ email }`, 3/min por IP) responde siempre el mismo mensaje y hace
@@ -205,10 +206,6 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   no persiste enlaces ni los invalida tras un solo uso — eso depende de
   la forma de `Diagnostic`.
 - El motor de cálculo real detrás de `ScoringEnginePort`.
-- El modelo real de roles/permisos de `apps/panel` — `UserRole` hoy
-  solo tiene `ADMIN` (ver TODO en `prisma/schema.prisma`); el mecanismo
-  de auth (`JwtAuthGuard`, `RolesGuard`, `@Roles()`) ya está listo para
-  cuando existan más roles.
 - Aislamiento de datos por caso a nivel de Postgres (RLS): la convención
   acordada es que toda tabla de dominio nueva lleve una columna
   `caseId`/`tenantId` y que el filtrado se resuelva primero a nivel de

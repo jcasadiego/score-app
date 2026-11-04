@@ -1,68 +1,34 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
-import { Response } from 'express';
-import { STATUS_CODES } from 'node:http';
+import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { normalizeError, toProblemDetails } from './problem-details';
 
-export interface ErrorResponseBody {
-  statusCode: number;
-  message: string | string[];
-  error: string;
-}
+export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 
-const logger = new Logger('ExceptionFilter');
-
-/**
- * Forma estándar de NestJS (`{ statusCode, message, error }`). Un error
- * que no es `HttpException` es un bug: va al log con su stack y al
- * cliente solo le llega un 500 genérico, sin detalles internos.
- */
-export function buildErrorResponse(exception: unknown): ErrorResponseBody {
-  if (!(exception instanceof HttpException)) {
-    logger.error(
-      'Error no controlado',
-      exception instanceof Error ? exception.stack : String(exception),
-    );
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Internal server error',
-      error: 'Internal Server Error',
-    };
-  }
-
-  const statusCode = exception.getStatus();
-  const body = exception.getResponse();
-  const { message, error } =
-    typeof body === 'string'
-      ? { message: body, error: undefined }
-      : (body as { message?: string | string[]; error?: string });
-
-  return {
-    statusCode,
-    message: message ?? exception.message,
-    // Sin `error` propio (ej. ThrottlerException), la frase HTTP estándar.
-    error: error ?? STATUS_CODES[statusCode] ?? 'Error',
-  };
+export function sendProblem(
+  host: ArgumentsHost,
+  exception: unknown,
+  extensions: (error: ReturnType<typeof normalizeError>) => object = () => ({}),
+): void {
+  const http = host.switchToHttp();
+  const error = normalizeError(exception);
+  // Sin la query: podría traer datos que no deben volver en la respuesta.
+  const [instance] = http.getRequest<Request>().originalUrl.split('?');
+  const problem = toProblemDetails(error, instance);
+  http
+    .getResponse<Response>()
+    .status(error.statusCode)
+    .type(PROBLEM_CONTENT_TYPE)
+    .json({ ...problem, ...extensions(error) });
 }
 
 /**
- * Forma de error única para toda la API, para que `apps/diagnostico` y
- * `apps/panel` parseen errores de la misma manera sin importar el
- * endpoint.
+ * Forma de error única para toda la API (RFC 9457), para que
+ * `apps/diagnostico` y `apps/panel` lean los errores de la misma manera sin
+ * importar el endpoint.
  */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    const body = buildErrorResponse(exception);
-    host
-      .switchToHttp()
-      .getResponse<Response>()
-      .status(body.statusCode)
-      .json(body);
+    sendProblem(host, exception);
   }
 }

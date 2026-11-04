@@ -56,17 +56,16 @@ async function buildError(
   response: Response,
   messages: ResourceMessages,
 ): Promise<ApiError> {
-  // Forma de error estándar de la api: `{ statusCode, message, error }`;
-  // `message` es un texto o, si es de validación, una lista.
+  // Forma de error de la api: RFC 9457 (`docs/errores.md`).
   const body = (await response.json().catch(() => null)) as {
-    message?: string | string[];
+    detail?: string;
   } | null;
-  const message = Array.isArray(body?.message)
-    ? body.message[0]
-    : body?.message;
 
   if (response.status === 409) {
-    return new ApiError(409, message ?? messages.conflict ?? GENERIC_ERROR_MESSAGE);
+    return new ApiError(
+      409,
+      body?.detail ?? messages.conflict ?? GENERIC_ERROR_MESSAGE,
+    );
   }
   if (response.status === 404) {
     return new ApiError(404, messages.notFound);

@@ -63,15 +63,15 @@ describe('LeadsController (e2e)', () => {
     expect(lead).toMatchObject({ ...VALID, status: 'NEW' });
   });
 
-  it('responde los errores con la forma estándar { statusCode, message, error }', async () => {
+  it('responde los errores con RFC 9457 y conserva `message` para el sitio', async () => {
     const response = await request(app.getHttpServer())
       .post(PATH)
       .send({ ...VALID, family: 'OTRA' })
       .expect(400);
 
     expect(response.body).toMatchObject({
-      statusCode: 400,
-      error: 'Bad Request',
+      status: 400,
+      title: 'Bad Request',
       message: expect.arrayContaining([
         expect.stringContaining('family must be one of'),
       ]),
@@ -164,8 +164,11 @@ describe('LeadsController (e2e)', () => {
       .send(payload)
       .expect(400);
 
-    expect(response.body).toMatchObject({ statusCode: 400 });
-    expect(response.body.message).toEqual(expect.any(Array));
+    expect(response.body).toMatchObject({
+      status: 400,
+      code: 'VALIDATION_FAILED',
+    });
+    expect(response.body.errors).toEqual(expect.any(Array));
   });
 
   it('responde 429 al pasar el límite de envíos por minuto', async () => {

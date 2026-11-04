@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import { Response } from 'express';
-import { buildErrorResponse } from '../../common/global-exception.filter';
+import { normalizeError } from '../../common/problem-details';
 
 /**
  * Forma de error del contrato viejo con `score-sitio`
@@ -9,7 +9,7 @@ import { buildErrorResponse } from '../../common/global-exception.filter';
 @Catch()
 export class LegacyErrorFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    const { statusCode, message } = buildErrorResponse(exception);
+    const { statusCode, message } = normalizeError(exception);
     host
       .switchToHttp()
       .getResponse<Response>()

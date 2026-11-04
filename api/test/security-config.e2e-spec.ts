@@ -40,9 +40,10 @@ describe('Configuración de seguridad (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(
-        'property status should not exist',
-      );
+      expect(response.body.errors).toContainEqual({
+        field: 'status',
+        message: 'property status should not exist',
+      });
     });
   });
 

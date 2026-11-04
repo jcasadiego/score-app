@@ -10,6 +10,7 @@ describe('DTOs de usuarios', () => {
       name: '  Sam   Lee ',
       email: ' sam@example.com ',
       password: 'clave-de-prueba-123',
+      role: 'REVIEWER',
     });
 
     expect(dto.name).toBe('Sam Lee');
@@ -22,10 +23,24 @@ describe('DTOs de usuarios', () => {
       name: 'a'.repeat(121),
       email: 'a@example.com',
       password: 'clave-de-prueba-123',
+      role: 'REVIEWER',
     });
 
     const errors = await validate(dto);
     expect(errors.map((e) => e.property)).toContain('name');
+  });
+
+  it('exige un rol válido al crear: nadie lo recibe por omisión', async () => {
+    for (const role of [undefined, 'SUPERADMIN']) {
+      const dto = plainToInstance(CreateUserDto, {
+        name: 'Sam Lee',
+        email: 'sam@example.com',
+        password: 'clave-de-prueba-123',
+        role,
+      });
+      const errors = await validate(dto);
+      expect(errors.map((e) => e.property)).toContain('role');
+    }
   });
 
   it('exige el largo de contraseña de la política', async () => {
@@ -34,6 +49,7 @@ describe('DTOs de usuarios', () => {
         name: 'Sam Lee',
         email: 'sam@example.com',
         password,
+        role: 'REVIEWER',
       });
 
     for (const password of ['a'.repeat(11), 'a'.repeat(129)]) {

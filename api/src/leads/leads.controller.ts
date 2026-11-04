@@ -29,7 +29,7 @@ import { PrequalificationErrorFilter } from './prequalification-error.filter';
  * de `score-sitio` desde el navegador (mientras el sitio migra, también
  * existe `POST precalificacion` en `legacy/`) — sin auth de usuario a propósito
  * (contrato en `docs/contrato-precalificacion.md`). El resto es para
- * `apps/panel` y exige JWT + ADMIN, por eso los guards van por método y
+ * `apps/panel` y exige JWT + un rol del panel, por eso los guards van por método y
  * no en el controlador.
  */
 @ApiTags('leads')
@@ -56,7 +56,7 @@ export class LeadsController {
   @Get()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   @AuditRoute({ action: 'LEADS_LISTED', entity: 'Lead' })
   list(@Query() query: ListLeadsDto) {
     return this.leads.list(query);
@@ -65,7 +65,7 @@ export class LeadsController {
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   @AuditRoute({ action: 'LEAD_VIEWED', entity: 'Lead' })
   findOne(@Param('id') id: string) {
     return this.leads.findOne(id);
@@ -79,7 +79,7 @@ export class LeadsController {
   })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
     return this.leads.updateStatus(id, dto.status);
   }

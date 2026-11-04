@@ -19,7 +19,7 @@ export type CreatedLead = Prisma.LeadGetPayload<{
   select: typeof PUBLIC_SELECT;
 }>;
 
-/** Lo que ve el equipo en `apps/panel` (solo ADMIN). */
+/** Lo que ve el equipo en `apps/panel` (Revisor y Aprobador). */
 const PANEL_SELECT = {
   id: true,
   name: true,

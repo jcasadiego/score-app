@@ -109,7 +109,7 @@ const SECURITY_NOTICE_TEXT: Record<SecurityNoticeEvent, string> = {
   MFA_RECOVERY_CODE_USED:
     'Se inició sesión en tu cuenta con un código de recuperación.',
   MFA_RESET:
-    'Un administrador restableció la verificación en dos pasos de tu cuenta. La configurarás de nuevo la próxima vez que inicies sesión.',
+    'Un Aprobador restableció la verificación en dos pasos de tu cuenta. La configurarás de nuevo la próxima vez que inicies sesión.',
 };
 
 export function securityNoticeEmail(
@@ -122,7 +122,7 @@ export function securityNoticeEmail(
       title: `Hola, ${data.name}`,
       paragraphs: [
         SECURITY_NOTICE_TEXT[data.event],
-        'Si no fuiste tú, avisa de inmediato a un administrador del panel.',
+        'Si no fuiste tú, avisa de inmediato a un Aprobador del panel.',
       ],
       footerReason: TEAM_NOTICE_FOOTER,
     },

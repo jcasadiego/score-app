@@ -44,12 +44,6 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
   dominio real de `api` (modelos de diagnóstico/respuestas, detección de
   contradicciones) y el flujo de `apps/diagnostico`.
-- **Modelo de permisos de `apps/panel`:** el modelo real de roles y
-  permisos todavía no está definido. El login ya funciona de punta a
-  punta (JWT en `api` + pantalla de login y sesión en `apps/panel`) y
-  hay CRUD de usuarios, pero todo contra un `User` con un solo rol
-  placeholder (`ADMIN`) — ver TODO en `api/prisma/schema.prisma`. No
-  agregar roles nuevos ni permisos por caso sin confirmarlo con José.
 
 ## 3.1. Estado actual del código
 
@@ -65,8 +59,8 @@ pendientes:
   rutas (`/api/v1`, Swagger autogenerado en `/docs` fuera de
   producción), bitácora de auditoría con actor tipado
   (`PANEL_USER`/`END_CLIENT`/`SYSTEM`) vía `AuditInterceptor`,
-  versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()`, CRUD
-  de usuarios internos (`/users`, solo ADMIN; `active: false` revoca
+  versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()` (matriz en la sección 5.3), CRUD
+  de usuarios internos (`/users`, solo Aprobador; `active: false` revoca
   el acceso sin borrar historial; un usuario no puede desactivarse a sí
   mismo; cambiar la contraseña cierra sus sesiones), renovación de sesión
   (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), cierre de sesión
@@ -222,6 +216,37 @@ certificado ni tiene informe SOC 2. Hasta tenerlos, no escribir "certificado" ni
 "compliant" en el sitio, contratos o material comercial. Estado y brechas en
 `docs/compliance/`.
 
+## 5.3. Roles y permisos del panel
+
+Dos roles, uno por usuario: `ADMIN` (**Aprobador**, puede hacer todo) y
+`REVIEWER` (**Revisor**). Toda ruta nueva del panel declara `@Roles()` según esta
+matriz. Un rol nuevo o un permiso por caso se confirma antes con José.
+
+| Área | Revisor | Aprobador |
+|---|---|---|
+| Usuarios: crear, editar, activar/desactivar, cambiar rol | — | ✅ |
+| Leads: ver y cambiar estado | ✅ | ✅ |
+| Cuestionario: ver | ✅ | ✅ |
+| Cuestionario: crear, editar, publicar | — | ✅ |
+| Diagnósticos: ver y reenviar el enlace al cliente | ✅ | ✅ |
+| Diagnósticos: generar sin pago (con motivo) | — | ✅ |
+| Resultado del motor: ver y recalcular | ✅ | ✅ |
+| Alertas: ver y marcar revisada/descartada | ✅ | ✅ |
+| Revisión: tomar, liberar el propio, corregir, notas | ✅ | ✅ |
+| Revisión: aprobar, reabrir, registrar excepción de IA, liberar un caso tomado por otro | — | ✅ |
+| Informe: generar y editar borrador, regenerar sección | ✅ | ✅ |
+| Informe: aprobar, entregar, reenviar enlace del informe | — | ✅ |
+| Pagos: todo | — | ✅ |
+
+- La API valida el rol en cada petición, leído de la base. El panel solo oculta lo
+  que el rol no permite.
+- Cambiar el rol cierra las sesiones del usuario. El rol nunca tiene valor por
+  defecto: se elige siempre de forma explícita.
+- Siempre debe quedar un Aprobador activo (409 si no).
+- Ambos roles ven todos los casos. Un Aprobador puede aprobar un caso que él mismo
+  corrigió: riesgo aceptado por José el 2026-11-04 (ISO 27001 A.5.3). Por eso
+  PF-39 debe dejar en la bitácora quién corrigió y quién aprobó cada caso.
+
 ## 6. Convenciones rápidas
 
 **Idioma** (decidido el 2026-10-31; la migración del código anterior ya
@@ -243,7 +268,7 @@ terminó):
 
 | Español | Inglés |
 |---|---|
-| Usuario / RolUsuario | User / UserRole |
+| Usuario / RolUsuario | User / UserRole (`ADMIN` = Aprobador, `REVIEWER` = Revisor) |
 | RegistroAuditoria / ActorAuditoria | AuditLog / AuditActorType (`PANEL_USER`, `END_CLIENT`, `SYSTEM`) |
 | VersionReglas | RuleSetVersion |
 | TokenRecuperacionContrasena | PasswordResetToken |
@@ -380,11 +405,13 @@ revisar la regla correspondiente.
 - **Escapar con `encodeURIComponent`** todo id que se interpole en una
   ruta de la api desde una Server Action (`../` apuntaba a otro endpoint
   con el mismo token, #10).
-- **Modales con `Form` de Ant Design:** con `destroyOnHidden` el `Form`
-  no existe al abrir, así que no llamar a `resetFields`/`setFieldsValue`
-  antes de mostrarlo. Los valores van en `initialValues` con
-  `preserve={false}`. Descartados: `forceRender` (error de hidratación) y
-  `clearOnDestroy` (con StrictMode borra los `initialValues`) (#16).
+- **Modales con `Form` de Ant Design:** no compartir `Form.useForm` entre
+  aperturas ni confiar en que `destroyOnHidden` desmonte a tiempo: un selector
+  mostró el rol de la apertura anterior, y guardar habría degradado a otra
+  persona (PF-48). Cada apertura monta un `Form` nuevo con `key`, y el botón lo
+  envía con `form={id}`. Los valores van en `initialValues`. Descartados:
+  `forceRender` (error de hidratación) y `clearOnDestroy` (con StrictMode borra
+  los `initialValues`) (#16).
 - No copiar datos del servidor a `useState`: la Server Action +
   `revalidatePath` ya devuelve el RSC actualizado (#13). Colores solo
   desde `lib/theme.ts`, sin hex sueltos.

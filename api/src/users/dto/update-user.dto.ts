@@ -1,10 +1,12 @@
 import {
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { UserRole } from '../../../generated/prisma/enums';
 import { EMAIL_MAX, NAME_MAX, PASSWORD_MAX, PASSWORD_MIN } from './limits';
 import { NormalizeText, Trim } from './normalize-text';
 
@@ -28,4 +30,9 @@ export class UpdateUserDto {
   @MinLength(PASSWORD_MIN)
   @MaxLength(PASSWORD_MAX)
   password?: string;
+
+  /** Cambiarlo cierra las sesiones abiertas del usuario. */
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 }

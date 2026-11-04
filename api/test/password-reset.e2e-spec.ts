@@ -43,6 +43,7 @@ describe('Recuperación de contraseña (e2e)', () => {
         name: 'Recuperación E2E',
         email: EMAIL,
         passwordHash: await argon2.hash('clave-vieja-123'),
+        role: 'REVIEWER',
       },
     });
   });
@@ -97,7 +98,7 @@ describe('Recuperación de contraseña (e2e)', () => {
         await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } }),
       );
     await request(app.getHttpServer())
-      .get('/api/v1/users')
+      .get('/api/v1/leads')
       .set('Authorization', `Bearer ${oldSession}`)
       .expect(200);
 
@@ -112,7 +113,7 @@ describe('Recuperación de contraseña (e2e)', () => {
       .send({ token, password: 'otra-clave-789' })
       .expect(400);
     await request(app.getHttpServer())
-      .get('/api/v1/users')
+      .get('/api/v1/leads')
       .set('Authorization', `Bearer ${oldSession}`)
       .expect(401);
     await login('clave-vieja-123').expect(401);
@@ -188,9 +189,10 @@ describe('Recuperación de contraseña (e2e)', () => {
     it('cambiar la contraseña invalida el enlace', async () => {
       const token = await requestLink();
 
+      const id = await userId();
       await app
         .get(UsersService)
-        .update(await userId(), { password: 'clave-del-admin-123' });
+        .update(id, { password: 'clave-del-admin-123' }, id);
 
       await confirm(token).expect(400);
     });
@@ -200,7 +202,7 @@ describe('Recuperación de contraseña (e2e)', () => {
       const id = await userId();
 
       try {
-        await app.get(UsersService).update(id, { email: OTHER_EMAIL });
+        await app.get(UsersService).update(id, { email: OTHER_EMAIL }, id);
         await confirm(token).expect(400);
       } finally {
         await prisma.user.update({
@@ -223,9 +225,10 @@ describe('Recuperación de contraseña (e2e)', () => {
     it('editar el nombre sin cambiar el correo conserva el enlace', async () => {
       const token = await requestLink();
 
+      const id = await userId();
       await app
         .get(UsersService)
-        .update(await userId(), { name: 'Otro Nombre', email: EMAIL });
+        .update(id, { name: 'Otro Nombre', email: EMAIL }, id);
 
       await confirm(token).expect(204);
     });

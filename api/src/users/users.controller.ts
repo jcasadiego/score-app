@@ -31,7 +31,7 @@ interface RequestWithUser extends Request {
 /**
  * Gestión de las cuentas internas de `apps/panel`. Sin autoservicio a
  * propósito: los usuarios los crea el propio equipo, por eso todo el
- * controlador exige estar ya autenticado como ADMIN (ver seed en
+ * controlador exige estar ya autenticado como Aprobador (ver seed en
  * `prisma/seed.ts` para el primer usuario).
  */
 @ApiTags('users')
@@ -49,7 +49,7 @@ export class UsersController {
   @AuditRoute({
     action: 'USER_CREATED',
     entity: 'User',
-    fields: ['name', 'email'],
+    fields: ['name', 'email', 'role'],
   })
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);
@@ -69,14 +69,19 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  // `password` queda como [REDACTADO]: deja constancia de que cambió.
+  // `password` queda como [REDACTADO]: deja constancia de que cambió. El cambio
+  // de rol lo registra el servicio, con el rol anterior y el nuevo.
   @AuditRoute({
     action: 'USER_UPDATED',
     entity: 'User',
     fields: ['name', 'email', 'password'],
   })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.users.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.users.update(id, dto, req.user.id);
   }
 
   /** Para quien perdió el autenticador y sus códigos; nunca sobre uno mismo. */

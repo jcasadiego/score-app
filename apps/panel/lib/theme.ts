@@ -30,5 +30,6 @@ export const panelTheme: ThemeConfig = {
 };
 
 export const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrador",
+  ADMIN: "Aprobador",
+  REVIEWER: "Revisor",
 };

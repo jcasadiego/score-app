@@ -72,6 +72,7 @@ describe('Bitácora de auditoría (e2e)', () => {
         name: 'Con login',
         email: 'login.audit.e2e@example.com',
         passwordHash: await argon2.hash(password),
+        role: 'ADMIN',
       },
     });
     const since = new Date();
@@ -148,6 +149,7 @@ describe('Bitácora de auditoría (e2e)', () => {
         name: 'Sin rol',
         email: 'sin-rol.audit.e2e@example.com',
         passwordHash: 'x',
+        role: 'ADMIN',
       },
     });
     const session = await prisma.userSession.create({

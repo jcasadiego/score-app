@@ -31,7 +31,7 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { name: name, email, passwordHash, active: true },
+    create: { name: name, email, passwordHash, active: true, role: 'ADMIN' },
   });
 
   console.log(`Usuario admin listo: ${user.email} (${user.id})`);
@@ -42,9 +42,7 @@ async function main() {
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(
-      `Falta la variable de entorno ${name} para correr el seed`,
-    );
+    throw new Error(`Falta la variable de entorno ${name} para correr el seed`);
   }
   return value;
 }

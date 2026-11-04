@@ -80,6 +80,7 @@ describe('Segundo factor del panel (e2e)', () => {
         name: 'Con MFA',
         email: EMAIL,
         passwordHash: await argon2.hash(PASSWORD),
+        role: 'ADMIN',
       },
     }));
   });
@@ -241,7 +242,7 @@ describe('Segundo factor del panel (e2e)', () => {
 
     await app
       .get(UsersService)
-      .update(userId, { password: 'clave-nueva-de-mfa-456' });
+      .update(userId, { password: 'clave-nueva-de-mfa-456' }, userId);
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(user.lockedUntil).toEqual(lockedUntil);
@@ -269,6 +270,7 @@ describe('Segundo factor del panel (e2e)', () => {
           name: 'Admin MFA',
           email: ADMIN_EMAIL,
           passwordHash: await argon2.hash(PASSWORD),
+          role: 'ADMIN',
         },
       });
       const { accessToken } = await app.get(AuthService).completeLogin(admin);

@@ -246,7 +246,7 @@ export class MfaService {
   async reset(id: string, requesterId: string): Promise<PublicUser> {
     if (id === requesterId) {
       throw new ConflictException(
-        'Otro administrador debe restablecer tu verificación en dos pasos.',
+        'Otro Aprobador debe restablecer tu verificación en dos pasos.',
       );
     }
     const target = await this.prisma.user.findUnique({

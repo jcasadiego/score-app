@@ -44,16 +44,26 @@ function defaultCode(status: number): string {
 }
 
 /**
+ * El mensaje de un error de Prisma puede citar los valores de la consulta (un
+ * email, por ejemplo), y esos datos no deben llegar al log.
+ */
+function loggableError(exception: unknown): string {
+  if (!(exception instanceof Error)) return String(exception);
+  if (!exception.name.startsWith('PrismaClient')) {
+    return exception.stack ?? exception.message;
+  }
+  const { code } = exception as { code?: string };
+  return code ? `${exception.name} ${code}` : exception.name;
+}
+
+/**
  * Lleva cualquier excepción a una forma común. Un error que no es
  * `HttpException` es un bug: va al log con su stack y al cliente solo le llega
  * un 500 genérico, sin detalles internos.
  */
 export function normalizeError(exception: unknown): NormalizedError {
   if (!(exception instanceof HttpException)) {
-    logger.error(
-      'Error no controlado',
-      exception instanceof Error ? exception.stack : String(exception),
-    );
+    logger.error('Error no controlado', loggableError(exception));
     const statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     return {
       statusCode,

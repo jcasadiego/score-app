@@ -11,7 +11,12 @@ vi.mock('argon2');
 
 describe('AuthService', () => {
   const argon2VerifyMock = argon2.verify as Mock;
-  let users: { findByEmail: Mock };
+  let users: {
+    findByEmail: Mock;
+    registerFailedLogin: Mock;
+    clearFailedLogins: Mock;
+  };
+  let audit: { record: Mock };
   let sessions: { start: Mock; end: Mock };
   let service: AuthService;
 
@@ -19,7 +24,12 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
     process.env.JWT_EXPIRES_IN = '1d';
     process.env.JWT_MAX_SESSION_SECONDS = '604800';
-    users = { findByEmail: vi.fn() };
+    users = {
+      findByEmail: vi.fn(),
+      registerFailedLogin: vi.fn().mockResolvedValue(false),
+      clearFailedLogins: vi.fn().mockResolvedValue(undefined),
+    };
+    audit = { record: vi.fn().mockResolvedValue({}) };
     sessions = {
       start: vi.fn().mockResolvedValue('s1'),
       end: vi.fn().mockResolvedValue(undefined),
@@ -29,7 +39,7 @@ describe('AuthService', () => {
       users as unknown as UsersService,
       new JwtService(),
       sessions as unknown as SessionsService,
-      { record: vi.fn().mockResolvedValue({}) } as unknown as AuditService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -165,5 +175,76 @@ describe('AuthService', () => {
     });
 
     expect(sessions.end).toHaveBeenCalledWith('s1');
+  });
+
+  describe('bloqueo por intentos fallidos', () => {
+    const user = {
+      id: 'u1',
+      email: 'a@test.local',
+      role: 'ADMIN',
+      active: true,
+      passwordHash: 'hash',
+      sessionVersion: 0,
+      failedLoginAttempts: 0,
+      lockedUntil: null as Date | null,
+    };
+
+    it('cuenta la contraseña incorrecta sin decir nada distinto', async () => {
+      users.findByEmail.mockResolvedValue(user);
+      argon2VerifyMock.mockResolvedValue(false);
+
+      await expect(service.login(user.email, 'mala')).rejects.toThrow(
+        'Credenciales inválidas',
+      );
+
+      expect(users.registerFailedLogin).toHaveBeenCalledWith('u1');
+    });
+
+    it('audita el bloqueo cuando se llega al máximo', async () => {
+      users.findByEmail.mockResolvedValue(user);
+      users.registerFailedLogin.mockResolvedValue(true);
+      argon2VerifyMock.mockResolvedValue(false);
+
+      await expect(service.login(user.email, 'mala')).rejects.toThrow();
+
+      await vi.waitFor(() =>
+        expect(audit.record).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'ACCOUNT_LOCKED',
+            entityId: 'u1',
+          }),
+        ),
+      );
+    });
+
+    it('con la cuenta bloqueada rechaza la contraseña correcta, sin sesión', async () => {
+      users.findByEmail.mockResolvedValue({
+        ...user,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      argon2VerifyMock.mockResolvedValue(true);
+
+      await expect(service.login(user.email, 'buena')).rejects.toThrow(
+        'Credenciales inválidas',
+      );
+
+      // Verifica igual, para que el tiempo no delate el bloqueo.
+      expect(argon2VerifyMock).toHaveBeenCalledTimes(1);
+      expect(sessions.start).not.toHaveBeenCalled();
+    });
+
+    it('un bloqueo vencido deja entrar y limpia el contador', async () => {
+      users.findByEmail.mockResolvedValue({
+        ...user,
+        lockedUntil: new Date(Date.now() - 1_000),
+      });
+      argon2VerifyMock.mockResolvedValue(true);
+
+      await expect(service.login(user.email, 'buena')).resolves.toHaveProperty(
+        'accessToken',
+      );
+
+      expect(users.clearFailedLogins).toHaveBeenCalledWith('u1');
+    });
   });
 });

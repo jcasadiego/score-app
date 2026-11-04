@@ -331,6 +331,32 @@ describe('Leads del panel (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(404);
   });
+
+  it('deja constancia de quién consultó un lead, sin sus datos', async () => {
+    const since = new Date();
+    const [lead] = await prisma.lead.findMany({ take: 1 });
+
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/leads/${lead.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+    const log = await vi.waitFor(() =>
+      prisma.auditLog
+        .findFirst({
+          where: {
+            action: 'LEAD_VIEWED',
+            entityId: lead.id,
+            actorId: userId,
+            createdAt: { gte: since },
+          },
+        })
+        .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
+    );
+    expect(log.requestId).toBe(response.headers['x-request-id']);
+    expect(log.data).toBeNull();
+  });
 });
 
 describe('Aviso al equipo por lead nuevo (e2e)', () => {

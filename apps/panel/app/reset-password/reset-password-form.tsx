@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { LockOutlined } from "@ant-design/icons";
-import { PASSWORD_MIN } from "@/lib/users/limits";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/users/limits";
 import {
   confirmPasswordResetAction,
   type ResetPasswordResult,
@@ -61,6 +61,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
             {
               min: PASSWORD_MIN,
               message: `Debe tener al menos ${PASSWORD_MIN} caracteres.`,
+            },
+            {
+              max: PASSWORD_MAX,
+              message: `Debe tener como máximo ${PASSWORD_MAX} caracteres.`,
             },
           ]}
         >

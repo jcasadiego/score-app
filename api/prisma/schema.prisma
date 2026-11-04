@@ -24,10 +24,14 @@ model AuditLog {
   entity    String
   entityId  String?        @map("entity_id")
   data      Json?
+  /// Mismo id del encabezado `X-Request-Id` y del log: une los tres al
+  /// investigar un incidente. Nulo en eventos sin petición HTTP.
+  requestId String?        @map("request_id")
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([requestId])
   @@map("audit_logs")
 }
 
@@ -72,17 +76,21 @@ enum AuditActorType {
 /// explícito del proyecto — este modelo solo existe para que el
 /// mecanismo de login JWT tenga contra qué autenticar mientras tanto.
 model User {
-  id             String   @id @default(cuid())
-  name           String
-  email          String   @unique
-  passwordHash   String   @map("password_hash")
-  active         Boolean  @default(true)
-  role           UserRole @default(ADMIN)
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  passwordHash        String    @map("password_hash")
+  active              Boolean   @default(true)
+  role                UserRole  @default(ADMIN)
   /// Va en el JWT (`ver`); subirla invalida todas las sesiones abiertas
   /// del usuario. Se sube en cada cambio de contraseña.
-  sessionVersion Int      @default(0) @map("session_version")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sessionVersion      Int       @default(0) @map("session_version")
+  /// Contraseñas incorrectas seguidas. Se reinicia al entrar o al bloquear.
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  /// Hasta cuándo se rechaza el login, aunque la contraseña sea correcta.
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   passwordResetTokens PasswordResetToken[]
   sessions            UserSession[]

@@ -57,6 +57,7 @@ export class LeadsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @AuditRoute({ action: 'LEADS_LISTED', entity: 'Lead' })
   list(@Query() query: ListLeadsDto) {
     return this.leads.list(query);
   }
@@ -65,6 +66,7 @@ export class LeadsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @AuditRoute({ action: 'LEAD_VIEWED', entity: 'Lead' })
   findOne(@Param('id') id: string) {
     return this.leads.findOne(id);
   }

@@ -9,7 +9,7 @@ describe('DTOs de usuarios', () => {
     const dto = plainToInstance(CreateUserDto, {
       name: '  Sam   Lee ',
       email: ' sam@example.com ',
-      password: 'password123',
+      password: 'clave-de-prueba-123',
     });
 
     expect(dto.name).toBe('Sam Lee');
@@ -21,11 +21,27 @@ describe('DTOs de usuarios', () => {
     const dto = plainToInstance(CreateUserDto, {
       name: 'a'.repeat(121),
       email: 'a@example.com',
-      password: 'password123',
+      password: 'clave-de-prueba-123',
     });
 
     const errors = await validate(dto);
     expect(errors.map((e) => e.property)).toContain('name');
+  });
+
+  it('exige el largo de contraseña de la política', async () => {
+    const withPassword = (password: string) =>
+      plainToInstance(CreateUserDto, {
+        name: 'Sam Lee',
+        email: 'sam@example.com',
+        password,
+      });
+
+    for (const password of ['a'.repeat(11), 'a'.repeat(129)]) {
+      const errors = await validate(withPassword(password));
+      expect(errors.map((e) => e.property)).toContain('password');
+    }
+    expect(await validate(withPassword('a'.repeat(12)))).toHaveLength(0);
+    expect(await validate(withPassword('a'.repeat(128)))).toHaveLength(0);
   });
 
   it('aplica valores por defecto y convierte la paginación a número', async () => {

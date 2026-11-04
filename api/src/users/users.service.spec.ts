@@ -176,6 +176,8 @@ describe('UsersService', () => {
             passwordHash: 'hash-generado',
             passwordResetTokens: { deleteMany: { usedAt: null } },
             sessionVersion: { increment: 1 },
+            failedLoginAttempts: 0,
+            lockedUntil: null,
           },
         }),
       );

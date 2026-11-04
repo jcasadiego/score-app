@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditActorType } from '../../generated/prisma/enums';
+import { currentRequestId } from '../common/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface RecordAuditParams {
@@ -10,6 +11,8 @@ export interface RecordAuditParams {
   entity: string;
   entityId?: string;
   data?: Prisma.InputJsonValue;
+  /** Por defecto, el de la petición en curso. */
+  requestId?: string;
 }
 
 @Injectable()
@@ -33,6 +36,7 @@ export class AuditService {
         entity: params.entity,
         entityId: params.entityId,
         data: params.data,
+        requestId: params.requestId ?? currentRequestId(),
       },
     });
   }

@@ -20,7 +20,12 @@ import {
 } from "antd";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import type { PaginatedUsers, User } from "@/lib/api/users";
-import { EMAIL_MAX, NAME_MAX, PASSWORD_MIN } from "@/lib/users/limits";
+import {
+  EMAIL_MAX,
+  NAME_MAX,
+  PASSWORD_MAX,
+  PASSWORD_MIN,
+} from "@/lib/users/limits";
 import {
   activateUserAction,
   updateUserAction,
@@ -418,6 +423,10 @@ export function UsersScreen({
               {
                 min: PASSWORD_MIN,
                 message: `Debe tener al menos ${PASSWORD_MIN} caracteres.`,
+              },
+              {
+                max: PASSWORD_MAX,
+                message: `Debe tener como máximo ${PASSWORD_MAX} caracteres.`,
               },
             ]}
           >

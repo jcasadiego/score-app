@@ -43,11 +43,20 @@ export class AuthService {
       password,
     );
 
+    const isLocked = !!user?.lockedUntil && user.lockedUntil > new Date();
+
     // Mismo mensaje genérico también cuando la cuenta existe pero está
-    // desactivada, por la misma razón que DUMMY_HASH: no delatar el
-    // estado de una cuenta a quien no logró autenticarse.
-    if (!user || !isPasswordValid || !user.active) {
+    // desactivada o bloqueada, por la misma razón que DUMMY_HASH: no delatar
+    // el estado de una cuenta a quien no logró autenticarse.
+    if (!user || !isPasswordValid || !user.active || isLocked) {
+      if (user && !isPasswordValid && !isLocked) {
+        this.registerFailedLogin(user.id);
+      }
       throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.users.clearFailedLogins(user.id);
     }
 
     const authAt = nowInSeconds();
@@ -82,6 +91,31 @@ export class AuthService {
       );
 
     return { accessToken };
+  }
+
+  /**
+   * Sin esperar el resultado: si la respuesta tardara más cuando el email
+   * existe, el tiempo delataría qué cuentas hay.
+   */
+  private registerFailedLogin(userId: string): void {
+    this.users
+      .registerFailedLogin(userId)
+      .then((locked) =>
+        locked
+          ? this.audit.record({
+              actorType: AuditActorType.SYSTEM,
+              action: 'ACCOUNT_LOCKED',
+              entity: 'User',
+              entityId: userId,
+            })
+          : undefined,
+      )
+      .catch((error: unknown) =>
+        this.logger.error(
+          'No se pudo registrar el intento de inicio de sesión fallido',
+          error instanceof Error ? error.stack : undefined,
+        ),
+      );
   }
 
   /**

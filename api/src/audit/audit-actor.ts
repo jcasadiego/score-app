@@ -5,6 +5,7 @@ import type { RecordAuditParams } from './audit.service';
 export interface AuditableRequest extends Request {
   user?: { id: string };
   accessLink?: { sub: string };
+  requestId?: string;
 }
 
 /**

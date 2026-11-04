@@ -8,6 +8,7 @@ description = "Fixtures de tests y secretos falsos del CI"
 paths = [
   '''\.spec\.ts$''',
   '''\.e2e-spec\.ts$''',
+  '''vitest\.config\.e2e\.mts$''',
 ]
 # Secretos del CI, que solo firman tokens contra el Postgres de servicio.
 regexes = ['''ci-secret-[a-z-]+''']

@@ -73,7 +73,9 @@ pendientes:
   que revoca el token (`POST /auth/logout`), una sola sesión por usuario (un
   login nuevo cierra la anterior), recuperación de
   contraseña del panel por correo, política de contraseñas (12 a 128) y
-  bloqueo tras 5 intentos, seed del primer ADMIN, el token de
+  bloqueo tras 5 intentos, segundo factor TOTP obligatorio con códigos de
+  recuperación (`POST /auth/login` ya no abre sesión; ver `api/README.md`),
+  seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
@@ -246,6 +248,7 @@ terminó):
 | VersionReglas | RuleSetVersion |
 | TokenRecuperacionContrasena | PasswordResetToken |
 | Sesión del panel | UserSession |
+| Segundo factor / Código de recuperación | MFA / UserRecoveryCode |
 | FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
 | EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
 | Diagnóstico / enlace | Diagnostic / AccessLink |
@@ -361,8 +364,10 @@ revisar la regla correspondiente.
   acción, del JWT (`req.user.id`), nunca del cliente.
 - Listados paginados y filtrados en la base (página + conteo en una
   transacción, orden estable), nunca en memoria (#13).
-- **Login:** contar un intento fallido nunca se espera (`await`): el tiempo de
-  respuesta delataría qué emails existen.
+- **Login:** contar un intento fallido de contraseña nunca se espera (`await`):
+  el tiempo de respuesta delataría qué emails existen. La contraseña correcta no
+  limpia el contador, solo `completeLogin`; si no, se podrían probar códigos MFA
+  sin fin. Solo `AuthService.completeLogin` abre sesión, tras el segundo factor.
 - **Migraciones de renombre:** Prisma resuelve un rename como DROP +
   CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
   de aplicarlo (#26).

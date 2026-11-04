@@ -15,8 +15,9 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Bloqueo: 5 intentos fallidos, 15 minutos, auditado | A.8.5 | CC6.1 | Implementado | `test/login-lockout.e2e-spec.ts` |
 | Límite de peticiones en login y rutas públicas | A.8.5, A.8.6 | CC6.6 | Parcial | `app-throttler.guard.ts`. Contadores en memoria: con varias instancias hace falta un almacén compartido |
 | Sesión revocable, única y con límite absoluto | A.8.5 | CC6.1 | Implementado | `sessions.service.ts`, `test/auth-refresh.e2e-spec.ts` |
-| Segundo factor (MFA) para el panel | A.8.2, A.8.5 | CC6.1 | **Pendiente** | Sin ticket. Decisión de José. Lo esperará cualquier auditor en cuentas con acceso a datos personales |
-| Vencimiento de sesión por inactividad | A.8.5 | CC6.1 | Parcial | 1 día (`JWT_EXPIRES_IN`). Valorar un plazo menor junto con MFA |
+| Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Una cuenta sin configurar puede activarlo con solo su contraseña: el correo avisa y un ADMIN lo restablece |
+| Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec. Falta rotar la llave (ver secretos) |
+| Vencimiento de sesión por inactividad | A.8.5 | CC6.1 | Parcial | 1 día (`JWT_EXPIRES_IN`). Valorar un plazo menor |
 | Mínimo privilegio y roles | A.5.15, A.5.18, A.8.2, A.8.3 | CC6.3 | Parcial | Solo existe `ADMIN`. PF-48 (Revisor y Aprobador) |
 | Alta y baja de usuarios; la baja corta el acceso al instante | A.5.16, A.5.18 | CC6.2, CC6.3 | Implementado | `users.service.ts`, `jwt.strategy.ts`. La revisión periódica de accesos es de la organización |
 | Enlace del cliente final registrado y revocable | A.8.5 | CC6.1 | Parcial | Sin estado todavía: PF-16. La ruta de pruebas no existe fuera de desarrollo y test |
@@ -57,13 +58,13 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 
 | Control | ISO 27001 | SOC 2 | Estado | Evidencia o qué falta |
 |---|---|---|---|---|
-| Código fuente con acceso restringido | A.8.4 | CC6.1 | **Pendiente** | **El repo es público en GitHub.** Decisión de José |
+| Código fuente con acceso restringido | A.8.4 | CC6.1 | Riesgo aceptado | El repo es público en GitHub: decisión de José del 2026-11-04. Exige que ningún secreto ni dato real llegue al repo (gitleaks) y que el auditor vea esta decisión justificada |
 | Cambios por PR, con CI obligatorio en `develop` | A.8.32 | CC8.1 | Implementado | Protección de rama, plantilla de PR |
-| CI obligatorio también en `main` | A.8.32 | CC8.1 | **Pendiente** | `main` no exige checks. Ajuste de GitHub, a cargo de José |
-| Separación de funciones: quien escribe no aprueba solo | A.5.3, A.8.32 | CC8.1 | **Pendiente** | 0 aprobaciones exigidas con un solo desarrollador. Requiere un segundo revisor o un control compensatorio documentado |
-| Análisis de secretos, de dependencias y estático | A.8.8, A.8.28 | CC7.1 | Implementado | `.github/workflows/security.yml`. Revisión de dependencias y CodeQL solo corren con el repo público: al hacerlo privado requieren Advanced Security o un reemplazo |
+| CI obligatorio también en `main` | A.8.32 | CC8.1 | **Pendiente** | José lo aprobó el 2026-11-04. Falta aplicar el ajuste en GitHub |
+| Separación de funciones: quien escribe no aprueba solo | A.5.3, A.8.32 | CC8.1 | Riesgo aceptado | 0 aprobaciones exigidas con un solo desarrollador: decisión de José del 2026-11-04. Un auditor lo va a objetar; revisar al sumar a alguien al repo |
+| Análisis de secretos, de dependencias y estático | A.8.8, A.8.28 | CC7.1 | Implementado | `.github/workflows/security.yml`. Revisión de dependencias y CodeQL solo corren con el repo público |
 | `pnpm audit` bloqueante en las tres piezas | A.8.8 | CC7.1 | Implementado | Workflows de CI |
-| Actualizaciones automáticas de dependencias | A.8.8 | CC7.1 | Parcial | `.github/dependabot.yml`. Faltan las alertas de Dependabot en el repo |
+| Actualizaciones automáticas de dependencias | A.8.8 | CC7.1 | Parcial | `.github/dependabot.yml`. José aprobó las alertas de Dependabot el 2026-11-04; falta activarlas en GitHub |
 | Actions fijadas por SHA y permisos mínimos | A.5.21, A.8.28 | CC9.2 | Implementado | `.github/workflows/` |
 | Revisión de seguridad por PR y por release | A.8.25, A.8.29 | CC8.1 | Implementado | `CLAUDE.md`, sección 5.1 |
 | Entornos separados; sin datos reales en pruebas | A.8.31, A.8.33 | CC8.1 | Parcial | Variables y e2e separados. QA y producción: PF-30 |

@@ -72,7 +72,8 @@ pendientes:
   (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), cierre de sesión
   que revoca el token (`POST /auth/logout`), una sola sesión por usuario (un
   login nuevo cierra la anterior), recuperación de
-  contraseña del panel por correo, seed del primer ADMIN, el token de
+  contraseña del panel por correo, política de contraseñas (12 a 128) y
+  bloqueo tras 5 intentos, seed del primer ADMIN, el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
@@ -155,7 +156,9 @@ Flujo del día a día:
    tests unitarios/e2e en `api` (contra un Postgres de servicio). Un
    workflow por pieza; los tres corren siempre, pero un job `changes`
    (`dorny/paths-filter`) salta el job real si la pieza no cambió — así
-   los checks requeridos de `develop` no quedan pendientes.
+   los checks requeridos de `develop` no quedan pendientes. Aparte,
+   `security.yml` analiza secretos (gitleaks), dependencias y código (CodeQL), y
+   Dependabot propone parches. Las actions van fijadas por SHA.
 
 ## 5.1. Revisión de seguridad
 
@@ -185,6 +188,37 @@ usuario, no vive en este repo: copiar `skills/security-audit/` de
 `github.com/cloudflare/security-audit-skill` (revisada en el commit
 `c1c8a8c`) a `~/.claude/skills/security-audit/`. Si se actualiza, revisar
 el diff antes de reemplazarla.
+
+## 5.2. Cumplimiento: SOC 2, ISO 27001 e ISO 27701
+
+**Requisito permanente:** SCORE debe cumplir siempre con SOC 2 (seguridad,
+disponibilidad, confidencialidad y privacidad), ISO/IEC 27001:2022 e ISO/IEC
+27701:2025. Aplica a todo desarrollo, ticket y decisión de diseño, en las tres
+piezas, no solo a las tareas de seguridad.
+
+Antes de dar por terminado un cambio:
+
+1. **Acceso:** mínimo privilegio, autorización también por objeto, y un
+   permiso nuevo se confirma con José (sección 3).
+2. **Trazabilidad:** todo lo que cambia datos o lee datos personales se declara
+   con `@AuditRoute()`, y nada de esos datos entra a la bitácora ni a los logs.
+3. **Privacidad:** se guarda solo lo necesario, con finalidad y plazo. Un dato
+   personal nuevo se anota en `docs/compliance/data-inventory.md`.
+4. **Proveedores:** un servicio externo que reciba datos se avisa a José antes
+   de integrarlo y se anota en el inventario.
+5. **Cifrado y secretos:** todo en tránsito va cifrado, los tokens como hash y
+   los secretos fuera del repo.
+6. **Evidencia:** todo pasa por PR y CI. Si cambia un control, se actualiza
+   `docs/compliance/control-matrix.md` en el mismo PR.
+
+Si un pedido contradice estas normas, se avisa antes de construirlo; no se
+resuelve en silencio en ninguna dirección.
+
+**No afirmar lo que no existe.** Estas normas las evalúa un auditor externo sobre
+la organización completa, no solo sobre el código: hoy SCORE **no** está
+certificado ni tiene informe SOC 2. Hasta tenerlos, no escribir "certificado" ni
+"compliant" en el sitio, contratos o material comercial. Estado y brechas en
+`docs/compliance/`.
 
 ## 6. Convenciones rápidas
 
@@ -236,7 +270,8 @@ terminó):
   duplicados sin justificar, tablas puente en vez de arreglos o JSON, e
   integridad garantizada en la base. Índice en cada FK, `onDelete: Restrict`
   en el dominio y `@db.Timestamptz(3)` en toda fecha.
-- **Seguridad:** OWASP API Top 10, OWASP ASVS y, si hay IA, OWASP LLM Top 10.
+- **Seguridad:** SOC 2, ISO 27001 e ISO 27701 (sección 5.2), OWASP API Top 10,
+  OWASP ASVS y, si hay IA, OWASP LLM Top 10.
   Tokens guardados como hash. Datos del cliente fuera de logs y bitácora.
 - **Accesibilidad:** WCAG 2.2 AA en `apps/diagnostico`.
 - **Código:** convenciones de NestJS (`users.service.ts`,
@@ -326,6 +361,8 @@ revisar la regla correspondiente.
   acción, del JWT (`req.user.id`), nunca del cliente.
 - Listados paginados y filtrados en la base (página + conteo en una
   transacción, orden estable), nunca en memoria (#13).
+- **Login:** contar un intento fallido nunca se espera (`await`): el tiempo de
+  respuesta delataría qué emails existen.
 - **Migraciones de renombre:** Prisma resuelve un rename como DROP +
   CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
   de aplicarlo (#26).
@@ -346,5 +383,9 @@ revisar la regla correspondiente.
 - No copiar datos del servidor a `useState`: la Server Action +
   `revalidatePath` ya devuelve el RSC actualizado (#13). Colores solo
   desde `lib/theme.ts`, sin hex sueltos.
+- **CSP con nonce (`proxy.ts`):** las páginas deben ser dinámicas (por eso
+  `force-dynamic` en el layout raíz): una estática queda sin scripts. Los estilos
+  no llevan nonce, porque anularía el `'unsafe-inline'` que Ant Design necesita.
+  Probar con `pnpm build && next start -p 3002`: sin `-p`, toma el puerto de la api.
 - Revisar la consola del navegador (avisos de Ant Design, hidratación)
   antes de dar por buena una pantalla — así se detectó #16.

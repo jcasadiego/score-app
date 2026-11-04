@@ -52,6 +52,7 @@ describe('Bloqueo de cuenta por intentos fallidos (e2e)', () => {
         name: 'Bloqueo',
         email: EMAIL,
         passwordHash: await argon2.hash(PASSWORD),
+        role: 'ADMIN',
       },
     }));
   });

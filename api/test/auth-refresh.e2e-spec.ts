@@ -32,6 +32,7 @@ describe('Renovación de sesión (e2e)', () => {
         name: 'Renovación E2E',
         email: EMAIL,
         passwordHash: await argon2.hash(PASSWORD),
+        role: 'REVIEWER',
       },
     });
   });

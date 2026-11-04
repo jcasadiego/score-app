@@ -49,12 +49,12 @@ model RuleSetVersion {
   @@map("rule_set_versions")
 }
 
+/// Matriz de permisos en CLAUDE.md, sección 5.3.
 enum UserRole {
+  /// Aprobador: puede hacer todo.
   ADMIN
-  // TODO: el modelo real de roles/permisos de apps/panel todavía no está
-  // definido (ver CLAUDE.md sección 3, pendiente "modelo de login/
-  // permisos de apps/panel") — confirmar con José antes de agregar más
-  // valores o de asumir que este enum es la forma final.
+  /// Revisor.
+  REVIEWER
 
   @@map("user_role")
 }
@@ -81,7 +81,8 @@ model User {
   email               String    @unique
   passwordHash        String    @map("password_hash")
   active              Boolean   @default(true)
-  role                UserRole  @default(ADMIN)
+  /// Sin valor por defecto: el rol siempre se elige de forma explícita.
+  role                UserRole
   /// Va en el JWT (`ver`); subirla invalida todas las sesiones abiertas
   /// del usuario. Se sube en cada cambio de contraseña.
   sessionVersion      Int       @default(0) @map("session_version")

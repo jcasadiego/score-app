@@ -207,6 +207,7 @@ describe('Leads del panel (e2e)', () => {
         name: 'Admin e2e leads',
         email: `admin.leads.${Date.now()}@test.local`,
         passwordHash: 'no-se-usa',
+        role: 'ADMIN',
       },
     });
     userId = user.id;
@@ -386,11 +387,17 @@ describe('Aviso al equipo por lead nuevo (e2e)', () => {
 
     await prisma.user.createMany({
       data: [
-        { name: 'Activo', email: ACTIVE_EMAIL, passwordHash: 'x' },
+        {
+          name: 'Activo',
+          email: ACTIVE_EMAIL,
+          passwordHash: 'x',
+          role: 'ADMIN',
+        },
         {
           name: 'Inactivo',
           email: INACTIVE_EMAIL,
           passwordHash: 'x',
+          role: 'ADMIN',
           active: false,
         },
       ],

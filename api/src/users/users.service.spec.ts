@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
 
@@ -16,7 +17,9 @@ function createPrismaError(code: string) {
 
 describe('UsersService', () => {
   const argon2HashMock = argon2.hash as Mock;
+  let audit: { record: Mock };
   let prisma: {
+    $queryRaw: Mock;
     $transaction: Mock;
     user: {
       count: Mock;
@@ -31,9 +34,12 @@ describe('UsersService', () => {
   beforeEach(() => {
     argon2HashMock.mockReset().mockResolvedValue('hash-generado');
     prisma = {
-      // El servicio usa la forma de arreglo: resuelve las promesas en orden.
-      $transaction: vi.fn((queries: Promise<unknown>[]) =>
-        Promise.all(queries),
+      // Arreglo de consultas o transacción interactiva, según el método.
+      $queryRaw: vi.fn(),
+      $transaction: vi.fn((arg: unknown): unknown =>
+        typeof arg === 'function'
+          ? (arg as (tx: unknown) => unknown)(prisma)
+          : Promise.all(arg as Promise<unknown>[]),
       ),
       user: {
         count: vi.fn(),
@@ -43,7 +49,11 @@ describe('UsersService', () => {
         update: vi.fn(),
       },
     };
-    service = new UsersService(prisma as unknown as PrismaService);
+    audit = { record: vi.fn() };
+    service = new UsersService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+    );
   });
 
   describe('create', () => {
@@ -60,6 +70,7 @@ describe('UsersService', () => {
         name: 'Ana',
         email: 'ana@test.local',
         password: 'password123',
+        role: 'REVIEWER',
       });
 
       expect(argon2HashMock).toHaveBeenCalledWith('password123');
@@ -69,6 +80,7 @@ describe('UsersService', () => {
             name: 'Ana',
             email: 'ana@test.local',
             passwordHash: 'hash-generado',
+            role: 'REVIEWER',
           },
         }),
       );
@@ -83,6 +95,7 @@ describe('UsersService', () => {
           name: 'Ana',
           email: 'ana@test.local',
           password: 'password123',
+          role: 'REVIEWER',
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -155,7 +168,7 @@ describe('UsersService', () => {
     it('sin password no toca la contraseña ni las sesiones', async () => {
       prisma.user.update.mockResolvedValue({ id: '1' });
 
-      await service.update('1', { name: 'Ana' });
+      await service.update('1', { name: 'Ana' }, 'admin');
 
       expect(argon2HashMock).not.toHaveBeenCalled();
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -166,7 +179,11 @@ describe('UsersService', () => {
     it('con password la hashea y sube sessionVersion para cerrar sesiones', async () => {
       prisma.user.update.mockResolvedValue({ id: '1' });
 
-      await service.update('1', { name: 'Ana', password: 'nueva-clave' });
+      await service.update(
+        '1',
+        { name: 'Ana', password: 'nueva-clave' },
+        'admin',
+      );
 
       expect(argon2HashMock).toHaveBeenCalledWith('nueva-clave');
       expect(prisma.user.update).toHaveBeenCalledWith(
@@ -191,7 +208,7 @@ describe('UsersService', () => {
     });
 
     it('cambiar el correo invalida los enlaces pendientes', async () => {
-      await service.update('1', { email: 'nuevo@example.com' });
+      await service.update('1', { email: 'nuevo@example.com' }, 'admin');
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -201,13 +218,112 @@ describe('UsersService', () => {
     });
 
     it('reenviar el mismo correo los conserva', async () => {
-      await service.update('1', { name: 'Ana', email: 'ana@example.com' });
+      await service.update(
+        '1',
+        { name: 'Ana', email: 'ana@example.com' },
+        'admin',
+      );
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { name: 'Ana', email: 'ana@example.com' },
         }),
       );
+    });
+  });
+
+  describe('update · rol', () => {
+    const CLOSE_SESSIONS = {
+      sessionVersion: { increment: 1 },
+      sessions: { deleteMany: {} },
+    };
+
+    beforeEach(() => {
+      prisma.user.update.mockResolvedValue({ id: '1' });
+    });
+
+    it('cambiarlo cierra las sesiones y queda auditado en la misma transacción', async () => {
+      prisma.user.findUnique.mockResolvedValue({ role: 'REVIEWER' });
+
+      await service.update('1', { role: 'ADMIN' }, 'admin');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { role: 'ADMIN', ...CLOSE_SESSIONS },
+        }),
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'admin',
+          action: 'USER_ROLE_CHANGED',
+          entityId: '1',
+          data: { from: 'REVIEWER', to: 'ADMIN' },
+        }),
+        prisma,
+      );
+      // Subir de rol no puede dejar el sistema sin Aprobadores.
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('reenviar el mismo rol no cierra sesiones ni audita', async () => {
+      prisma.user.findUnique.mockResolvedValue({ role: 'REVIEWER' });
+
+      await service.update('1', { name: 'Ana', role: 'REVIEWER' }, 'admin');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { name: 'Ana' } }),
+      );
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('rechaza pasar a Revisor al último Aprobador activo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ role: 'ADMIN' });
+      prisma.$queryRaw.mockResolvedValue([{ id: '1' }]);
+
+      await expect(
+        service.update('1', { role: 'REVIEWER' }, 'admin'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('permite pasar a Revisor a un Aprobador si queda otro activo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ role: 'ADMIN' });
+      prisma.$queryRaw.mockResolvedValue([{ id: '1' }, { id: '2' }]);
+
+      await service.update('1', { role: 'REVIEWER' }, 'admin');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { role: 'REVIEWER', ...CLOSE_SESSIONS },
+        }),
+      );
+    });
+  });
+
+  describe('deactivate · último Aprobador', () => {
+    it('rechaza desactivar al último Aprobador activo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ role: 'ADMIN', active: true });
+      prisma.$queryRaw.mockResolvedValue([{ id: '1' }]);
+
+      await expect(service.deactivate('1', 'otro')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('un Revisor se desactiva sin revisar a los Aprobadores', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        role: 'REVIEWER',
+        active: true,
+      });
+      prisma.user.update.mockResolvedValue({ id: '1', active: false });
+
+      await service.deactivate('1', 'otro');
+
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalled();
     });
   });
 

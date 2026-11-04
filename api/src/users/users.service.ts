@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
+import { AuditActorType, UserRole } from '../../generated/prisma/enums';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Intentos fallidos seguidos antes de bloquear la cuenta, y por cuánto tiempo. */
@@ -39,6 +41,7 @@ interface CreateUserParams {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
 }
 
 interface ListUsersParams {
@@ -58,6 +61,7 @@ interface UpdateUserParams {
   name?: string;
   email?: string;
   password?: string;
+  role?: UserRole;
 }
 
 /**
@@ -76,7 +80,10 @@ export async function passwordChangeData(password: string) {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Correos de quienes reciben los avisos al equipo. */
   async findActiveEmails(): Promise<string[]> {
@@ -129,12 +136,13 @@ export class UsersService {
     name,
     email,
     password,
+    role,
   }: CreateUserParams): Promise<PublicUser> {
     const passwordHash = await argon2.hash(password);
 
     try {
       return await this.prisma.user.create({
-        data: { name, email, passwordHash },
+        data: { name, email, passwordHash, role },
         select: PUBLIC_SELECT,
       });
     } catch (error) {
@@ -186,20 +194,28 @@ export class UsersService {
 
   async update(
     id: string,
-    { password, ...data }: UpdateUserParams,
+    { password, role, ...data }: UpdateUserParams,
+    requesterId: string,
   ): Promise<PublicUser> {
     const revokeResetLinks =
       !!password || (await this.emailChanges(id, data.email));
+    const passwordData = password ? await passwordChangeData(password) : {};
 
     try {
-      return await this.prisma.user.update({
-        where: { id },
-        data: {
-          ...data,
-          ...(password ? await passwordChangeData(password) : {}),
-          ...(revokeResetLinks ? REVOKE_RESET_LINKS : {}),
-        },
-        select: PUBLIC_SELECT,
+      return await this.prisma.$transaction(async (tx) => {
+        const roleData = role
+          ? await this.roleChangeData(tx, id, role, requesterId)
+          : {};
+        return tx.user.update({
+          where: { id },
+          data: {
+            ...data,
+            ...passwordData,
+            ...roleData,
+            ...(revokeResetLinks ? REVOKE_RESET_LINKS : {}),
+          },
+          select: PUBLIC_SELECT,
+        });
       });
     } catch (error) {
       throw this.mapPrismaError(error, data.email, id);
@@ -210,17 +226,101 @@ export class UsersService {
     if (requesterId && requesterId === id) {
       throw new ConflictException('No puedes desactivar tu propia cuenta.');
     }
-    // Cierra sus sesiones: si no, reactivar la cuenta revivía los tokens que
-    // aún no habían vencido.
-    return this.setActive(id, {
-      active: false,
-      sessions: { deleteMany: {} },
-      ...REVOKE_RESET_LINKS,
-    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const target = await tx.user.findUnique({
+          where: { id },
+          select: { role: true, active: true },
+        });
+        if (target?.active && target.role === UserRole.ADMIN) {
+          await this.assertAnotherActiveApprover(tx, id);
+        }
+        // Cierra sus sesiones: si no, reactivar la cuenta revivía los tokens que
+        // aún no habían vencido.
+        return tx.user.update({
+          where: { id },
+          data: {
+            active: false,
+            sessions: { deleteMany: {} },
+            ...REVOKE_RESET_LINKS,
+          },
+          select: PUBLIC_SELECT,
+        });
+      });
+    } catch (error) {
+      throw this.mapPrismaError(error, undefined, id);
+    }
   }
 
   async activate(id: string): Promise<PublicUser> {
-    return this.setActive(id, { active: true });
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: { active: true },
+        select: PUBLIC_SELECT,
+      });
+    } catch (error) {
+      throw this.mapPrismaError(error, undefined, id);
+    }
+  }
+
+  /**
+   * Datos para cambiar el rol, o nada si no cambia (el panel lo manda en cada
+   * edición). Cierra las sesiones para que el token, que lleva el rol, nunca
+   * muestre uno viejo: quien cambia de privilegios vuelve a iniciar sesión.
+   */
+  private async roleChangeData(
+    tx: Prisma.TransactionClient,
+    id: string,
+    role: UserRole,
+    requesterId: string,
+  ) {
+    const target = await tx.user.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+    if (!target || target.role === role) return {};
+
+    if (target.role === UserRole.ADMIN) {
+      await this.assertAnotherActiveApprover(tx, id);
+    }
+    await this.audit.record(
+      {
+        actorType: AuditActorType.PANEL_USER,
+        actorId: requesterId,
+        action: 'USER_ROLE_CHANGED',
+        entity: 'User',
+        entityId: id,
+        data: { from: target.role, to: role },
+      },
+      tx,
+    );
+    return {
+      role,
+      sessionVersion: { increment: 1 },
+      sessions: { deleteMany: {} },
+    } satisfies Prisma.UserUpdateInput;
+  }
+
+  /**
+   * Bloquea a los Aprobadores activos hasta terminar la transacción: si no, dos
+   * peticiones a la vez, cada una sobre un Aprobador distinto, verían que queda
+   * otro y dejarían el sistema sin ninguno. El orden fijo evita un deadlock entre
+   * ellas.
+   */
+  private async assertAnotherActiveApprover(
+    tx: Prisma.TransactionClient,
+    id: string,
+  ): Promise<void> {
+    const approvers = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM users
+      WHERE role = 'ADMIN' AND active = true
+      ORDER BY id
+      FOR UPDATE
+    `;
+    if (!approvers.some((approver) => approver.id !== id)) {
+      throw new ConflictException('Debe quedar al menos un Aprobador activo.');
+    }
   }
 
   /** El panel manda el correo en cada edición, aunque no haya cambiado. */
@@ -231,21 +331,6 @@ export class UsersService {
       select: { email: true },
     });
     return current?.email !== email;
-  }
-
-  private async setActive(
-    id: string,
-    data: Prisma.UserUpdateInput,
-  ): Promise<PublicUser> {
-    try {
-      return await this.prisma.user.update({
-        where: { id },
-        data,
-        select: PUBLIC_SELECT,
-      });
-    } catch (error) {
-      throw this.mapPrismaError(error, undefined, id);
-    }
   }
 
   private mapPrismaError(error: unknown, email?: string, id?: string): Error {

@@ -101,6 +101,7 @@ describe('Límite de peticiones (e2e)', () => {
           name: 'Límite E2E',
           email,
           passwordHash: await argon2.hash(PASSWORD),
+          role: 'ADMIN',
         },
       });
       const { accessToken } = await app.get(AuthService).completeLogin(user);

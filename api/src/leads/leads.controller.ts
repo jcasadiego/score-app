@@ -56,7 +56,7 @@ export class LeadsController {
   @Get()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   @AuditRoute({ action: 'LEADS_LISTED', entity: 'Lead' })
   list(@Query() query: ListLeadsDto) {
     return this.leads.list(query);
@@ -65,7 +65,7 @@ export class LeadsController {
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   @AuditRoute({ action: 'LEAD_VIEWED', entity: 'Lead' })
   findOne(@Param('id') id: string) {
     return this.leads.findOne(id);
@@ -79,7 +79,7 @@ export class LeadsController {
   })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
     return this.leads.updateStatus(id, dto.status);
   }

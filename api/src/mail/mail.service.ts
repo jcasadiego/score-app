@@ -13,6 +13,8 @@ import {
   newLeadNoticeEmail,
   NewLeadNoticeData,
   passwordResetEmail,
+  SecurityNoticeData,
+  securityNoticeEmail,
 } from './templates/emails';
 import { RenderedEmail } from './templates/base-template';
 
@@ -20,6 +22,7 @@ export type MailType =
   | 'DIAGNOSTIC_LINK'
   | 'LINK_RECOVERY'
   | 'PASSWORD_RESET'
+  | 'SECURITY_NOTICE'
   | 'NEW_LEAD_NOTICE'
   | 'DIAGNOSTIC_COMPLETED_NOTICE';
 
@@ -89,6 +92,19 @@ export class MailService {
       'PASSWORD_RESET',
       recipient.to,
       passwordResetEmail(recipient, this.brand()),
+      context,
+    );
+  }
+
+  sendSecurityNotice(
+    to: string,
+    data: SecurityNoticeData,
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'SECURITY_NOTICE',
+      to,
+      securityNoticeEmail(data, this.brand()),
       context,
     );
   }

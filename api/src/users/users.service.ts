@@ -17,6 +17,7 @@ const PUBLIC_SELECT = {
   email: true,
   active: true,
   role: true,
+  mfaEnabledAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;

@@ -89,11 +89,19 @@ model User {
   failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
   /// Hasta cuándo se rechaza el login, aunque la contraseña sea correcta.
   lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(3)
+  /// Secreto TOTP cifrado con `MFA_ENCRYPTION_KEY`. Solo sale en una respuesta
+  /// una vez, al configurarlo.
+  mfaSecret           String?   @map("mfa_secret")
+  /// Nulo mientras no se confirme el primer código: el secreto aún no vale.
+  mfaEnabledAt        DateTime? @map("mfa_enabled_at") @db.Timestamptz(3)
+  /// Último intervalo de 30 s usado: un mismo código no sirve dos veces.
+  mfaLastUsedStep     Int?      @map("mfa_last_used_step")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   passwordResetTokens PasswordResetToken[]
   sessions            UserSession[]
+  recoveryCodes       UserRecoveryCode[]
 
   @@map("users")
 }
@@ -110,6 +118,20 @@ model UserSession {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@map("user_sessions")
+}
+
+/// Código de un solo uso para entrar sin el autenticador. Se guarda solo el
+/// SHA-256: es aleatorio de 80 bits, así que no hace falta un hash lento.
+model UserRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("user_recovery_codes")
 }
 
 /// Enlace de recuperación de contraseña del panel: un solo uso, vence en

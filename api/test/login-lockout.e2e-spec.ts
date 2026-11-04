@@ -87,12 +87,12 @@ describe('Bloqueo de cuenta por intentos fallidos (e2e)', () => {
     expect(blocked.body.detail).toBe('Credenciales inválidas');
   });
 
-  it('un acceso correcto reinicia el contador', async () => {
+  it('la contraseña correcta sola no reinicia el contador', async () => {
     await login('contraseña-incorrecta').expect(401);
     await attempts(1);
 
     await login(PASSWORD).expect(200);
 
-    await attempts(0);
+    await attempts(1);
   });
 });

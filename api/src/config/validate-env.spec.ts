@@ -6,6 +6,7 @@ const BASE = {
   CORS_ORIGINS: 'http://localhost:3002',
   JWT_SECRET: 'x'.repeat(32),
   ACCESS_LINK_JWT_SECRET: 'y'.repeat(32),
+  MFA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
 };
 
 const RESEND = {
@@ -25,6 +26,16 @@ const PRODUCTION = {
   PANEL_API_SECRET: 'z'.repeat(32),
   PANEL_URL: 'https://panel.example.com',
 };
+
+describe('validateEnv · MFA', () => {
+  it('exige una llave de 32 bytes en base64', () => {
+    for (const MFA_ENCRYPTION_KEY of [undefined, '', 'corta', 'AAAA']) {
+      expect(() => validateEnv({ ...BASE, MFA_ENCRYPTION_KEY })).toThrow(
+        /MFA_ENCRYPTION_KEY/,
+      );
+    }
+  });
+});
 
 describe('validateEnv · cifrado en tránsito', () => {
   it('en producción exige cifrar la conexión a la base', () => {

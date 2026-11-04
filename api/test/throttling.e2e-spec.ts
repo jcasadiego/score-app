@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { AuthService } from './../src/auth/auth.service';
 import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
 
@@ -95,18 +96,15 @@ describe('Límite de peticiones (e2e)', () => {
 
     async function createAndLogin(email: string): Promise<string> {
       await prisma.user.deleteMany({ where: { email } });
-      await prisma.user.create({
+      const user = await prisma.user.create({
         data: {
           name: 'Límite E2E',
           email,
           passwordHash: await argon2.hash(PASSWORD),
         },
       });
-      const response = await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email, password: PASSWORD })
-        .expect(200);
-      return response.body.accessToken;
+      const { accessToken } = await app.get(AuthService).completeLogin(user);
+      return accessToken;
     }
 
     function listUsers(token: string) {

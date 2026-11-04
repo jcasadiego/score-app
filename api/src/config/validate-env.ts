@@ -39,6 +39,13 @@ const EnvSchema = z
       .string()
       .min(32, 'debe tener al menos 32 caracteres'),
     ACCESS_LINK_JWT_EXPIRES_IN: z.string().default('24h'),
+    // Cifra los secretos TOTP. Perderla obliga a reconfigurar el MFA de todos.
+    MFA_ENCRYPTION_KEY: z
+      .base64()
+      .refine(
+        (value) => Buffer.from(value, 'base64').length === 32,
+        'debe ser de 32 bytes en base64 (openssl rand -base64 32)',
+      ),
     THROTTLE_TTL: z.coerce.number().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().default(100),
     // Proxies de confianza delante de la API. De más, un cliente puede inventar

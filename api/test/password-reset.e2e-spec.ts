@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { AuthService } from './../src/auth/auth.service';
 import { configureApp } from './../src/bootstrap';
 import { MAIL_PORT, MailMessage } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
@@ -88,8 +89,13 @@ describe('Recuperación de contraseña (e2e)', () => {
 
   it('restablece una sola vez, cierra las sesiones y deja entrar con la nueva', async () => {
     const since = new Date();
-    const oldSession = (await login('clave-vieja-123').expect(200)).body
-      .accessToken;
+    await login('clave-vieja-123').expect(200);
+    // El segundo factor lo cubre `mfa.e2e-spec.ts`.
+    const { accessToken: oldSession } = await app
+      .get(AuthService)
+      .completeLogin(
+        await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } }),
+      );
     await request(app.getHttpServer())
       .get('/api/v1/users')
       .set('Authorization', `Bearer ${oldSession}`)

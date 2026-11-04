@@ -1,10 +1,17 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
 import type { SessionUser } from './jwt.strategy';
+import { MfaService } from './mfa.service';
 import { SessionsService } from './sessions.service';
 
 /**
@@ -15,6 +22,16 @@ import { SessionsService } from './sessions.service';
  */
 const DUMMY_HASH =
   '$argon2id$v=19$m=65536,p=4,t=3$dH7iJkavPNPh9KiRhrPJKQ$FfOCWWAr/yqjYGpgcrnwgndfrpqCnoqwCD5G7DLR2vA';
+
+/** Lo que hace falta del usuario para abrirle una sesión. */
+export interface LoginUser {
+  id: string;
+  email: string;
+  role: string;
+  sessionVersion: number;
+  failedLoginAttempts: number;
+  lockedUntil: Date | null;
+}
 
 function nowInSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -33,6 +50,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
     private readonly audit: AuditService,
+    @Inject(forwardRef(() => MfaService)) private readonly mfa: MfaService,
   ) {}
 
   async login(email: string, password: string) {
@@ -50,11 +68,25 @@ export class AuthService {
     // el estado de una cuenta a quien no logró autenticarse.
     if (!user || !isPasswordValid || !user.active || isLocked) {
       if (user && !isPasswordValid && !isLocked) {
-        this.registerFailedLogin(user.id);
+        // Sin esperar: si la respuesta tardara más cuando el email existe, el
+        // tiempo delataría qué cuentas hay.
+        this.recordFailedAttempt(user.id).catch((error: unknown) =>
+          this.logger.error(
+            'No se pudo registrar el intento de inicio de sesión fallido',
+            error instanceof Error ? error.stack : undefined,
+          ),
+        );
       }
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // El contador de intentos no se limpia aquí: la contraseña sola no completa
+    // el acceso, y si no, quien la tenga podría probar códigos sin fin.
+    return this.mfa.issueChallenge(user);
+  }
+
+  /** Último paso del acceso; solo se llega con el segundo factor ya comprobado. */
+  async completeLogin(user: LoginUser) {
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
       await this.users.clearFailedLogins(user.id);
     }
@@ -93,29 +125,17 @@ export class AuthService {
     return { accessToken };
   }
 
-  /**
-   * Sin esperar el resultado: si la respuesta tardara más cuando el email
-   * existe, el tiempo delataría qué cuentas hay.
-   */
-  private registerFailedLogin(userId: string): void {
-    this.users
-      .registerFailedLogin(userId)
-      .then((locked) =>
-        locked
-          ? this.audit.record({
-              actorType: AuditActorType.SYSTEM,
-              action: 'ACCOUNT_LOCKED',
-              entity: 'User',
-              entityId: userId,
-            })
-          : undefined,
-      )
-      .catch((error: unknown) =>
-        this.logger.error(
-          'No se pudo registrar el intento de inicio de sesión fallido',
-          error instanceof Error ? error.stack : undefined,
-        ),
-      );
+  /** Contraseña o código incorrecto: cuenta para el bloqueo de la cuenta. */
+  async recordFailedAttempt(userId: string): Promise<void> {
+    const locked = await this.users.registerFailedLogin(userId);
+    if (locked) {
+      await this.audit.record({
+        actorType: AuditActorType.SYSTEM,
+        action: 'ACCOUNT_LOCKED',
+        entity: 'User',
+        entityId: userId,
+      });
+    }
   }
 
   /**

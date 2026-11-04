@@ -2,7 +2,9 @@ import { AuditRoute } from '../audit/audit-route.decorator';
 import {
   Body,
   Controller,
+  forwardRef,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -13,6 +15,7 @@ import {
 import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { MfaService } from '../auth/mfa.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../../generated/prisma/enums';
@@ -36,7 +39,10 @@ interface RequestWithUser extends Request {
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    @Inject(forwardRef(() => MfaService)) private readonly mfa: MfaService,
+  ) {}
 
   @Post()
   @Roles(UserRole.ADMIN)
@@ -71,6 +77,14 @@ export class UsersController {
   })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(id, dto);
+  }
+
+  /** Para quien perdió el autenticador y sus códigos; nunca sobre uno mismo. */
+  @Patch(':id/reset-mfa')
+  @Roles(UserRole.ADMIN)
+  @AuditRoute({ byService: true })
+  resetMfa(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.mfa.reset(id, req.user.id);
   }
 
   @Patch(':id/deactivate')

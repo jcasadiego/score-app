@@ -1,0 +1,16 @@
+# Reglas por defecto de gitleaks, sin los valores de prueba conocidos. Cada
+# excepción debe seguir siendo imposible de usar en un entorno real.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixtures de tests y secretos falsos del CI"
+paths = [
+  '''\.spec\.ts$''',
+  '''\.e2e-spec\.ts$''',
+  '''vitest\.config\.e2e\.mts$''',
+]
+# Secretos del CI, que solo firman tokens contra el Postgres de servicio.
+regexes = ['''ci-secret-[a-z-]+''']
+# `.env.example` antiguo: `SECRET=""` más la línea siguiente, sin ningún valor.
+commits = ["447101dbf6b7ac69d9dde729f651574b057477d1"]

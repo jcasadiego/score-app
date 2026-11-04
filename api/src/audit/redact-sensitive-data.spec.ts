@@ -3,12 +3,12 @@ import { redactSensitiveData } from './redact-sensitive-data';
 describe('redactSensitiveData', () => {
   it('redacta password en un objeto plano', () => {
     const result = redactSensitiveData({
-      email: 'a@b.com',
+      family: 'B2B',
       password: 'secreto123',
     });
 
     expect(result).toEqual({
-      email: 'a@b.com',
+      family: 'B2B',
       password: '[REDACTADO]',
     });
   });
@@ -24,11 +24,11 @@ describe('redactSensitiveData', () => {
 
   it('redacta dentro de objetos anidados y arreglos', () => {
     const result = redactSensitiveData({
-      users: [{ email: 'a@b.com', passwordHash: 'hash-secreto' }],
+      users: [{ family: 'B2B', passwordHash: 'hash-secreto' }],
     });
 
     expect(result).toEqual({
-      users: [{ email: 'a@b.com', passwordHash: '[REDACTADO]' }],
+      users: [{ family: 'B2B', passwordHash: '[REDACTADO]' }],
     });
   });
 
@@ -36,5 +36,21 @@ describe('redactSensitiveData', () => {
     const result = redactSensitiveData({ subjectId: 'caso-1' });
 
     expect(result).toEqual({ subjectId: 'caso-1' });
+  });
+
+  it('oculta los datos personales: la bitácora no se puede borrar', () => {
+    expect(
+      redactSensitiveData({
+        name: 'Ana',
+        email: 'a@b.com',
+        phone: '123',
+        family: 'B2B',
+      }),
+    ).toEqual({
+      name: '[REDACTADO]',
+      email: '[REDACTADO]',
+      phone: '[REDACTADO]',
+      family: 'B2B',
+    });
   });
 });

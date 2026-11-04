@@ -5,6 +5,20 @@ import { ApiError } from "./errors";
 const GENERIC_ERROR_MESSAGE =
   "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
 
+export const CHALLENGE_EXPIRED_MESSAGE =
+  "Pasó demasiado tiempo. Vuelve a iniciar sesión.";
+
+/** Lo que devuelve la contraseña correcta: todavía no abre sesión. */
+export interface LoginChallenge {
+  mfaToken: string;
+  mfaStatus: "CHALLENGE_REQUIRED" | "ENROLLMENT_REQUIRED";
+}
+
+export interface MfaEnrollment {
+  secret: string;
+  otpauthUri: string;
+}
+
 /** Quien navega o cierra sesión no debe quedar esperando por la API. */
 const SESSION_CALL_TIMEOUT_MS = 3_000;
 
@@ -89,18 +103,85 @@ export async function isTokenRejected(token: string): Promise<boolean> {
 export async function login(
   email: string,
   password: string,
-): Promise<string> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+): Promise<LoginChallenge> {
+  const response = await postAuth("login", { email, password });
 
-  let response: Response;
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new ApiError(401, "Correo o contraseña incorrectos.");
+    }
+    throw await authError(response);
+  }
+
+  const body = await readBody<LoginChallenge>(response);
+  if (!body?.mfaToken || !body.mfaStatus) {
+    throw new ApiError(500, GENERIC_ERROR_MESSAGE);
+  }
+  return body;
+}
+
+/** Empieza la configuración del autenticador: entrega el secreto una sola vez. */
+export async function startMfaEnrollment(
+  mfaToken: string,
+): Promise<MfaEnrollment> {
+  const response = await postAuth("mfa/enrollment", { mfaToken });
+  if (!response.ok) throw await authError(response);
+
+  const body = await readBody<MfaEnrollment>(response);
+  if (!body?.secret || !body.otpauthUri) {
+    throw new ApiError(500, GENERIC_ERROR_MESSAGE);
+  }
+  return body;
+}
+
+export async function confirmMfaEnrollment(
+  mfaToken: string,
+  code: string,
+): Promise<{ accessToken: string; recoveryCodes: string[] }> {
+  const response = await postAuth("mfa/enrollment/confirmation", {
+    mfaToken,
+    code,
+  });
+  if (!response.ok) throw await authError(response);
+
+  const body = await readBody<{
+    accessToken: string;
+    recoveryCodes: string[];
+  }>(response);
+  if (!body?.accessToken || !body.recoveryCodes) {
+    throw new ApiError(500, GENERIC_ERROR_MESSAGE);
+  }
+  return body;
+}
+
+export async function verifyMfa(
+  mfaToken: string,
+  credential: { code: string } | { recoveryCode: string },
+): Promise<string> {
+  const path = "code" in credential ? "mfa/verification" : "mfa/recovery";
+  const response = await postAuth(path, { mfaToken, ...credential });
+  if (!response.ok) throw await authError(response);
+
+  const body = await readBody<{ accessToken: string }>(response);
+  if (!body?.accessToken) throw new ApiError(500, GENERIC_ERROR_MESSAGE);
+  return body.accessToken;
+}
+
+/**
+ * Las rutas del acceso se llaman desde el servidor, nunca desde el navegador:
+ * los tokens solo llegan al cliente dentro de una cookie httpOnly. La IP va para
+ * que el límite de intentos cuente por persona, y no por servidor del panel.
+ */
+async function postAuth(path: string, body: object): Promise<Response> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
   try {
-    response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+    return await fetch(`${baseUrl}/api/v1/auth/${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(await clientIpHeaders()),
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
       cache: "no-store",
     });
   } catch {
@@ -109,27 +190,25 @@ export async function login(
       "No pudimos conectar con el servidor. Verifica tu conexión e intenta de nuevo.",
     );
   }
+}
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new ApiError(401, "Correo o contraseña incorrectos.");
-    }
-    if (response.status === 429) {
-      throw new ApiError(
-        429,
-        "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
-      );
-    }
-    throw new ApiError(response.status, GENERIC_ERROR_MESSAGE);
+function readBody<T>(response: Response): Promise<T | null> {
+  return response.json().catch(() => null) as Promise<T | null>;
+}
+
+async function authError(response: Response): Promise<ApiError> {
+  if (response.status === 429) {
+    return new ApiError(
+      429,
+      "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
+    );
   }
-
-  const body = (await response.json().catch(() => null)) as {
-    accessToken?: string;
-  } | null;
-
-  if (!body?.accessToken) {
-    throw new ApiError(500, GENERIC_ERROR_MESSAGE);
+  const body = await readBody<{ code?: string }>(response);
+  if (body?.code === "INVALID_MFA_CODE") {
+    return new ApiError(401, "El código no es válido.");
   }
-
-  return body.accessToken;
+  if (body?.code === "MFA_CHALLENGE_EXPIRED") {
+    return new ApiError(401, CHALLENGE_EXPIRED_MESSAGE);
+  }
+  return new ApiError(response.status, GENERIC_ERROR_MESSAGE);
 }

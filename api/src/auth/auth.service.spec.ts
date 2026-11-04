@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa.service';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from './sessions.service';
 
@@ -11,7 +12,13 @@ vi.mock('argon2');
 
 describe('AuthService', () => {
   const argon2VerifyMock = argon2.verify as Mock;
-  let users: { findByEmail: Mock };
+  let users: {
+    findByEmail: Mock;
+    registerFailedLogin: Mock;
+    clearFailedLogins: Mock;
+  };
+  let audit: { record: Mock };
+  let mfa: { issueChallenge: Mock };
   let sessions: { start: Mock; end: Mock };
   let service: AuthService;
 
@@ -19,7 +26,18 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
     process.env.JWT_EXPIRES_IN = '1d';
     process.env.JWT_MAX_SESSION_SECONDS = '604800';
-    users = { findByEmail: vi.fn() };
+    users = {
+      findByEmail: vi.fn(),
+      registerFailedLogin: vi.fn().mockResolvedValue(false),
+      clearFailedLogins: vi.fn().mockResolvedValue(undefined),
+    };
+    audit = { record: vi.fn().mockResolvedValue({}) };
+    mfa = {
+      issueChallenge: vi.fn().mockResolvedValue({
+        mfaToken: 'reto',
+        mfaStatus: 'CHALLENGE_REQUIRED',
+      }),
+    };
     sessions = {
       start: vi.fn().mockResolvedValue('s1'),
       end: vi.fn().mockResolvedValue(undefined),
@@ -29,7 +47,8 @@ describe('AuthService', () => {
       users as unknown as UsersService,
       new JwtService(),
       sessions as unknown as SessionsService,
-      { record: vi.fn().mockResolvedValue({}) } as unknown as AuditService,
+      audit as unknown as AuditService,
+      mfa as unknown as MfaService,
     );
   });
 
@@ -89,29 +108,52 @@ describe('AuthService', () => {
     );
   });
 
-  it('devuelve un accessToken si las credenciales son válidas', async () => {
-    users.findByEmail.mockResolvedValue({
+  it('con credenciales válidas pide el segundo factor y no abre sesión', async () => {
+    const user = {
       id: '1',
       email: 'admin@test.local',
       passwordHash: 'hash-real',
       role: 'ADMIN',
       active: true,
       sessionVersion: 4,
-    });
+      failedLoginAttempts: 2,
+      lockedUntil: null,
+    };
+    users.findByEmail.mockResolvedValue(user);
     argon2VerifyMock.mockResolvedValue(true);
 
     const result = await service.login('admin@test.local', 'correcta');
 
-    expect(result.accessToken).toEqual(expect.any(String));
+    expect(result).toEqual({
+      mfaToken: 'reto',
+      mfaStatus: 'CHALLENGE_REQUIRED',
+    });
+    expect(result).not.toHaveProperty('accessToken');
+    expect(sessions.start).not.toHaveBeenCalled();
+    // La contraseña sola no limpia el contador: si no, quien la tenga podría
+    // probar códigos sin llegar nunca al bloqueo.
+    expect(users.clearFailedLogins).not.toHaveBeenCalled();
+  });
+
+  it('al completar el acceso abre la sesión y emite el accessToken', async () => {
+    const { accessToken } = await service.completeLogin({
+      id: '1',
+      email: 'admin@test.local',
+      role: 'ADMIN',
+      sessionVersion: 4,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
     const payload = JSON.parse(
-      Buffer.from(result.accessToken.split('.')[1], 'base64url').toString(),
-    );
+      Buffer.from(accessToken.split('.')[1], 'base64url').toString(),
+    ) as Record<string, unknown>;
     expect(payload).toMatchObject({ sub: '1', ver: 4, sid: 's1' });
-    expect(payload.authAt).toBeLessThanOrEqual(payload.iat);
+    expect(payload.authAt as number).toBeLessThanOrEqual(payload.iat as number);
     // La fila vence justo en el límite absoluto de la sesión.
     expect(sessions.start).toHaveBeenCalledWith(
       '1',
-      new Date((payload.authAt + 604_800) * 1000),
+      new Date(((payload.authAt as number) + 604_800) * 1000),
     );
   });
 
@@ -165,5 +207,80 @@ describe('AuthService', () => {
     });
 
     expect(sessions.end).toHaveBeenCalledWith('s1');
+  });
+
+  describe('bloqueo por intentos fallidos', () => {
+    const user = {
+      id: 'u1',
+      email: 'a@test.local',
+      role: 'ADMIN',
+      active: true,
+      passwordHash: 'hash',
+      sessionVersion: 0,
+      failedLoginAttempts: 0,
+      lockedUntil: null as Date | null,
+    };
+
+    it('cuenta la contraseña incorrecta sin decir nada distinto', async () => {
+      users.findByEmail.mockResolvedValue(user);
+      argon2VerifyMock.mockResolvedValue(false);
+
+      await expect(service.login(user.email, 'mala')).rejects.toThrow(
+        'Credenciales inválidas',
+      );
+
+      expect(users.registerFailedLogin).toHaveBeenCalledWith('u1');
+    });
+
+    it('audita el bloqueo cuando se llega al máximo', async () => {
+      users.findByEmail.mockResolvedValue(user);
+      users.registerFailedLogin.mockResolvedValue(true);
+      argon2VerifyMock.mockResolvedValue(false);
+
+      await expect(service.login(user.email, 'mala')).rejects.toThrow();
+
+      await vi.waitFor(() =>
+        expect(audit.record).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'ACCOUNT_LOCKED',
+            entityId: 'u1',
+          }),
+        ),
+      );
+    });
+
+    it('con la cuenta bloqueada rechaza la contraseña correcta, sin sesión', async () => {
+      users.findByEmail.mockResolvedValue({
+        ...user,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      argon2VerifyMock.mockResolvedValue(true);
+
+      await expect(service.login(user.email, 'buena')).rejects.toThrow(
+        'Credenciales inválidas',
+      );
+
+      // Verifica igual, para que el tiempo no delate el bloqueo.
+      expect(argon2VerifyMock).toHaveBeenCalledTimes(1);
+      expect(sessions.start).not.toHaveBeenCalled();
+    });
+
+    it('un bloqueo vencido vuelve a pedir el segundo factor', async () => {
+      users.findByEmail.mockResolvedValue({
+        ...user,
+        lockedUntil: new Date(Date.now() - 1_000),
+      });
+      argon2VerifyMock.mockResolvedValue(true);
+
+      await expect(service.login(user.email, 'buena')).resolves.toHaveProperty(
+        'mfaToken',
+      );
+    });
+
+    it('completar el acceso limpia el contador', async () => {
+      await service.completeLogin({ ...user, failedLoginAttempts: 3 });
+
+      expect(users.clearFailedLogins).toHaveBeenCalledWith('u1');
+    });
   });
 });

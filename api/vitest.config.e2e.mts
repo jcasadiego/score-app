@@ -9,6 +9,10 @@ export default defineConfig({
     ...configBase.test,
     include: ['test/**/*.e2e-spec.ts'],
     // Gana sobre el `.env`: los tests nunca le envían correos al proveedor real.
-    env: { MAIL_DRIVER: 'log' },
+    // La llave de MFA es fija y solo para tests.
+    env: {
+      MAIL_DRIVER: 'log',
+      MFA_ENCRYPTION_KEY: 'dGVzdC1rZXktbm8tdXNhci1lbi1lbnRvcm5vcy1yZWE=',
+    },
   },
 });

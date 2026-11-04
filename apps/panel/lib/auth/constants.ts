@@ -11,6 +11,14 @@ export function sessionCookieOptions(exp?: number) {
   } as const;
 }
 
+/** Guarda el reto de MFA entre la contraseña y el código. */
+export const MFA_CHALLENGE_COOKIE_NAME = "score_panel_mfa_challenge";
+/** Igual que la vida del token en la API: más tiempo no serviría. */
+export const MFA_CHALLENGE_MAX_AGE_SECONDS = 5 * 60;
+
+export const MFA_ROUTE = "/login/two-factor";
+export const MFA_SETUP_ROUTE = "/login/two-factor/setup";
+
 /**
  * A dónde aterriza una sesión nueva. Se usa directo (login, proxy y `/`)
  * para no encadenar redirecciones `/login` → `/` → `/users`. Cuando

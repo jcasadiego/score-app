@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/errors";
-import { createSession } from "@/lib/auth/session";
-import { HOME_ROUTE } from "@/lib/auth/constants";
+import { saveMfaChallenge } from "@/lib/auth/session";
+import { MFA_ROUTE, MFA_SETUP_ROUTE } from "@/lib/auth/constants";
 
 export interface LoginState {
   error?: string;
@@ -21,9 +21,9 @@ export async function loginAction(
     return { error: "Ingresa tu correo y tu contraseña." };
   }
 
-  let accessToken: string;
+  let challenge: Awaited<ReturnType<typeof login>>;
   try {
-    accessToken = await login(email, password);
+    challenge = await login(email, password);
   } catch (error) {
     const message =
       error instanceof ApiError
@@ -32,6 +32,8 @@ export async function loginAction(
     return { error: message };
   }
 
-  await createSession(accessToken);
-  redirect(HOME_ROUTE);
+  await saveMfaChallenge(challenge.mfaToken);
+  redirect(
+    challenge.mfaStatus === "ENROLLMENT_REQUIRED" ? MFA_SETUP_ROUTE : MFA_ROUTE,
+  );
 }

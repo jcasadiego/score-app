@@ -7,12 +7,17 @@ import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Intentos fallidos seguidos antes de bloquear la cuenta, y por cuánto tiempo. */
+export const MAX_FAILED_LOGINS = 5;
+export const LOGIN_LOCK_MS = 15 * 60 * 1000;
+
 const PUBLIC_SELECT = {
   id: true,
   name: true,
   email: true,
   active: true,
   role: true,
+  mfaEnabledAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
@@ -58,7 +63,9 @@ interface UpdateUserParams {
 /**
  * Datos de Prisma para cambiar una contraseña. Es el único lugar que la
  * cambia (CRUD y recuperación), para que ningún camino olvide subir
- * `sessionVersion` — eso es lo que cierra las sesiones abiertas.
+ * `sessionVersion` — eso es lo que cierra las sesiones abiertas. No toca el
+ * bloqueo por intentos: si no, recuperar la contraseña permitiría seguir probando
+ * códigos de MFA sin límite. Vence solo, en 15 minutos.
  */
 export async function passwordChangeData(password: string) {
   return {
@@ -86,6 +93,36 @@ export class UsersService {
 
   findById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  /**
+   * Suma un intento fallido y bloquea al llegar al máximo. Devuelve si bloqueó.
+   * El contador se reinicia para que, al vencer el bloqueo, haya otra tanda de
+   * intentos en vez de un bloqueo permanente que cualquiera podría provocar.
+   */
+  async registerFailedLogin(id: string): Promise<boolean> {
+    const { failedLoginAttempts } = await this.prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: { increment: 1 } },
+      select: { failedLoginAttempts: true },
+    });
+    if (failedLoginAttempts < MAX_FAILED_LOGINS) return false;
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: new Date(Date.now() + LOGIN_LOCK_MS),
+      },
+    });
+    return true;
+  }
+
+  async clearFailedLogins(id: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
   }
 
   async create({

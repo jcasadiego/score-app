@@ -87,6 +87,9 @@ los revisa antes de publicarse:
   ASVS y OWASP LLM Top 10 si hay IA. Tokens guardados como hash. Datos del
   cliente fuera de logs y bitácora.
 - **UI del cliente final:** WCAG 2.2 AA.
+- **Cumplimiento:** SOC 2, ISO 27001 e ISO 27701 en todo ticket (`CLAUDE.md`,
+  sección 5.2): acceso, trazabilidad, datos personales y proveedores. Un dato
+  personal nuevo dice su finalidad y su plazo de conservación.
 
 **Los módulos bloqueados (11, 12, 13) no se inician** aunque Claude Code
 lo sugiera — primero necesitan respuesta del cliente. Un ticket de estos

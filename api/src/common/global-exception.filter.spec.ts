@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   HttpException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -137,5 +138,23 @@ describe('GlobalExceptionFilter', () => {
         { field: 'lead.name', message: 'lead.name must be a string' },
       ],
     });
+  });
+
+  it('no lleva al log los valores que cita un error de Prisma', () => {
+    const logged = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    const error = Object.assign(new Error('Argumento: ana@example.com'), {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P2002',
+    });
+
+    run(error);
+
+    expect(logged).toHaveBeenCalledWith(
+      'Error no controlado',
+      'PrismaClientKnownRequestError P2002',
+    );
+    logged.mockRestore();
   });
 });

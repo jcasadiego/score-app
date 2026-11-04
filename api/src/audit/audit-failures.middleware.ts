@@ -45,6 +45,8 @@ export function auditFailures(audit: AuditService) {
           entity: route,
           entityId: typeof id === 'string' ? id : undefined,
           data: { method: request.method, status: response.statusCode },
+          // Explícito: `finish` puede emitirse fuera del contexto de la petición.
+          requestId: request.requestId,
         })
         .catch((err: unknown) =>
           logger.error('No se pudo registrar el intento fallido', err),

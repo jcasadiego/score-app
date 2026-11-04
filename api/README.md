@@ -38,6 +38,26 @@ de proxies delante de ella; 0 si no hay ninguno) ni con un `CORS_ORIGINS` que
 no sea una lista de orígenes `https` exactos. Esa lista lleva `apps/diagnostico`
 y `score-sitio`, que llaman desde el navegador; el panel llama desde su servidor.
 
+## Segundo factor del panel
+
+Obligatorio para todos los usuarios de `apps/panel` (TOTP, RFC 6238):
+
+1. `POST /auth/login` con la contraseña correcta devuelve `{ mfaToken, mfaStatus }`,
+   un reto de 5 minutos que **no** abre sesión.
+2. Si `mfaStatus` es `ENROLLMENT_REQUIRED`: `POST /auth/mfa/enrollment` entrega el
+   secreto, y `POST /auth/mfa/enrollment/confirmation` lo activa, abre la sesión y
+   devuelve 10 códigos de recuperación, que no se vuelven a mostrar.
+3. Si es `CHALLENGE_REQUIRED`: `POST /auth/mfa/verification` con el código o
+   `POST /auth/mfa/recovery` con uno de recuperación abren la sesión.
+
+Cada código incorrecto cuenta para el bloqueo de 5 intentos. Quien pierda el
+autenticador y los códigos necesita que **otro** ADMIN use
+`PATCH /users/:id/reset-mfa`. Si el único ADMIN queda fuera, se restablece en la
+base con acceso de operación, y se deja constancia del motivo.
+
+`MFA_ENCRYPTION_KEY` es obligatoria en todo entorno. Sin rotación todavía:
+perderla o cambiarla obliga a restablecer el MFA de todos.
+
 ## Scripts
 
 - `pnpm start:dev` — servidor con recarga en caliente.

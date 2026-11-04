@@ -5,7 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { EMAIL_MAX, NAME_MAX, PASSWORD_MIN } from './limits';
+import { EMAIL_MAX, NAME_MAX, PASSWORD_MAX, PASSWORD_MIN } from './limits';
 import { NormalizeText, Trim } from './normalize-text';
 
 export class UpdateUserDto {
@@ -26,5 +26,6 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MinLength(PASSWORD_MIN)
+  @MaxLength(PASSWORD_MAX)
   password?: string;
 }

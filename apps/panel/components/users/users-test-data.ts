@@ -28,6 +28,7 @@ function user(
     email,
     active,
     role: "ADMIN",
+    mfaEnabledAt: null,
     createdAt,
     updatedAt: createdAt,
   };

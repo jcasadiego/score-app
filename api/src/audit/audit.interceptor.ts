@@ -30,7 +30,8 @@ function resultId(result: unknown): string | undefined {
 
 /**
  * Registra cada request exitosa que cambia datos, con lo que declara su
- * `@AuditRoute()`. Los intentos fallidos o denegados los registra
+ * `@AuditRoute()`, y las lecturas que lo declaren: las de datos personales, para
+ * saber quién los consultó. Los intentos fallidos o denegados los registra
  * `auditFailures`, y los eventos críticos, su servicio dentro de la misma
  * transacción (`AuditService.record`).
  */
@@ -50,7 +51,7 @@ export class AuditInterceptor implements NestInterceptor {
     >(AUDIT_ROUTE, [context.getHandler(), context.getClass()]);
 
     if (
-      !AUDITABLE_METHODS.includes(request.method) ||
+      (!AUDITABLE_METHODS.includes(request.method) && !options) ||
       (options && 'byService' in options)
     ) {
       return next.handle();

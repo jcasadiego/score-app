@@ -26,6 +26,8 @@ Un código publicado no cambia de significado.
 | `BAD_REQUEST` | 400 | Otra petición mal formada, como un JSON inválido. |
 | `INVALID_RESET_LINK` | 400 | Enlace de recuperación inválido, usado o vencido. |
 | `UNAUTHORIZED` | 401 | Sin sesión, o sesión o enlace no válidos. |
+| `INVALID_MFA_CODE` | 401 | Código de verificación o de recuperación incorrecto, ya usado, o cuenta bloqueada. |
+| `MFA_CHALLENGE_EXPIRED` | 401 | El reto de MFA venció o dejó de valer: hay que volver a iniciar sesión. |
 | `FORBIDDEN` | 403 | El rol no alcanza. |
 | `NOT_FOUND` | 404 | El recurso o la ruta no existe. |
 | `CONFLICT` | 409 | Choca con el estado actual del recurso. |

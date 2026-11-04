@@ -20,12 +20,18 @@ import {
 } from "antd";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import type { PaginatedUsers, User } from "@/lib/api/users";
-import { EMAIL_MAX, NAME_MAX, PASSWORD_MIN } from "@/lib/users/limits";
+import {
+  EMAIL_MAX,
+  NAME_MAX,
+  PASSWORD_MAX,
+  PASSWORD_MIN,
+} from "@/lib/users/limits";
 import {
   activateUserAction,
   updateUserAction,
   createUserAction,
   deactivateUserAction,
+  resetUserMfaAction,
   type UserActionResult,
 } from "@/app/(panel)/users/actions";
 import { ReactiveSearch } from "@/components/reactive-search";
@@ -197,10 +203,39 @@ export function UsersScreen({
     });
   }
 
+  function confirmResetMfa(user: User) {
+    modal.confirm({
+      title: `¿Restablecer la verificación en dos pasos de ${user.name}?`,
+      content:
+        "Hazlo solo si perdió su autenticador y sus códigos de recuperación, y tras confirmar su identidad. Se cierran sus sesiones y la configurará de nuevo al entrar.",
+      okText: "Restablecer",
+      okButtonProps: { danger: true },
+      cancelText: "Cancelar",
+      onOk: () =>
+        runActiveChange(
+          user,
+          resetUserMfaAction,
+          `${user.name} configurará la verificación al entrar.`,
+        ),
+    });
+  }
+
   function actionsFor(user: User): MenuProps["items"] {
     const isCurrentUser = user.id === currentUserId;
     return [
       { key: "edit", label: "Editar", onClick: () => openEdit(user) },
+      ...(user.mfaEnabledAt
+        ? [
+            {
+              key: "reset-mfa",
+              label: isCurrentUser
+                ? "Otro administrador debe restablecer tu verificación"
+                : "Restablecer verificación en dos pasos",
+              disabled: isCurrentUser,
+              onClick: () => confirmResetMfa(user),
+            },
+          ]
+        : []),
       user.active
         ? {
             key: "deactivate",
@@ -418,6 +453,10 @@ export function UsersScreen({
               {
                 min: PASSWORD_MIN,
                 message: `Debe tener al menos ${PASSWORD_MIN} caracteres.`,
+              },
+              {
+                max: PASSWORD_MAX,
+                message: `Debe tener como máximo ${PASSWORD_MAX} caracteres.`,
               },
             ]}
           >

@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../generated/prisma/client';
+import { PASSWORD_MAX, PASSWORD_MIN } from '../src/users/dto/limits';
 
 /**
  * Crea el primer usuario ADMIN si todavía no existe. Necesario porque
@@ -12,6 +13,14 @@ async function main() {
   const email = requireEnv('ADMIN_EMAIL');
   const password = requireEnv('ADMIN_PASSWORD');
   const name = requireEnv('ADMIN_NAME');
+
+  // El seed no pasa por los DTOs: sin esto, el ADMIN inicial, la cuenta con más
+  // privilegios, sería la única exenta de la política de contraseñas.
+  if (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
+    throw new Error(
+      `ADMIN_PASSWORD debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`,
+    );
+  }
 
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),

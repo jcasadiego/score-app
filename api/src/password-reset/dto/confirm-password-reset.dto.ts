@@ -1,5 +1,5 @@
 import { IsString, MaxLength, MinLength } from 'class-validator';
-import { PASSWORD_MIN } from '../../users/dto/limits';
+import { PASSWORD_MAX, PASSWORD_MIN } from '../../users/dto/limits';
 
 export class ConfirmPasswordResetDto {
   /** El token que llegó en el enlace del correo. */
@@ -11,5 +11,6 @@ export class ConfirmPasswordResetDto {
   /** Mismas reglas que al crear un usuario. */
   @IsString()
   @MinLength(PASSWORD_MIN)
+  @MaxLength(PASSWORD_MAX)
   password!: string;
 }

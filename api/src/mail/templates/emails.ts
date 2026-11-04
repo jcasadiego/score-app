@@ -96,6 +96,40 @@ export function passwordResetEmail(
 
 // El nombre y los UTM los escribe cualquiera en el formulario público: van solo
 // en el cuerpo, escapados por la plantilla, nunca en el asunto.
+export interface SecurityNoticeData {
+  name: string;
+  event: SecurityNoticeEvent;
+}
+
+export type SecurityNoticeEvent =
+  'MFA_ENROLLED' | 'MFA_RECOVERY_CODE_USED' | 'MFA_RESET';
+
+const SECURITY_NOTICE_TEXT: Record<SecurityNoticeEvent, string> = {
+  MFA_ENROLLED: 'Se activó la verificación en dos pasos en tu cuenta.',
+  MFA_RECOVERY_CODE_USED:
+    'Se inició sesión en tu cuenta con un código de recuperación.',
+  MFA_RESET:
+    'Un administrador restableció la verificación en dos pasos de tu cuenta. La configurarás de nuevo la próxima vez que inicies sesión.',
+};
+
+export function securityNoticeEmail(
+  data: SecurityNoticeData,
+  brand?: BrandOptions,
+): RenderedEmail {
+  return renderBaseTemplate(
+    {
+      subject: 'Cambio de seguridad en tu cuenta del panel SCORE',
+      title: `Hola, ${data.name}`,
+      paragraphs: [
+        SECURITY_NOTICE_TEXT[data.event],
+        'Si no fuiste tú, avisa de inmediato a un administrador del panel.',
+      ],
+      footerReason: TEAM_NOTICE_FOOTER,
+    },
+    brand,
+  );
+}
+
 export function newLeadNoticeEmail(
   data: NewLeadNoticeData,
   brand?: BrandOptions,

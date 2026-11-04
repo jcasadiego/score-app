@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { AuthService } from './../src/auth/auth.service';
 import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { UsersService } from './../src/users/users.service';
@@ -40,12 +41,13 @@ describe('Renovación de sesión (e2e)', () => {
     await app.close();
   });
 
+  /** El segundo factor lo cubre `mfa.e2e-spec.ts`. */
   async function login(): Promise<string> {
-    const response = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
-    return response.body.accessToken;
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email: EMAIL },
+    });
+    const { accessToken } = await app.get(AuthService).completeLogin(user);
+    return accessToken;
   }
 
   function refresh(token: string) {

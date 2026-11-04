@@ -147,7 +147,10 @@ describe('PasswordResetService', () => {
       });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
-        data: { passwordHash: 'hash-nuevo', sessionVersion: { increment: 1 } },
+        data: {
+          passwordHash: 'hash-nuevo',
+          sessionVersion: { increment: 1 },
+        },
       });
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({

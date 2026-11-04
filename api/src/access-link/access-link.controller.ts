@@ -1,5 +1,11 @@
 import { AuditRoute } from '../audit/audit-route.decorator';
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  NotFoundException,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -11,7 +17,9 @@ import { AccessLinkService } from './access-link.service';
 /**
  * TODO(pendiente #2): endpoint solo para pruebas manuales/QA mientras no
  * existe `Diagnostic`. Se reemplaza por el flujo real de emisión de enlaces
- * cuando esa entidad se defina (ver access-link.service.ts).
+ * cuando esa entidad se defina (ver access-link.service.ts). Lista de permitidos,
+ * como Swagger: fuera de desarrollo y test no existe, porque emite enlaces para
+ * cualquier `subjectId` sin registrar ninguno ni poder revocarlos.
  */
 @ApiTags('access-links')
 @ApiBearerAuth()
@@ -28,6 +36,9 @@ export class AccessLinkController {
     fields: ['subjectId'],
   })
   async issue(@Body() dto: IssueAccessLinkDto) {
+    if (!['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
+      throw new NotFoundException();
+    }
     const token = await this.accessLink.sign(dto.subjectId);
     return { token };
   }

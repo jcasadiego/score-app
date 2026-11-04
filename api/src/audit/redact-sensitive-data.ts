@@ -5,6 +5,15 @@ const SENSITIVE_KEYS = [
   'accesstoken',
   'token',
   'secret',
+  'code',
+  'recoverycode',
+  'mfatoken',
+  'otpauthuri',
+  // La bitácora es de solo inserción: un dato personal guardado aquí no se
+  // podría borrar si su titular lo pide. Queda la constancia de que cambió.
+  'name',
+  'email',
+  'phone',
 ];
 
 const REDACTED_MARKER = '[REDACTADO]';

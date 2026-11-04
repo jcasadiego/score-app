@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { AuthService } from './../src/auth/auth.service';
 import { AUDIT_ROUTE } from './../src/audit/audit-route.decorator';
 import { AuditService } from './../src/audit/audit.service';
 import { configureApp } from './../src/bootstrap';
@@ -79,6 +80,8 @@ describe('Bitácora de auditoría (e2e)', () => {
       .post(LOGIN_PATH)
       .send({ email: user.email, password })
       .expect(200);
+    // El segundo factor lo cubre `mfa.e2e-spec.ts`.
+    await app.get(AuthService).completeLogin(user);
 
     const log = await waitForLog(
       { action: 'LOGIN_SUCCEEDED', entityId: user.id },

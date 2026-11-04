@@ -6,6 +6,7 @@ const BASE = {
   CORS_ORIGINS: 'http://localhost:3002',
   JWT_SECRET: 'x'.repeat(32),
   ACCESS_LINK_JWT_SECRET: 'y'.repeat(32),
+  MFA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
 };
 
 const RESEND = {
@@ -19,11 +20,46 @@ const PRODUCTION = {
   ...BASE,
   ...RESEND,
   NODE_ENV: 'production',
+  DATABASE_URL: 'postgresql://db.example.com/score?sslmode=verify-full',
   CORS_ORIGINS: 'https://diagnostico.example.com,https://sitio.example.com',
   TRUST_PROXY_HOPS: '1',
   PANEL_API_SECRET: 'z'.repeat(32),
   PANEL_URL: 'https://panel.example.com',
 };
+
+describe('validateEnv · MFA', () => {
+  it('exige una llave de 32 bytes en base64', () => {
+    for (const MFA_ENCRYPTION_KEY of [undefined, '', 'corta', 'AAAA']) {
+      expect(() => validateEnv({ ...BASE, MFA_ENCRYPTION_KEY })).toThrow(
+        /MFA_ENCRYPTION_KEY/,
+      );
+    }
+  });
+});
+
+describe('validateEnv · cifrado en tránsito', () => {
+  it('en producción exige cifrar la conexión a la base', () => {
+    for (const DATABASE_URL of [
+      'postgresql://db.example.com/score',
+      'postgresql://db.example.com/score?sslmode=disable',
+      'postgresql://db.example.com/score?sslmode=prefer',
+    ]) {
+      expect(() => validateEnv({ ...PRODUCTION, DATABASE_URL })).toThrow(
+        /DATABASE_URL: en producción, conexión cifrada/,
+      );
+    }
+  });
+
+  it('en producción exige https en los enlaces del panel', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, PANEL_URL: 'http://panel.example.com' }),
+    ).toThrow(/PANEL_URL: en producción debe usar https/);
+  });
+
+  it('en desarrollo no exige cifrar la base local', () => {
+    expect(validateEnv(BASE).DATABASE_URL).toBe(BASE.DATABASE_URL);
+  });
+});
 
 describe('validateEnv · correo', () => {
   it('en desarrollo usa el modo log por defecto y trata "" como vacío', () => {

@@ -69,21 +69,26 @@ export async function updateUserAction(
   data: UpdateUserData,
 ): Promise<UserActionResult> {
   let user: User;
-  let changedOwnPassword: boolean;
+  let closedOwnSession: "password-changed" | "role-changed" | null = null;
   try {
     const session = await verifySession();
     const token = await authenticatedToken();
     user = await updateUser(token, id, data);
-    changedOwnPassword = !!data.password && session.id === id;
+    if (session.id === id) {
+      if (data.password) closedOwnSession = "password-changed";
+      else if (data.role && data.role !== session.role) {
+        closedOwnSession = "role-changed";
+      }
+    }
   } catch (error) {
     return await handleError(error);
   }
 
-  // Cambiar la contraseña cierra todas las sesiones de esa cuenta en la
-  // API, también la de quien la cambió si es la suya: se lo manda al login.
-  if (changedOwnPassword) {
+  // Cambiar la contraseña o el rol cierra todas las sesiones de esa cuenta en
+  // la API, también la de quien lo cambió si es la suya: se lo manda al login.
+  if (closedOwnSession) {
     await deleteSession();
-    redirect("/login?notice=password-changed");
+    redirect(`/login?notice=${closedOwnSession}`);
   }
 
   revalidatePath("/users");

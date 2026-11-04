@@ -21,10 +21,10 @@ export const MFA_SETUP_ROUTE = "/login/two-factor/setup";
 
 /**
  * A dónde aterriza una sesión nueva. Se usa directo (login, proxy y `/`)
- * para no encadenar redirecciones `/login` → `/` → `/users`. Cuando
+ * para no encadenar redirecciones `/login` → `/` → `/leads`. Cuando
  * exista la bandeja de casos, pasa a ser esa ruta.
  */
-export const HOME_ROUTE = "/users";
+export const HOME_ROUTE = "/leads";
 
 /** Borra la cookie cuando la API rechaza el token (ver su `route.ts`). */
 export const SESSION_EXPIRED_ROUTE = "/session-expired";

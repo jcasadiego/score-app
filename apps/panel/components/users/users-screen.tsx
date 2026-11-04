@@ -12,6 +12,7 @@ import {
   Form,
   Input,
   Modal,
+  Select,
   Table,
   Tag,
   Typography,
@@ -19,7 +20,8 @@ import {
   type TableColumnsType,
 } from "antd";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
-import type { PaginatedUsers, User } from "@/lib/api/users";
+import type { PaginatedUsers, User, UserRole } from "@/lib/api/users";
+import { ROLE_LABELS } from "@/lib/theme";
 import {
   EMAIL_MAX,
   NAME_MAX,
@@ -46,7 +48,15 @@ interface UserFormValues {
   name: string;
   email: string;
   password?: string;
+  role: UserRole;
 }
+
+const USER_FORM_ID = "user-form";
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "REVIEWER", label: ROLE_LABELS.REVIEWER },
+  { value: "ADMIN", label: ROLE_LABELS.ADMIN },
+];
 
 const pluralUsers = new Intl.PluralRules("es");
 
@@ -79,7 +89,10 @@ export function UsersScreen({
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [form] = Form.useForm<UserFormValues>();
+  // Sube en cada apertura para montar un Form nuevo. Sin esto, si el modal
+  // reabre sin haberse desmontado, el selector de rol muestra el valor anterior
+  // y guardar le cambiaría el rol a otra persona.
+  const [formKey, setFormKey] = useState(0);
   // Vacía el buscador cuando la búsqueda se limpia desde fuera.
   const [searchReset, setSearchReset] = useState(0);
 
@@ -117,12 +130,14 @@ export function UsersScreen({
   function openCreate() {
     setEditingUser(null);
     setModalError(null);
+    setFormKey((key) => key + 1);
     setModalOpen(true);
   }
 
   function openEdit(user: User) {
     setEditingUser(user);
     setModalError(null);
+    setFormKey((key) => key + 1);
     setModalOpen(true);
   }
 
@@ -141,11 +156,13 @@ export function UsersScreen({
           email: values.email,
           // Vacío = no se cambia.
           password: values.password || undefined,
+          role: values.role,
         })
       : await createUserAction({
           name: values.name,
           email: values.email,
           password: values.password ?? "",
+          role: values.role,
         });
 
     setSaving(false);
@@ -229,7 +246,7 @@ export function UsersScreen({
             {
               key: "reset-mfa",
               label: isCurrentUser
-                ? "Otro administrador debe restablecer tu verificación"
+                ? "Otro Aprobador debe restablecer tu verificación"
                 : "Restablecer verificación en dos pasos",
               disabled: isCurrentUser,
               onClick: () => confirmResetMfa(user),
@@ -277,6 +294,13 @@ export function UsersScreen({
       render: (email: string) => (
         <span style={{ overflowWrap: "anywhere" }}>{email}</span>
       ),
+    },
+    {
+      title: "Rol",
+      dataIndex: "role",
+      key: "role",
+      width: 120,
+      render: (role: UserRole) => ROLE_LABELS[role] ?? role,
     },
     {
       title: "Estado",
@@ -366,7 +390,7 @@ export function UsersScreen({
         dataSource={page.data}
         columns={columns}
         loading={navigating}
-        scroll={{ x: 640 }}
+        scroll={{ x: 760 }}
         locale={{ emptyText: emptyState }}
         pagination={{
           current: page.page,
@@ -384,7 +408,7 @@ export function UsersScreen({
         open={modalOpen}
         onCancel={closeModal}
         confirmLoading={saving}
-        onOk={() => form.submit()}
+        okButtonProps={{ htmlType: "submit", form: USER_FORM_ID }}
         okText={editingUser ? "Guardar" : "Crear"}
         cancelText="Cancelar"
         destroyOnHidden
@@ -398,22 +422,23 @@ export function UsersScreen({
           />
         )}
         <Form<UserFormValues>
-          form={form}
+          key={formKey}
+          id={USER_FORM_ID}
           layout="vertical"
           onFinish={submitForm}
           disabled={saving}
-          // El Form se monta al abrir el modal (destroyOnHidden), así que los
-          // valores iniciales salen de aquí y no de form.setFieldsValue, que
-          // no tendría Form conectado. preserve={false} hace que, al volver a
-          // montarse, cada campo tome los initialValues nuevos en vez de lo
-          // que quedó de la apertura anterior (clearOnDestroy no sirve: con
-          // StrictMode borra también los initialValues recién cargados).
+          // Cada apertura monta un Form con su propio estado (`formKey`), así
+          // que los valores iniciales salen de aquí. clearOnDestroy no sirve:
+          // con StrictMode borra también los initialValues recién cargados.
           initialValues={
             editingUser
-              ? { name: editingUser.name, email: editingUser.email }
-              : undefined
+              ? {
+                  name: editingUser.name,
+                  email: editingUser.email,
+                  role: editingUser.role,
+                }
+              : { role: "REVIEWER" }
           }
-          preserve={false}
         >
           <Form.Item
             name="name"
@@ -435,6 +460,19 @@ export function UsersScreen({
             ]}
           >
             <Input maxLength={EMAIL_MAX} autoComplete="off" />
+          </Form.Item>
+
+          <Form.Item
+            name="role"
+            label="Rol"
+            extra={
+              editingUser
+                ? "Si lo cambias, se cierran las sesiones abiertas de este usuario."
+                : "El Aprobador puede hacer todo, incluido administrar usuarios."
+            }
+            rules={[{ required: true, message: "Elige un rol." }]}
+          >
+            <Select options={ROLE_OPTIONS} />
           </Form.Item>
 
           <Form.Item

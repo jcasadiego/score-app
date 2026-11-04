@@ -27,7 +27,7 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   `lib/auth/session.ts`.
 - `proxy.ts` hace un chequeo optimista (solo lee la cookie) para
   redirigir a `/login` sin sesión, o a `HOME_ROUTE`
-  (`lib/auth/constants.ts`, hoy `/users`) si ya hay una. `/` también
+  (`lib/auth/constants.ts`, hoy `/leads`) si ya hay una. `/` también
   redirige ahí mientras no exista la bandeja de casos. La
   verificación real ocurre en `api` en cada llamada autenticada;
   `lib/auth/dal.ts` (`verifySession`) es el punto único para exigirla
@@ -102,7 +102,6 @@ las acciones de fila llaman a la API real con ids falsos (404).
 
 ## Pendiente a propósito (no construido todavía)
 
-El modelo real de roles/permisos y el flujo de revisión/aprobación de
-casos no se construyen todavía — dependen de decisiones que siguen
-pendientes (ver `CLAUDE.md` sección 3). Hoy solo existe el rol `ADMIN`
-placeholder.
+El flujo de revisión/aprobación de casos no se construye todavía. Los roles
+Revisor y Aprobador ya existen (`CLAUDE.md`, sección 5.3): el panel oculta lo que
+el rol no permite, y quien valida el permiso es la API.

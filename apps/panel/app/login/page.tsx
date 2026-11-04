@@ -15,6 +15,10 @@ const NOTICES: Record<string, LoginNotice> = {
     type: "success",
     text: "Listo, tu contraseña cambió. Inicia sesión con la nueva.",
   },
+  "role-changed": {
+    type: "warning",
+    text: "Tu rol cambió. Vuelve a iniciar sesión para continuar.",
+  },
   "password-changed": {
     type: "success",
     text: "Cambiaste tu contraseña. Inicia sesión de nuevo con la nueva.",
@@ -25,7 +29,7 @@ const NOTICES: Record<string, LoginNotice> = {
   },
   "session-expired": {
     type: "warning",
-    text: "Tu sesión terminó: venció o se inició en otro dispositivo. Si no fuiste tú, cambia tu contraseña.",
+    text: "Tu sesión terminó: venció, cambió tu acceso o se inició en otro dispositivo. Si no reconoces esto, cambia tu contraseña.",
   },
 };
 

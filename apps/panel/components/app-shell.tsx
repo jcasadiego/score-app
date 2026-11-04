@@ -25,10 +25,15 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const MENU_ITEMS = [
-  { key: "/leads", label: <Link href="/leads">Leads</Link> },
-  { key: "/users", label: <Link href="/users">Usuarios</Link> },
-];
+/** Solo ordena lo que se ve: quien valida el permiso es la API. */
+function menuItems(role: string) {
+  return [
+    { key: "/leads", label: <Link href="/leads">Leads</Link> },
+    ...(role === "ADMIN"
+      ? [{ key: "/users", label: <Link href="/users">Usuarios</Link> }]
+      : []),
+  ];
+}
 
 export function AppShell({ user, children }: AppShellProps) {
   const pathname = usePathname();
@@ -94,7 +99,7 @@ export function AppShell({ user, children }: AppShellProps) {
           theme="dark"
           mode="inline"
           selectedKeys={[pathname]}
-          items={MENU_ITEMS}
+          items={menuItems(user.role)}
           onClick={() => {
             if (!screens.lg) setCollapsed(true);
           }}

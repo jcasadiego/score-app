@@ -1,12 +1,14 @@
 import "server-only";
 import { callApi, type ResourceMessages } from "./client";
 
+export type UserRole = "ADMIN" | "REVIEWER";
+
 export interface User {
   id: string;
   name: string;
   email: string;
   active: boolean;
-  role: string;
+  role: UserRole;
   /** Nulo si todavía no configuró la verificación en dos pasos. */
   mfaEnabledAt: string | null;
   createdAt: string;
@@ -30,6 +32,7 @@ export interface CreateUserData {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
 }
 
 export interface UpdateUserData {
@@ -37,6 +40,8 @@ export interface UpdateUserData {
   email?: string;
   /** Contraseña nueva; la API cierra las sesiones abiertas del usuario. */
   password?: string;
+  /** Cambiarlo cierra las sesiones abiertas del usuario. */
+  role?: UserRole;
 }
 
 const MESSAGES: ResourceMessages = {

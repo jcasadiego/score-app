@@ -17,7 +17,7 @@ export function ForbiddenScreen() {
     <Result
       status="403"
       title="No tienes acceso a esta sección"
-      subTitle="Tu cuenta no tiene permiso para ver esta pantalla. Si crees que deberías tenerlo, pídeselo a un administrador."
+      subTitle="Tu cuenta no tiene permiso para ver esta pantalla. Si crees que deberías tenerlo, pídeselo a un Aprobador."
       extra={
         <Button type="primary" onClick={goBack}>
           Volver

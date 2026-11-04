@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import {
   ConflictException,
   forwardRef,
@@ -48,8 +48,9 @@ function hashRecoveryCode(code: string): string {
 
 /** 16 caracteres de un alfabeto de 32: 80 bits, en grupos fáciles de copiar. */
 function generateRecoveryCode(): string {
-  const chars = [...randomBytes(16)].map(
-    (byte) => RECOVERY_CODE_ALPHABET[byte % RECOVERY_CODE_ALPHABET.length],
+  const chars = Array.from(
+    { length: 16 },
+    () => RECOVERY_CODE_ALPHABET[randomInt(RECOVERY_CODE_ALPHABET.length)],
   );
   return chars.join('').replace(/(.{4})(?=.)/g, '$1-');
 }

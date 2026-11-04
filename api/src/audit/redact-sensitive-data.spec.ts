@@ -37,17 +37,4 @@ describe('redactSensitiveData', () => {
 
     expect(result).toEqual({ subjectId: 'caso-1' });
   });
-
-  it('redacta las claves extra de la ruta, además de las globales', () => {
-    const result = redactSensitiveData(
-      { Email: 'a@b.com', family: 'B2B', password: 'x' },
-      ['email'],
-    );
-
-    expect(result).toEqual({
-      Email: '[REDACTADO]',
-      family: 'B2B',
-      password: '[REDACTADO]',
-    });
-  });
 });

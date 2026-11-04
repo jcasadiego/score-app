@@ -94,6 +94,23 @@ export class PasswordResetService {
     );
   }
 
+  /** Sin bloquear: la respuesta no debe tardar distinto por esto. */
+  private recordRejected(userId?: string): void {
+    this.audit
+      .record({
+        actorType: AuditActorType.SYSTEM,
+        action: 'PASSWORD_RESET_REJECTED',
+        entity: 'User',
+        entityId: userId,
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          'No se pudo registrar en Auditoría el enlace rechazado',
+          error instanceof Error ? error.stack : undefined,
+        ),
+      );
+  }
+
   async confirm(token: string, password: string): Promise<void> {
     const resetToken = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(token) },
@@ -106,6 +123,7 @@ export class PasswordResetService {
       resetToken.expiresAt <= new Date() ||
       !resetToken.user.active
     ) {
+      this.recordRejected(resetToken?.userId);
       throw new BadRequestException({
         message: INVALID_LINK_MESSAGE,
         code: INVALID_LINK_CODE,
@@ -122,6 +140,7 @@ export class PasswordResetService {
         data: { usedAt: new Date() },
       });
       if (count === 0) {
+        this.recordRejected(resetToken.userId);
         throw new BadRequestException({
           message: INVALID_LINK_MESSAGE,
           code: INVALID_LINK_CODE,

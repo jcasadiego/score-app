@@ -1,6 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { AuditActorType } from '../../generated/prisma/enums';
+import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
 import type { SessionUser } from './jwt.strategy';
 import { SessionsService } from './sessions.service';
@@ -24,10 +26,13 @@ function sessionLimit(authAt: number): number {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
+    private readonly audit: AuditService,
   ) {}
 
   async login(email: string, password: string) {
@@ -51,16 +56,32 @@ export class AuthService {
       new Date(sessionLimit(authAt) * 1000),
     );
 
-    return {
-      accessToken: await this.issueToken({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        sessionVersion: user.sessionVersion,
-        sessionId,
-        authAt,
-      }),
-    };
+    const accessToken = await this.issueToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      sessionVersion: user.sessionVersion,
+      sessionId,
+      authAt,
+    });
+
+    // Aquí y no en el interceptor: en el login, `request.user` todavía no existe.
+    this.audit
+      .record({
+        actorType: AuditActorType.PANEL_USER,
+        actorId: user.id,
+        action: 'LOGIN_SUCCEEDED',
+        entity: 'User',
+        entityId: user.id,
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          'No se pudo registrar en Auditoría el inicio de sesión',
+          error instanceof Error ? error.stack : undefined,
+        ),
+      );
+
+    return { accessToken };
   }
 
   /**

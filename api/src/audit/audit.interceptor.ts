@@ -6,26 +6,33 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
 import { Prisma } from '../../generated/prisma/client';
-import { AuditActorType } from '../../generated/prisma/enums';
-import { AuditService, RecordAuditParams } from './audit.service';
+import { AuditableRequest, resolveAuditActor } from './audit-actor';
+import { AUDIT_ROUTE, AuditRouteOptions } from './audit-route.decorator';
+import { AuditService } from './audit.service';
 import { redactSensitiveData } from './redact-sensitive-data';
-import { AUDIT_REDACT_KEYS } from './redact-in-audit.decorator';
 
-const AUDITABLE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+export const AUDITABLE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-interface AuditableRequest extends Request {
-  user?: { id: string };
-  accessLink?: { sub: string };
+function pickFields(body: unknown, fields: string[]): Record<string, unknown> {
+  const source = (body ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(
+    // `null` tampoco cambia nada: registrarlo daría a entender que sí.
+    fields.filter((f) => source[f] != null).map((f) => [f, source[f]]),
+  );
+}
+
+function resultId(result: unknown): string | undefined {
+  const id = (result as { id?: unknown } | null | undefined)?.id;
+  return typeof id === 'string' ? id : undefined;
 }
 
 /**
- * Deja registro de toda request mutante que pasa por la API. Es una traza
- * genérica por ruta/método mientras no existen entidades de dominio
- * (Caso, etc.) — cuando esas existan, los servicios pueden seguir usando
- * `AuditService.record` directamente para un registro más rico.
+ * Registra cada request exitosa que cambia datos, con lo que declara su
+ * `@AuditRoute()`. Los intentos fallidos o denegados los registra
+ * `auditFailures`, y los eventos críticos, su servicio dentro de la misma
+ * transacción (`AuditService.record`).
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -38,60 +45,41 @@ export class AuditInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AuditableRequest>();
+    const options = this.reflector.getAllAndOverride<
+      AuditRouteOptions | undefined
+    >(AUDIT_ROUTE, [context.getHandler(), context.getClass()]);
 
-    if (!AUDITABLE_METHODS.includes(request.method)) {
+    if (
+      !AUDITABLE_METHODS.includes(request.method) ||
+      (options && 'byService' in options)
+    ) {
       return next.handle();
     }
 
-    const extraKeys =
-      this.reflector.getAllAndOverride<string[] | undefined>(
-        AUDIT_REDACT_KEYS,
-        [context.getHandler(), context.getClass()],
-      ) ?? [];
+    // Sin declaración, se deja el rastro sin ningún dato del request.
+    const route = options && !('byService' in options) ? options : undefined;
 
     return next.handle().pipe(
-      tap(() => {
+      tap((result) => {
+        const body = pickFields(request.body, route?.fields ?? []);
+        const id = request.params.id;
         this.audit
           .record({
-            ...this.resolveActor(request),
-            action: request.method,
-            entity: request.path,
-            data: {
-              body: redactSensitiveData(request.body, extraKeys),
-              params: redactSensitiveData(request.params, extraKeys),
-              query: redactSensitiveData(request.query, extraKeys),
-            } as Prisma.InputJsonValue,
+            ...resolveAuditActor(request),
+            action: route?.action ?? request.method,
+            entity: route?.entity ?? request.path,
+            entityId:
+              (typeof id === 'string' ? id : undefined) ?? resultId(result),
+            ...(Object.keys(body).length > 0 && {
+              data: {
+                body: redactSensitiveData(body),
+              } as Prisma.InputJsonValue,
+            }),
           })
           .catch((err: unknown) =>
             this.logger.error('No se pudo registrar la auditoría', err),
           );
       }),
     );
-  }
-
-  /**
-   * `request.user` lo deja `JwtAuthGuard` (usuario del panel) y
-   * `request.accessLink` lo deja `AccessLinkGuard` (cliente final). Ninguno
-   * de los dos es global, así que en rutas sin guard de auth (ej. antes
-   * de un login) no hay actor autenticado y se registra como sistema.
-   */
-  private resolveActor(
-    request: AuditableRequest,
-  ): Pick<RecordAuditParams, 'actorType' | 'actorId'> {
-    if (request.user?.id) {
-      return {
-        actorType: AuditActorType.PANEL_USER,
-        actorId: request.user.id,
-      };
-    }
-
-    if (request.accessLink?.sub) {
-      return {
-        actorType: AuditActorType.END_CLIENT,
-        actorId: request.accessLink.sub,
-      };
-    }
-
-    return { actorType: AuditActorType.SYSTEM };
   }
 }

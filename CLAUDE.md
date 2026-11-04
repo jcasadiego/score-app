@@ -235,8 +235,7 @@ terminó):
   de enum en `UPPER_SNAKE_CASE`. Normalizada (3NF): sin datos derivados ni
   duplicados sin justificar, tablas puente en vez de arreglos o JSON, e
   integridad garantizada en la base. Índice en cada FK, `onDelete: Restrict`
-  en el dominio y `@db.Timestamptz(3)` en toda fecha nueva (PF-46 migra las
-  existentes).
+  en el dominio y `@db.Timestamptz(3)` en toda fecha.
 - **Seguridad:** OWASP API Top 10, OWASP ASVS y, si hay IA, OWASP LLM Top 10.
   Tokens guardados como hash. Datos del cliente fuera de logs y bitácora.
 - **Accesibilidad:** WCAG 2.2 AA en `apps/diagnostico`.
@@ -313,9 +312,11 @@ revisar la regla correspondiente.
   incluye `prisma.config.ts` y `generated/`). No mover `rootDir`: rompe
   los imports del cliente de Prisma generado (#14). Si cambia la
   estructura del build, comprobar `pnpm build && pnpm start:prod`.
-- **Bitácora de auditoría:** todo lo que se persiste de body/params/query
-  pasa por `redactSensitiveData()` — el login quedó guardando passwords
-  en claro (#4). El actor sale de `request.user` (panel) o
+- **Bitácora de auditoría:** toda ruta que cambia datos declara
+  `@AuditRoute()`, y solo se guardan los campos declarados, también pasados
+  por `redactSensitiveData()` — el login quedó guardando passwords en claro
+  (#4). `audit_logs` es de solo inserción: los tests no pueden limpiarla. Un
+  evento crítico pasa su `tx` a `AuditService.record` (PF-47). El actor sale de `request.user` (panel) o
   `request.accessLink` (cliente final), nunca de un campo que ningún guard
   setea (#5).
 - **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el
@@ -328,6 +329,9 @@ revisar la regla correspondiente.
 - **Migraciones de renombre:** Prisma resuelve un rename como DROP +
   CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
   de aplicarlo (#26).
+- **Migraciones con varios pasos:** Prisma no las envuelve en una transacción;
+  un fallo deja aplicado lo anterior. Escribir `BEGIN`/`COMMIT` en el SQL y
+  probarlo con un fallo forzado sobre una base aparte (PF-46).
 
 **`apps/panel`**
 

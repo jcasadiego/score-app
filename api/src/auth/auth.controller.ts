@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { AuditRoute } from '../audit/audit-route.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { SessionUser } from './jwt.strategy';
 
@@ -25,6 +26,7 @@ export class AuthController {
   // Límite propio, más estricto que el global, como mitigación de fuerza
   // bruta sobre credenciales.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @AuditRoute({ byService: true })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto.email, dto.password);
   }
@@ -33,6 +35,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @AuditRoute({ action: 'SESSION_REFRESHED', entity: 'UserSession' })
   refresh(@Req() req: { user: SessionUser }) {
     return this.auth.refresh(req.user);
   }
@@ -41,6 +44,7 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @AuditRoute({ action: 'LOGOUT', entity: 'UserSession' })
   logout(@Req() req: { user: SessionUser }) {
     return this.auth.logout(req.user);
   }

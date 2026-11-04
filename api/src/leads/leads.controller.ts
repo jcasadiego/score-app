@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { RedactInAudit } from '../audit/redact-in-audit.decorator';
+import { AuditRoute } from '../audit/audit-route.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -43,9 +43,12 @@ export class LeadsController {
   // Límite propio por IP, más estricto que el global, contra spam del
   // formulario público.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  // Datos personales del lead: ya viven en la tabla Lead, no se duplican
-  // en la bitácora.
-  @RedactInAudit('name', 'email', 'phone')
+  // Los datos personales del lead ya viven en su tabla: no se duplican.
+  @AuditRoute({
+    action: 'LEAD_CREATED',
+    entity: 'Lead',
+    fields: ['family', 'utmSource', 'utmMedium', 'utmCampaign'],
+  })
   create(@Body() dto: CreateLeadDto) {
     return this.leads.create(dto);
   }
@@ -67,6 +70,11 @@ export class LeadsController {
   }
 
   @Patch(':id/status')
+  @AuditRoute({
+    action: 'LEAD_STATUS_CHANGED',
+    entity: 'Lead',
+    fields: ['status'],
+  })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

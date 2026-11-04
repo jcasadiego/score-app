@@ -8,6 +8,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { auditFailures } from './audit/audit-failures.middleware';
+import { AuditService } from './audit/audit.service';
 import { parseCorsOrigins } from './config/cors';
 import {
   GlobalExceptionFilter,
@@ -29,6 +31,8 @@ export function configureApp(app: INestApplication): void {
     .getHttpAdapter()
     .getInstance()
     .set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
+
+  app.use(auditFailures(app.get(AuditService)));
 
   app.use(helmet());
 

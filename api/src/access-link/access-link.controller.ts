@@ -1,3 +1,4 @@
+import { AuditRoute } from '../audit/audit-route.decorator';
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,6 +22,11 @@ export class AccessLinkController {
 
   @Post()
   @Roles(UserRole.ADMIN)
+  @AuditRoute({
+    action: 'ACCESS_LINK_ISSUED',
+    entity: 'AccessLink',
+    fields: ['subjectId'],
+  })
   async issue(@Body() dto: IssueAccessLinkDto) {
     const token = await this.accessLink.sign(dto.subjectId);
     return { token };

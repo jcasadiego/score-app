@@ -4,14 +4,19 @@ on:
   pull_request:
     branches: [develop, main]
 
+# Mínimo privilegio: `pull-requests` solo lo usa paths-filter para ver el diff.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
       api: ${{ steps.filter.outputs.api }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
         id: filter
         with:
           filters: |
@@ -51,26 +56,20 @@ jobs:
       THROTTLE_TTL: 60000
       THROTTLE_LIMIT: 100
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: api/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
-      # No bloqueante: Prisma empaqueta drivers de otros motores (ej.
-      # mysql2) que este proyecto no usa (solo Postgres vía @prisma/adapter-pg)
-      # y que hoy arrastran CVEs sin parche disponible en pnpm. Se deja
-      # visible en el log del PR sin frenar el merge por código que nunca
-      # se ejecuta.
       - run: pnpm audit --audit-level=high
-        continue-on-error: true
       - run: pnpm lint
       - run: pnpm build
       - run: pnpm prisma migrate deploy

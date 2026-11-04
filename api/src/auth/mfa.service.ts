@@ -139,9 +139,10 @@ export class MfaService {
       generateRecoveryCode,
     );
     await this.prisma.$transaction(async (tx) => {
-      // Solo si sigue sin activar: de dos confirmaciones a la vez, gana una.
+      // Solo si sigue sin activar y con el secreto que se comprobó: de dos
+      // confirmaciones gana una, y nadie activa un secreto cambiado en el medio.
       const { count } = await tx.user.updateMany({
-        where: { id: user.id, mfaEnabledAt: null },
+        where: { id: user.id, mfaEnabledAt: null, mfaSecret: user.mfaSecret },
         data: { mfaEnabledAt: new Date(), mfaLastUsedStep: step },
       });
       if (count === 0) {

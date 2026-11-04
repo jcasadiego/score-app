@@ -150,8 +150,6 @@ describe('PasswordResetService', () => {
         data: {
           passwordHash: 'hash-nuevo',
           sessionVersion: { increment: 1 },
-          failedLoginAttempts: 0,
-          lockedUntil: null,
         },
       });
       expect(audit.record).toHaveBeenCalledWith(

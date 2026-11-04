@@ -63,15 +63,14 @@ interface UpdateUserParams {
 /**
  * Datos de Prisma para cambiar una contraseña. Es el único lugar que la
  * cambia (CRUD y recuperación), para que ningún camino olvide subir
- * `sessionVersion` — eso es lo que cierra las sesiones abiertas.
+ * `sessionVersion` — eso es lo que cierra las sesiones abiertas. No toca el
+ * bloqueo por intentos: si no, recuperar la contraseña permitiría seguir probando
+ * códigos de MFA sin límite. Vence solo, en 15 minutos.
  */
 export async function passwordChangeData(password: string) {
   return {
     passwordHash: await argon2.hash(password),
     sessionVersion: { increment: 1 },
-    // Quien recuperó su cuenta no debe seguir esperando a que venza el bloqueo.
-    failedLoginAttempts: 0,
-    lockedUntil: null,
   } satisfies Prisma.UserUpdateInput;
 }
 

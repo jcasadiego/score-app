@@ -9,6 +9,7 @@ import { currentStep, totpAtStep } from './../src/auth/mfa/totp';
 import { configureApp } from './../src/bootstrap';
 import { AppThrottlerGuard } from './../src/common/app-throttler.guard';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { UsersService } from './../src/users/users.service';
 
 const EMAIL = 'mfa.e2e@example.com';
 const ADMIN_EMAIL = 'mfa.admin.e2e@example.com';
@@ -228,6 +229,23 @@ describe('Segundo factor del panel (e2e)', () => {
       .post(`${AUTH}/mfa/verification`)
       .send({ mfaToken, code: await codeFor(1) })
       .expect(401);
+  });
+
+  it('recuperar la contraseña no quita el bloqueo por códigos fallidos', async () => {
+    await enroll();
+    const lockedUntil = new Date(Date.now() + 60_000);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lockedUntil, failedLoginAttempts: 0 },
+    });
+
+    await app
+      .get(UsersService)
+      .update(userId, { password: 'clave-nueva-de-mfa-456' });
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.lockedUntil).toEqual(lockedUntil);
+    expect(user.mfaEnabledAt).not.toBeNull();
   });
 
   it('un reto en curso muere si la cuenta se desactiva', async () => {

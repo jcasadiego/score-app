@@ -22,6 +22,28 @@ const PUBLIC_ROUTES = [
  */
 const GUEST_ONLY_ROUTES = ["/login"];
 
+/**
+ * Un nonce por petición: solo corren los scripts que Next marca con él, así que
+ * un script inyectado no se ejecuta. Los estilos no llevan nonce porque Ant Design
+ * los inserta en línea, y con un nonce el navegador ignoraría `'unsafe-inline'`.
+ * El modo de desarrollo de Next necesita `eval` y websocket.
+ */
+function contentSecurityPolicy(nonce: string): string {
+  const isDev = process.env.NODE_ENV !== "production";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    `connect-src 'self'${isDev ? " ws:" : ""}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
 function matchesRoute(routes: string[], pathname: string): boolean {
   return routes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -60,7 +82,13 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(HOME_ROUTE, request.url));
   }
 
-  const response = NextResponse.next();
+  const csp = contentSecurityPolicy(btoa(crypto.randomUUID()));
+  // Next toma el nonce de este encabezado de la petición y lo pone en sus scripts.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
 
   // Solo al navegar por pantallas protegidas. En una Server Action, esta
   // cookie competiría con la que borra el logout y podría ganarle.

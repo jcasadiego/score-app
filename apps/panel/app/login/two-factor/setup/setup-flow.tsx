@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -134,6 +134,14 @@ export function SetupFlow() {
 function RecoveryCodes({ codes }: { codes: string[] }) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
+
+  // Recargar lleva al panel y los códigos no se pueden volver a pedir.
+  useEffect(() => {
+    if (saved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [saved]);
 
   return (
     <Card>

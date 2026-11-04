@@ -5,6 +5,15 @@ import { isSecureOrigin, parseCorsOrigins } from './cors';
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
 
+function hasEncryptedDatabaseConnection(databaseUrl: string): boolean {
+  try {
+    const sslMode = new URL(databaseUrl).searchParams.get('sslmode');
+    return ['require', 'verify-ca', 'verify-full'].includes(sslMode ?? '');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Se valida `process.env` completo al boot para fallar rápido y con un
  * mensaje claro si falta una variable, en vez de un error opaco más
@@ -71,6 +80,24 @@ const EnvSchema = z
           code: 'custom',
           path: ['CORS_ORIGINS'],
           message: 'en producción, solo orígenes https exactos, sin comodines',
+        });
+      }
+    }
+    if (env.NODE_ENV === 'production') {
+      if (!hasEncryptedDatabaseConnection(env.DATABASE_URL)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DATABASE_URL'],
+          message:
+            'en producción, conexión cifrada: sslmode=require, verify-ca o verify-full',
+        });
+      }
+      // Los enlaces de recuperación llevan un token: no pueden viajar sin cifrar.
+      if (env.PANEL_URL && !env.PANEL_URL.startsWith('https://')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['PANEL_URL'],
+          message: 'en producción debe usar https',
         });
       }
     }

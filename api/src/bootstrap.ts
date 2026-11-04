@@ -7,8 +7,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { auditFailures } from './audit/audit-failures.middleware';
+import { requestContext } from './common/request-context';
 import { AuditService } from './audit/audit.service';
 import { parseCorsOrigins } from './config/cors';
 import {
@@ -32,7 +34,16 @@ export function configureApp(app: INestApplication): void {
     .getInstance()
     .set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
 
+  app.use(requestContext());
+
   app.use(auditFailures(app.get(AuditService)));
+
+  // Las respuestas llevan datos personales y de sesión: ni el navegador ni un
+  // proxy intermedio deben guardar copia.
+  app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
 
   app.use(helmet());
 

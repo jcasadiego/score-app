@@ -2,12 +2,19 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../generated/prisma/client';
 import { PASSWORD_MAX, PASSWORD_MIN } from '../src/users/dto/limits';
+import {
+  sampleDataAllowed,
+  seedSampleQuestionnaire,
+} from './sample-questionnaire';
 
 /**
  * Crea el primer usuario ADMIN si todavía no existe. Necesario porque
  * `UsersController` (POST /users) exige estar ya autenticado como
  * ADMIN — sin este seed no hay forma de entrar al panel por primera vez.
  * Idempotente: si el email ya existe, no le toca el password.
+ *
+ * Fuera de producción carga además el cuestionario de prueba
+ * (`sample-questionnaire.ts`), publicado a nombre de ese ADMIN.
  */
 async function main() {
   const email = requireEnv('ADMIN_EMAIL');
@@ -35,6 +42,12 @@ async function main() {
   });
 
   console.log(`Usuario admin listo: ${user.email} (${user.id})`);
+
+  if (sampleDataAllowed(process.env)) {
+    await seedSampleQuestionnaire(prisma, user.id);
+  } else {
+    console.log('Cuestionario de prueba: omitido en este entorno');
+  }
 
   await prisma.$disconnect();
 }

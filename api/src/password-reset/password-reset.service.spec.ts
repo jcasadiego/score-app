@@ -100,8 +100,9 @@ describe('PasswordResetService', () => {
         /^https:\/\/panel\.example\.com\/reset-password\?token=/,
       );
       const { data } = prisma.passwordResetToken.create.mock.calls[0][0];
-      expect(data.tokenHash).toBe(hashToken(token));
-      expect(data.tokenHash).not.toBe(token);
+      // Que el hash corresponda al token lo prueba `password-link.service.spec.ts`.
+      expect(data.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(data.tokenHash).not.toContain(token);
       const ttlMs = data.expiresAt.getTime() - Date.now();
       expect(ttlMs).toBeGreaterThan(59 * 60 * 1000);
       expect(ttlMs).toBeLessThanOrEqual(60 * 60 * 1000);

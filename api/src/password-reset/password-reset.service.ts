@@ -1,13 +1,16 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'node:crypto';
+import * as argon2 from 'argon2';
 import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
 import { panelLink } from '../config/panel-url';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { passwordChangeData, UsersService } from '../users/users.service';
+import { UsersService } from '../users/users.service';
+import { hashToken, newLinkToken } from './password-link.service';
+
+export { hashToken };
 
 export const RESET_LINK_TTL_MS = 60 * 60 * 1000;
 
@@ -18,10 +21,6 @@ export const REQUEST_MESSAGE =
 const INVALID_LINK_CODE = 'INVALID_RESET_LINK';
 export const INVALID_LINK_MESSAGE =
   'El enlace no es válido, ya se usó o venció. Pide uno nuevo.';
-
-export function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 /**
  * Recuperación de contraseña de los usuarios de `apps/panel`. El token
@@ -62,7 +61,7 @@ export class PasswordResetService {
       return;
     }
 
-    const token = randomBytes(32).toString('base64url');
+    const { token, record } = newLinkToken(RESET_LINK_TTL_MS);
     // Borrar los pendientes y crear el nuevo juntos: pedir un enlace nuevo
     // invalida el anterior.
     await this.prisma.$transaction([
@@ -70,11 +69,7 @@ export class PasswordResetService {
         where: { userId: user.id, usedAt: null },
       }),
       this.prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashToken(token),
-          expiresAt: new Date(Date.now() + RESET_LINK_TTL_MS),
-        },
+        data: { userId: user.id, ...record },
       }),
     ]);
 
@@ -130,7 +125,7 @@ export class PasswordResetService {
       });
     }
 
-    const passwordData = await passwordChangeData(password);
+    const passwordHash = await argon2.hash(password);
 
     await this.prisma.$transaction(async (tx) => {
       // Marcar como usado solo si sigue sin usar: si dos requests llegan a
@@ -147,9 +142,16 @@ export class PasswordResetService {
         });
       }
 
+      // Sube `sessionVersion` para cerrar las sesiones abiertas. No toca el
+      // bloqueo por intentos: si no, recuperar la contraseña permitiría seguir
+      // probando códigos de MFA sin límite. Vence solo, en 15 minutos.
       await tx.user.update({
         where: { id: resetToken.userId },
-        data: passwordData,
+        data: {
+          passwordHash,
+          passwordSetAt: new Date(),
+          sessionVersion: { increment: 1 },
+        },
       });
       await tx.passwordResetToken.deleteMany({
         where: { userId: resetToken.userId, usedAt: null },

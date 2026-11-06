@@ -186,13 +186,12 @@ describe('Recuperación de contraseña (e2e)', () => {
       return user.id;
     }
 
-    it('cambiar la contraseña invalida el enlace', async () => {
+    it('que un Aprobador restablezca la contraseña invalida el enlace', async () => {
       const token = await requestLink();
 
-      const id = await userId();
       await app
         .get(UsersService)
-        .update(id, { password: 'clave-del-admin-123' }, id);
+        .resetPassword(await userId(), 'otro-aprobador');
 
       await confirm(token).expect(400);
     });

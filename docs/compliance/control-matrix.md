@@ -1,6 +1,6 @@
 # Matriz de controles
 
-Estado al 2026-11-04. **Implementado:** existe en el repo y tiene prueba o
+Estado al 2026-11-06. **Implementado:** existe en el repo y tiene prueba o
 configuración verificable. **Parcial:** existe con una limitación indicada.
 **Pendiente:** falta, con su responsable o ticket.
 
@@ -15,12 +15,13 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Bloqueo: 5 intentos fallidos, 15 minutos, auditado | A.8.5 | CC6.1 | Implementado | `test/login-lockout.e2e-spec.ts` |
 | Límite de peticiones en login y rutas públicas | A.8.5, A.8.6 | CC6.6 | Parcial | `app-throttler.guard.ts`. Contadores en memoria: con varias instancias hace falta un almacén compartido (PF-60) |
 | Sesión revocable, única y con límite absoluto | A.8.5 | CC6.1 | Implementado | `sessions.service.ts`, `test/auth-refresh.e2e-spec.ts` |
-| Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Una cuenta sin configurar puede activarlo con solo su contraseña: el correo avisa y un ADMIN lo restablece (PF-59) |
+| Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Lo configura solo quien definió la contraseña con el enlace de su correo: restablecerlo también invalida la contraseña (PF-59) |
 | Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec. Falta rotar la llave (PF-57) |
 | Vencimiento de sesión por inactividad | A.8.5 | CC6.1 | Parcial | 1 día (`JWT_EXPIRES_IN`). Valorar un plazo menor; decisión de José |
 | Mínimo privilegio y roles | A.5.15, A.5.18, A.8.2, A.8.3 | CC6.3 | Implementado | Revisor y Aprobador validados en cada petición, sin rol por defecto y con un Aprobador activo garantizado. `CLAUDE.md` 5.3, `api/test/roles.e2e-spec.ts` |
 | Cambios de rol trazables y con cierre de sesión | A.5.18, A.8.15 | CC6.2, CC7.2 | Implementado | `USER_ROLE_CHANGED` en la misma transacción, con el rol anterior y el nuevo. `users.service.ts` |
 | Separación de funciones: quien corrige un caso no lo aprueba | A.5.3 | CC6.3 | Riesgo aceptado | El Aprobador puede aprobar lo que corrigió: decisión de José del 2026-11-04, por el tamaño del equipo. Un auditor lo va a objetar. Compensa la bitácora, que debe registrar quién corrigió y quién aprobó (PF-39); revisar al crecer el equipo |
+| Nadie conoce la contraseña de otra cuenta: el dueño la define con un enlace de un solo uso al crearla y cuando un Aprobador la restablece | A.5.17 | CC6.2 | Implementado | `users.service.ts`, `password-link.service.ts`, `test/account-activation.e2e-spec.ts` (PF-59). Quien controla el correo del dueño controla la cuenta, como en toda recuperación por correo |
 | Alta y baja de usuarios; la baja corta el acceso al instante | A.5.16, A.5.18 | CC6.2, CC6.3 | Implementado | `users.service.ts`, `jwt.strategy.ts`. La revisión periódica de accesos es de la organización |
 | Enlace del cliente final registrado y revocable | A.8.5 | CC6.1 | Parcial | Sin estado todavía: PF-16. La ruta de pruebas no existe fuera de desarrollo y test |
 

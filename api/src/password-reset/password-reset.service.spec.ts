@@ -149,6 +149,7 @@ describe('PasswordResetService', () => {
         where: { id: 'u1' },
         data: {
           passwordHash: 'hash-nuevo',
+          passwordSetAt: expect.any(Date),
           sessionVersion: { increment: 1 },
         },
       });

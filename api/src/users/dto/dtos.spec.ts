@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { ConfirmPasswordResetDto } from '../../password-reset/dto/confirm-password-reset.dto';
 import { CreateUserDto } from './create-user.dto';
 import { ListUsersDto } from './list-users.dto';
 
@@ -9,7 +10,6 @@ describe('DTOs de usuarios', () => {
     const dto = plainToInstance(CreateUserDto, {
       name: '  Sam   Lee ',
       email: ' sam@example.com ',
-      password: 'clave-de-prueba-123',
       role: 'REVIEWER',
     });
 
@@ -22,7 +22,6 @@ describe('DTOs de usuarios', () => {
     const dto = plainToInstance(CreateUserDto, {
       name: 'a'.repeat(121),
       email: 'a@example.com',
-      password: 'clave-de-prueba-123',
       role: 'REVIEWER',
     });
 
@@ -35,7 +34,6 @@ describe('DTOs de usuarios', () => {
       const dto = plainToInstance(CreateUserDto, {
         name: 'Sam Lee',
         email: 'sam@example.com',
-        password: 'clave-de-prueba-123',
         role,
       });
       const errors = await validate(dto);
@@ -44,13 +42,9 @@ describe('DTOs de usuarios', () => {
   });
 
   it('exige el largo de contraseña de la política', async () => {
+    // La única puerta para definir una contraseña es el enlace (PF-59).
     const withPassword = (password: string) =>
-      plainToInstance(CreateUserDto, {
-        name: 'Sam Lee',
-        email: 'sam@example.com',
-        password,
-        role: 'REVIEWER',
-      });
+      plainToInstance(ConfirmPasswordResetDto, { token: 't', password });
 
     for (const password of ['a'.repeat(11), 'a'.repeat(129)]) {
       const errors = await validate(withPassword(password));

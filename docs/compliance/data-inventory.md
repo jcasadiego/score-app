@@ -11,10 +11,10 @@ agregue un dato personal o un proveedor lo anota aquí en el mismo PR.
 | Dato | Titular | Dónde vive | Finalidad | Base legal | Conservación |
 |---|---|---|---|---|---|
 | Nombre, correo, teléfono (opcional), familia y UTM | Lead | `leads` | Contacto comercial tras la precalificación | Por definir | Por definir |
-| Nombre, correo, hash de contraseña, rol, estado | Equipo interno | `users` | Acceso al panel | Por definir | Por definir |
+| Nombre, correo, hash de contraseña y cuándo se definió, rol, estado | Equipo interno | `users` | Acceso al panel | Por definir | Por definir |
 | Sesión e intentos fallidos | Equipo interno | `user_sessions`, `users` | Seguridad de la cuenta | Por definir | La sesión, hasta 7 días |
 | Secreto TOTP cifrado y códigos de recuperación (solo hash) | Equipo interno | `users`, `user_recovery_codes` | Segundo factor del panel | Por definir | Mientras la cuenta tenga MFA |
-| Enlace de recuperación (solo hash) | Equipo interno | `password_reset_tokens` | Recuperar el acceso | Por definir | Vence en 1 hora; la fila no se borra todavía |
+| Enlace de recuperación o activación (solo hash) | Equipo interno | `password_reset_tokens` | Recuperar el acceso o definir la primera contraseña | Por definir | Vence en 1 hora (recuperación) o 72 horas (activación o restablecido por un Aprobador); la fila no se borra todavía |
 | Actor, acción, entidad, id de petición; correo enmascarado en los envíos | Equipo y clientes | `audit_logs` | Trazabilidad | Por definir | Por definir. Solo inserción: el borrado deberá respetarlo |
 | Método, ruta, estado, duración, actor | Equipo y clientes | Logs de la API | Operación y seguridad | Por definir | Por definir |
 | Respuestas del diagnóstico, posible información financiera | Cliente final | Aún no existe (PF-16) | Diagnóstico | Por definir | Por definir |

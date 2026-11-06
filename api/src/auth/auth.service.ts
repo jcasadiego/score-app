@@ -66,7 +66,17 @@ export class AuthService {
     // Mismo mensaje genérico también cuando la cuenta existe pero está
     // desactivada o bloqueada, por la misma razón que DUMMY_HASH: no delatar
     // el estado de una cuenta a quien no logró autenticarse.
-    if (!user || !isPasswordValid || !user.active || isLocked) {
+    // Sin contraseña definida (PF-59), la cuenta espera el enlace de su dueño.
+    // `passwordHash` ya es de una aleatoria; esto es una segunda barrera.
+    const isPasswordSet = !!user?.passwordSetAt;
+
+    if (
+      !user ||
+      !isPasswordValid ||
+      !isPasswordSet ||
+      !user.active ||
+      isLocked
+    ) {
       if (user && !isPasswordValid && !isLocked) {
         // Sin esperar: si la respuesta tardara más cuando el email existe, el
         // tiempo delataría qué cuentas hay.

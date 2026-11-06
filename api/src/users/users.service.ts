@@ -3,10 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditActorType, UserRole } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import {
+  newLinkToken,
+  PasswordLinkService,
+  SETUP_LINK_TTL_MS,
+  unusablePasswordHash,
+} from '../password-reset/password-link.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Intentos fallidos seguidos antes de bloquear la cuenta, y por cuánto tiempo. */
@@ -20,6 +25,7 @@ const PUBLIC_SELECT = {
   active: true,
   role: true,
   mfaEnabledAt: true,
+  passwordSetAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
@@ -40,9 +46,11 @@ export type PublicUser = Prisma.UserGetPayload<{
 interface CreateUserParams {
   name: string;
   email: string;
-  password: string;
   role: UserRole;
 }
+
+/** El usuario y si salió el correo con su enlace (si no, el panel lo avisa). */
+export type UserWithLinkSent = PublicUser & { linkSent: boolean };
 
 interface ListUsersParams {
   page: number;
@@ -57,25 +65,14 @@ export interface UsersPage {
   pageSize: number;
 }
 
+/**
+ * Sin `password` a propósito (PF-59): nadie define ni cambia la contraseña de
+ * otra persona. Para eso está `resetPassword`, que le manda un enlace a su dueño.
+ */
 interface UpdateUserParams {
   name?: string;
   email?: string;
-  password?: string;
   role?: UserRole;
-}
-
-/**
- * Datos de Prisma para cambiar una contraseña. Es el único lugar que la
- * cambia (CRUD y recuperación), para que ningún camino olvide subir
- * `sessionVersion` — eso es lo que cierra las sesiones abiertas. No toca el
- * bloqueo por intentos: si no, recuperar la contraseña permitiría seguir probando
- * códigos de MFA sin límite. Vence solo, en 15 minutos.
- */
-export async function passwordChangeData(password: string) {
-  return {
-    passwordHash: await argon2.hash(password),
-    sessionVersion: { increment: 1 },
-  } satisfies Prisma.UserUpdateInput;
 }
 
 @Injectable()
@@ -83,6 +80,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly passwordLinks: PasswordLinkService,
   ) {}
 
   /** Correos de quienes reciben los avisos al equipo. */
@@ -132,22 +130,96 @@ export class UsersService {
     });
   }
 
-  async create({
-    name,
-    email,
-    password,
-    role,
-  }: CreateUserParams): Promise<PublicUser> {
-    const passwordHash = await argon2.hash(password);
+  /**
+   * La cuenta nace sin contraseña usable: su dueño la define con el enlace que
+   * le llega por correo, así que quien la crea no puede entrar con ella ni
+   * configurar su MFA (PF-59).
+   */
+  async create(
+    { name, email, role }: CreateUserParams,
+    requesterId: string,
+  ): Promise<UserWithLinkSent> {
+    const passwordHash = await unusablePasswordHash();
+    const { token, record } = newLinkToken(SETUP_LINK_TTL_MS);
 
+    let user: PublicUser;
     try {
-      return await this.prisma.user.create({
-        data: { name, email, passwordHash, role },
+      user = await this.prisma.user.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          passwordSetAt: null,
+          role,
+          passwordResetTokens: { create: record },
+        },
         select: PUBLIC_SELECT,
       });
     } catch (error) {
       throw this.mapPrismaError(error, email);
     }
+
+    const linkSent = await this.passwordLinks.send(
+      user,
+      token,
+      'ACCOUNT_CREATED',
+      requesterId,
+    );
+    return { ...user, linkSent };
+  }
+
+  /**
+   * Invalida la contraseña de otra cuenta y le manda a su dueño un enlace para
+   * definir una nueva; también sirve para reenviar el de activación. Nunca sobre
+   * uno mismo: para eso está "¿Olvidaste tu contraseña?".
+   */
+  async resetPassword(
+    id: string,
+    requesterId: string,
+  ): Promise<UserWithLinkSent> {
+    if (id === requesterId) {
+      throw new ConflictException(
+        'Para cambiar tu contraseña, usa "¿Olvidaste tu contraseña?".',
+      );
+    }
+
+    const { user, token } = await this.prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({
+        where: { id },
+        select: { active: true },
+      });
+      if (!target) {
+        throw new NotFoundException(`Usuario ${id} no encontrado`);
+      }
+      // El enlace no le serviría: la confirmación rechaza cuentas desactivadas.
+      if (!target.active) {
+        throw new ConflictException('La cuenta está desactivada.');
+      }
+      const token = await this.passwordLinks.revokePassword(tx, id);
+      await this.audit.record(
+        {
+          actorType: AuditActorType.PANEL_USER,
+          actorId: requesterId,
+          action: 'PASSWORD_RESET_BY_APPROVER',
+          entity: 'User',
+          entityId: id,
+        },
+        tx,
+      );
+      const user = await tx.user.findUniqueOrThrow({
+        where: { id },
+        select: PUBLIC_SELECT,
+      });
+      return { user, token };
+    });
+
+    const linkSent = await this.passwordLinks.send(
+      user,
+      token,
+      'PASSWORD_RESET_BY_APPROVER',
+      requesterId,
+    );
+    return { ...user, linkSent };
   }
 
   /**
@@ -194,12 +266,10 @@ export class UsersService {
 
   async update(
     id: string,
-    { password, role, ...data }: UpdateUserParams,
+    { role, ...data }: UpdateUserParams,
     requesterId: string,
   ): Promise<PublicUser> {
-    const revokeResetLinks =
-      !!password || (await this.emailChanges(id, data.email));
-    const passwordData = password ? await passwordChangeData(password) : {};
+    const revokeResetLinks = await this.emailChanges(id, data.email);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -210,7 +280,6 @@ export class UsersService {
           where: { id },
           data: {
             ...data,
-            ...passwordData,
             ...roleData,
             ...(revokeResetLinks ? REVOKE_RESET_LINKS : {}),
           },

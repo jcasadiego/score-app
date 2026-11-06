@@ -94,6 +94,54 @@ export function passwordResetEmail(
   );
 }
 
+/**
+ * Por qué el dueño de la cuenta tiene que definir su contraseña. En los tres
+ * casos la anterior, si la había, ya no sirve.
+ */
+export type PasswordSetupReason =
+  'ACCOUNT_CREATED' | 'PASSWORD_RESET_BY_APPROVER' | 'MFA_RESET';
+
+const PASSWORD_SETUP_TEXT: Record<
+  PasswordSetupReason,
+  { subject: string; intro: string }
+> = {
+  ACCOUNT_CREATED: {
+    subject: 'Activa tu cuenta del panel SCORE',
+    intro:
+      'Te crearon una cuenta en el panel SCORE. Para activarla, define tu contraseña con el botón de abajo y después configura la verificación en dos pasos.',
+  },
+  PASSWORD_RESET_BY_APPROVER: {
+    subject: 'Define una contraseña nueva para el panel SCORE',
+    intro:
+      'Un Aprobador restableció la contraseña de tu cuenta del panel SCORE: la anterior ya no sirve. Define una nueva con el botón de abajo.',
+  },
+  MFA_RESET: {
+    subject: 'Vuelve a configurar tu acceso al panel SCORE',
+    intro:
+      'Un Aprobador restableció la verificación en dos pasos de tu cuenta del panel SCORE. Por seguridad, tu contraseña anterior ya no sirve: define una nueva con el botón de abajo y vuelve a configurar la verificación en dos pasos.',
+  },
+};
+
+export function passwordSetupEmail(
+  data: LinkMailData & { reason: PasswordSetupReason; ttlHours: number },
+  brand?: BrandOptions,
+): RenderedEmail {
+  const text = PASSWORD_SETUP_TEXT[data.reason];
+  return renderBaseTemplate(
+    {
+      subject: text.subject,
+      title: `Hola, ${data.name}`,
+      paragraphs: [
+        text.intro,
+        `El enlace sirve una sola vez y vence en ${data.ttlHours} horas. Si vence, pide uno nuevo con "¿Olvidaste tu contraseña?" en el inicio de sesión.`,
+      ],
+      button: { text: 'Definir mi contraseña', url: data.link },
+      note: 'Si no esperabas este correo, avisa al equipo de Music Finance Pro.',
+    },
+    brand,
+  );
+}
+
 // El nombre y los UTM los escribe cualquiera en el formulario público: van solo
 // en el cuerpo, escapados por la plantilla, nunca en el asunto.
 export interface SecurityNoticeData {
@@ -101,15 +149,12 @@ export interface SecurityNoticeData {
   event: SecurityNoticeEvent;
 }
 
-export type SecurityNoticeEvent =
-  'MFA_ENROLLED' | 'MFA_RECOVERY_CODE_USED' | 'MFA_RESET';
+export type SecurityNoticeEvent = 'MFA_ENROLLED' | 'MFA_RECOVERY_CODE_USED';
 
 const SECURITY_NOTICE_TEXT: Record<SecurityNoticeEvent, string> = {
   MFA_ENROLLED: 'Se activó la verificación en dos pasos en tu cuenta.',
   MFA_RECOVERY_CODE_USED:
     'Se inició sesión en tu cuenta con un código de recuperación.',
-  MFA_RESET:
-    'Un Aprobador restableció la verificación en dos pasos de tu cuenta. La configurarás de nuevo la próxima vez que inicies sesión.',
 };
 
 export function securityNoticeEmail(

@@ -121,12 +121,20 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   cuentas (`name`, `email`, `active`) — sin autoservicio, lo administra el
   propio equipo y exige estar ya autenticado como Aprobador. `active: false`
   revoca el acceso de inmediato (login y JWT ya emitidos), sin borrar el
-  usuario ni su historial. Cambiar la contraseña (`password` opcional en
-  `PATCH /users/:id`, o por recuperación) cierra todas las sesiones
-  abiertas: el JWT lleva `ver` (`User.sessionVersion`), y
-  `JwtStrategy` rechaza los tokens de una versión anterior. Todo cambio
-  de contraseña pasa por `passwordChangeData()` (`users.service.ts`),
-  que hashea y sube la versión. `GET /users` está paginado en el servidor
+  usuario ni su historial. Nadie define ni conoce la contraseña de otra
+  persona (PF-59): `POST /users` no recibe `password`; la cuenta nace con una
+  contraseña aleatoria que no se guarda en ningún lado y `passwordSetAt: null`,
+  y su dueño recibe un enlace de un solo uso (72 h) para definirla en
+  `/reset-password` antes de configurar el MFA. `POST /users/:id/password-reset`
+  (Aprobador, nunca sobre uno mismo ni sobre una cuenta desactivada) invalida la
+  contraseña vigente, cierra sus sesiones y le manda un enlace nuevo; también
+  sirve para reenviar el de activación. `PATCH /users/:id/reset-mfa` hace lo
+  mismo además de quitar el MFA. Las tres respuestas traen `linkSent`: si el
+  correo falló, el panel lo avisa. El login rechaza una cuenta con
+  `passwordSetAt` nulo. Cambiar la contraseña cierra todas las sesiones
+  abiertas: el JWT lleva `ver` (`User.sessionVersion`), y `JwtStrategy`
+  rechaza los tokens de una versión anterior. Los enlaces salen de
+  `PasswordLinkService` (`src/password-reset/password-link.service.ts`). `GET /users` está paginado en el servidor
   (`?page=1&pageSize=20&search=`, máx. 100 por página) y devuelve
   `{ data, total, page, pageSize }`: página y conteo salen de una sola
   transacción, y la búsqueda (`search`, por nombre o email, sin distinguir
@@ -148,7 +156,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   por `MailService`. En la base solo queda el SHA-256 del token
   (`PasswordResetToken`). `POST /auth/password-reset/confirm`
   (`{ token, password }`, 5/min por IP) responde 204, o 400 con un único
-  mensaje para enlace inválido, usado o vencido. La bitácora guarda la
+  mensaje para enlace inválido, usado o vencido. La misma confirmación activa
+  una cuenta nueva o restablecida por un Aprobador (`passwordSetAt`). La bitácora guarda la
   solicitud y el cambio sin token ni email en claro.
 - `src/access-link/` — token de vida corta para `apps/diagnostico`
   (`POST /access-links` con `{ subjectId }`, solo ADMIN, para QA)
@@ -171,7 +180,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   y `PATCH /leads/:id/status` (`NEW`/`CONTACTED`/`CONVERTED`). El resto
   de los datos del lead no se edita desde el panel.
 - `src/mail/` — correo transaccional. Los módulos llaman a
-  `MailService` (`sendDiagnosticLink`, `sendLinkRecovery`, `sendPasswordReset`),
+  `MailService` (`sendDiagnosticLink`, `sendLinkRecovery`, `sendPasswordReset`, `sendPasswordSetup`),
   nunca al proveedor: detrás está `MailPort` (`mail.port.ts`), con
   dos adaptadores elegidos por `MAIL_DRIVER`: `log` (default, no envía
   nada y deja destinatario, asunto, enlaces y texto en el log) y `resend`

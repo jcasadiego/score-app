@@ -4,6 +4,8 @@ import {
   Controller,
   forwardRef,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   Patch,
@@ -51,8 +53,8 @@ export class UsersController {
     entity: 'User',
     fields: ['name', 'email', 'role'],
   })
-  create(@Body() dto: CreateUserDto) {
-    return this.users.create(dto);
+  create(@Body() dto: CreateUserDto, @Req() req: RequestWithUser) {
+    return this.users.create(dto, req.user.id);
   }
 
   @Get()
@@ -69,12 +71,11 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  // `password` queda como [REDACTADO]: deja constancia de que cambió. El cambio
-  // de rol lo registra el servicio, con el rol anterior y el nuevo.
+  // El cambio de rol lo registra el servicio, con el rol anterior y el nuevo.
   @AuditRoute({
     action: 'USER_UPDATED',
     entity: 'User',
-    fields: ['name', 'email', 'password'],
+    fields: ['name', 'email'],
   })
   update(
     @Param('id') id: string,
@@ -82,6 +83,18 @@ export class UsersController {
     @Req() req: RequestWithUser,
   ) {
     return this.users.update(id, dto, req.user.id);
+  }
+
+  /**
+   * Invalida la contraseña y le manda a su dueño un enlace para definir otra.
+   * También reenvía el de activación. Nunca sobre uno mismo.
+   */
+  @Post(':id/password-reset')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  @AuditRoute({ byService: true })
+  resetPassword(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.users.resetPassword(id, req.user.id);
   }
 
   /** Para quien perdió el autenticador y sus códigos; nunca sobre uno mismo. */

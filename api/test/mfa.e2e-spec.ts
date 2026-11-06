@@ -9,7 +9,8 @@ import { currentStep, totpAtStep } from './../src/auth/mfa/totp';
 import { configureApp } from './../src/bootstrap';
 import { AppThrottlerGuard } from './../src/common/app-throttler.guard';
 import { PrismaService } from './../src/prisma/prisma.service';
-import { UsersService } from './../src/users/users.service';
+import { hashToken } from './../src/password-reset/password-link.service';
+import { PasswordResetService } from './../src/password-reset/password-reset.service';
 
 const EMAIL = 'mfa.e2e@example.com';
 const ADMIN_EMAIL = 'mfa.admin.e2e@example.com';
@@ -240,9 +241,16 @@ describe('Segundo factor del panel (e2e)', () => {
       data: { lockedUntil, failedLoginAttempts: 0 },
     });
 
+    await prisma.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash: hashToken('token-mfa-e2e'),
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
     await app
-      .get(UsersService)
-      .update(userId, { password: 'clave-nueva-de-mfa-456' }, userId);
+      .get(PasswordResetService)
+      .confirm('token-mfa-e2e', 'clave-nueva-de-mfa-456');
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(user.lockedUntil).toEqual(lockedUntil);
@@ -290,6 +298,13 @@ describe('Segundo factor del panel (e2e)', () => {
 
       expect(response.body.mfaEnabledAt).toBeNull();
       expect(response.body.mfaSecret).toBeUndefined();
+      // También invalida la contraseña (PF-59): quien la supiera no puede
+      // configurar su propio autenticador antes que el dueño.
+      expect(response.body.passwordSetAt).toBeNull();
+      await server()
+        .post(`${AUTH}/login`)
+        .send({ email: EMAIL, password: PASSWORD })
+        .expect(401);
       await server()
         .get(`${AUTH}/session`)
         .set('Authorization', `Bearer ${accessToken}`)

@@ -6,7 +6,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../../../generated/prisma/enums';
-import { EMAIL_MAX, NAME_MAX, PASSWORD_MAX, PASSWORD_MIN } from './limits';
+import { EMAIL_MAX, NAME_MAX } from './limits';
 import { NormalizeText, Trim } from './normalize-text';
 
 export class CreateUserDto {
@@ -20,11 +20,6 @@ export class CreateUserDto {
   @IsEmail()
   @MaxLength(EMAIL_MAX)
   email!: string;
-
-  @IsString()
-  @MinLength(PASSWORD_MIN)
-  @MaxLength(PASSWORD_MAX)
-  password!: string;
 
   @IsEnum(UserRole)
   role!: UserRole;

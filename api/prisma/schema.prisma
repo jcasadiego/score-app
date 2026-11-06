@@ -80,6 +80,10 @@ model User {
   name                String
   email               String    @unique
   passwordHash        String    @map("password_hash")
+  /// Nulo mientras la cuenta espera que su dueño defina la contraseña con el
+  /// enlace del correo: al crearla o cuando un Aprobador la invalida. Mientras
+  /// tanto `passwordHash` es de una contraseña aleatoria que nadie conoce.
+  passwordSetAt       DateTime? @default(now()) @map("password_set_at") @db.Timestamptz(3)
   active              Boolean   @default(true)
   /// Sin valor por defecto: el rol siempre se elige de forma explícita.
   role                UserRole

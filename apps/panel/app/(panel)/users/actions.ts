@@ -16,6 +16,7 @@ import {
   createUser,
   deactivateUser,
   resetUserMfa,
+  resetUserPassword,
   type UpdateUserData,
   type CreateUserData,
   type User,
@@ -25,6 +26,8 @@ export interface UserActionResult {
   ok: boolean;
   error?: string;
   user?: User;
+  /** Solo en las acciones que mandan un enlace: `false` si el correo no salió. */
+  linkSent?: boolean;
 }
 
 /**
@@ -56,9 +59,9 @@ export async function createUserAction(
 ): Promise<UserActionResult> {
   try {
     const token = await authenticatedToken();
-    const user = await createUser(token, data);
+    const { linkSent, ...user } = await createUser(token, data);
     revalidatePath("/users");
-    return { ok: true, user };
+    return { ok: true, user, linkSent };
   } catch (error) {
     return await handleError(error);
   }
@@ -69,26 +72,22 @@ export async function updateUserAction(
   data: UpdateUserData,
 ): Promise<UserActionResult> {
   let user: User;
-  let closedOwnSession: "password-changed" | "role-changed" | null = null;
+  let closedOwnSession = false;
   try {
     const session = await verifySession();
     const token = await authenticatedToken();
     user = await updateUser(token, id, data);
-    if (session.id === id) {
-      if (data.password) closedOwnSession = "password-changed";
-      else if (data.role && data.role !== session.role) {
-        closedOwnSession = "role-changed";
-      }
-    }
+    closedOwnSession =
+      session.id === id && !!data.role && data.role !== session.role;
   } catch (error) {
     return await handleError(error);
   }
 
-  // Cambiar la contraseña o el rol cierra todas las sesiones de esa cuenta en
-  // la API, también la de quien lo cambió si es la suya: se lo manda al login.
+  // Cambiar el rol cierra todas las sesiones de esa cuenta en la API, también
+  // la de quien lo cambió si es la suya: se lo manda al login.
   if (closedOwnSession) {
     await deleteSession();
-    redirect(`/login?notice=${closedOwnSession}`);
+    redirect("/login?notice=role-changed");
   }
 
   revalidatePath("/users");
@@ -126,9 +125,22 @@ export async function resetUserMfaAction(
 ): Promise<UserActionResult> {
   try {
     const token = await authenticatedToken();
-    const user = await resetUserMfa(token, id);
+    const { linkSent, ...user } = await resetUserMfa(token, id);
     revalidatePath("/users");
-    return { ok: true, user };
+    return { ok: true, user, linkSent };
+  } catch (error) {
+    return await handleError(error);
+  }
+}
+
+export async function resetUserPasswordAction(
+  id: string,
+): Promise<UserActionResult> {
+  try {
+    const token = await authenticatedToken();
+    const { linkSent, ...user } = await resetUserPassword(token, id);
+    revalidatePath("/users");
+    return { ok: true, user, linkSent };
   } catch (error) {
     return await handleError(error);
   }

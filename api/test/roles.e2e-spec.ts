@@ -74,6 +74,7 @@ describe('Roles Revisor y Aprobador (e2e)', () => {
       ['get', `${USERS}/cualquiera`],
       ['patch', `${USERS}/cualquiera`],
       ['patch', `${USERS}/cualquiera/reset-mfa`],
+      ['post', `${USERS}/cualquiera/password-reset`],
       ['patch', `${USERS}/cualquiera/deactivate`],
       ['patch', `${USERS}/cualquiera/activate`],
       ['post', '/api/v1/access-links'],
@@ -127,10 +128,7 @@ describe('Roles Revisor y Aprobador (e2e)', () => {
   });
 
   describe('asignar el rol', () => {
-    const NEW_USER = {
-      name: 'Nuevo',
-      password: 'clave-de-prueba-123',
-    };
+    const NEW_USER = { name: 'Nuevo' };
 
     it('crear exige el rol', async () => {
       await server()

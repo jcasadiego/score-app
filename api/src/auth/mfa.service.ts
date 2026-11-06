@@ -13,8 +13,9 @@ import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { SecurityNoticeEvent } from '../mail/templates/emails';
+import { PasswordLinkService } from '../password-reset/password-link.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PublicUser, UsersService } from '../users/users.service';
+import { UsersService, UserWithLinkSent } from '../users/users.service';
 import { AuthService, LoginUser } from './auth.service';
 import { decryptMfaSecret, encryptMfaSecret } from './mfa/secret-cipher';
 import {
@@ -72,6 +73,7 @@ export class MfaService {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     @Inject(forwardRef(() => AuthService)) private readonly auth: AuthService,
+    private readonly passwordLinks: PasswordLinkService,
   ) {}
 
   async issueChallenge(user: {
@@ -243,7 +245,7 @@ export class MfaService {
    * Quita el segundo factor de otra cuenta y le cierra todo: sesiones abiertas y
    * retos en curso (`sessionVersion`). Lo configurará en su próximo acceso.
    */
-  async reset(id: string, requesterId: string): Promise<PublicUser> {
+  async reset(id: string, requesterId: string): Promise<UserWithLinkSent> {
     if (id === requesterId) {
       throw new ConflictException(
         'Otro Aprobador debe restablecer tu verificación en dos pasos.',
@@ -257,18 +259,21 @@ export class MfaService {
       throw new NotFoundException(`Usuario ${id} no encontrado`);
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    // También invalida la contraseña (PF-59): si no, quien la conociera podría
+    // configurar su propio autenticador antes que el dueño. Este, con el enlace
+    // del correo, define una nueva y vuelve a configurar el MFA.
+    const token = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id },
         data: {
           mfaSecret: null,
           mfaEnabledAt: null,
           mfaLastUsedStep: null,
-          sessionVersion: { increment: 1 },
-          sessions: { deleteMany: {} },
           recoveryCodes: { deleteMany: {} },
         },
       });
+      // Sube `sessionVersion` y cierra las sesiones: corta también los retos.
+      const token = await this.passwordLinks.revokePassword(tx, id);
       await this.audit.record(
         {
           actorType: AuditActorType.PANEL_USER,
@@ -279,10 +284,16 @@ export class MfaService {
         },
         tx,
       );
+      return token;
     });
 
-    this.notify(target, 'MFA_RESET');
-    return this.users.findOne(id);
+    const linkSent = await this.passwordLinks.send(
+      target,
+      token,
+      'MFA_RESET',
+      requesterId,
+    );
+    return { ...(await this.users.findOne(id)), linkSent };
   }
 
   private async userFromChallenge(mfaToken: string) {

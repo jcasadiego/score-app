@@ -3,7 +3,7 @@ import { CenteredScreen } from "@/components/centered-screen";
 import { InvalidLink, ResetPasswordForm } from "./reset-password-form";
 
 export const metadata: Metadata = {
-  title: "Restablecer contraseña — Panel SCORE",
+  title: "Definir contraseña — Panel SCORE",
   // El token viaja en la URL: que no se filtre a otros sitios por Referer.
   referrer: "no-referrer",
 };

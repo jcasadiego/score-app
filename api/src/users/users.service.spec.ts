@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { PasswordLinkService } from '../password-reset/password-link.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
 
@@ -18,6 +19,7 @@ function createPrismaError(code: string) {
 describe('UsersService', () => {
   const argon2HashMock = argon2.hash as Mock;
   let audit: { record: Mock };
+  let passwordLinks: { revokePassword: Mock; send: Mock };
   let prisma: {
     $queryRaw: Mock;
     $transaction: Mock;
@@ -26,6 +28,7 @@ describe('UsersService', () => {
       create: Mock;
       findMany: Mock;
       findUnique: Mock;
+      findUniqueOrThrow: Mock;
       update: Mock;
     };
   };
@@ -46,57 +49,86 @@ describe('UsersService', () => {
         create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
+        findUniqueOrThrow: vi.fn(),
         update: vi.fn(),
       },
     };
     audit = { record: vi.fn() };
+    passwordLinks = {
+      revokePassword: vi.fn().mockResolvedValue('token-en-claro'),
+      send: vi.fn().mockResolvedValue(true),
+    };
     service = new UsersService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      passwordLinks as unknown as PasswordLinkService,
     );
   });
 
   describe('create', () => {
-    it('hashea el password y crea el usuario sin devolver passwordHash', async () => {
-      prisma.user.create.mockResolvedValue({
-        id: '1',
-        name: 'Ana',
-        email: 'ana@test.local',
-        active: true,
-        role: 'ADMIN',
-      });
+    const ANA = {
+      id: '1',
+      name: 'Ana',
+      email: 'ana@test.local',
+      active: true,
+      role: 'REVIEWER',
+    };
 
-      const result = await service.create({
+    it('crea la cuenta sin contraseña usable y le manda el enlace a su dueño', async () => {
+      prisma.user.create.mockResolvedValue(ANA);
+
+      const result = await service.create(
+        { name: 'Ana', email: 'ana@test.local', role: 'REVIEWER' },
+        'admin',
+      );
+
+      // La contraseña es aleatoria y no sale del servicio: nadie la conoce.
+      const [random] = argon2HashMock.mock.calls[0] as [string];
+      expect(random).toHaveLength(43);
+      const { data } = prisma.user.create.mock.calls[0][0];
+      expect(data).toMatchObject({
         name: 'Ana',
         email: 'ana@test.local',
-        password: 'password123',
+        passwordHash: 'hash-generado',
+        passwordSetAt: null,
         role: 'REVIEWER',
       });
-
-      expect(argon2HashMock).toHaveBeenCalledWith('password123');
-      expect(prisma.user.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            name: 'Ana',
-            email: 'ana@test.local',
-            passwordHash: 'hash-generado',
-            role: 'REVIEWER',
-          },
-        }),
+      expect(data.passwordResetTokens.create.tokenHash).toMatch(
+        /^[0-9a-f]{64}$/,
       );
+      expect(passwordLinks.send).toHaveBeenCalledWith(
+        ANA,
+        expect.any(String),
+        'ACCOUNT_CREATED',
+        'admin',
+      );
+      // El token en claro va solo en el correo, nunca en la base.
+      const [, token] = passwordLinks.send.mock.calls[0] as [unknown, string];
+      expect(JSON.stringify(data)).not.toContain(token);
+      expect(result).toEqual({ ...ANA, linkSent: true });
       expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('si el correo falla, lo dice en la respuesta', async () => {
+      prisma.user.create.mockResolvedValue(ANA);
+      passwordLinks.send.mockResolvedValue(false);
+
+      const result = await service.create(
+        { name: 'Ana', email: 'ana@test.local', role: 'REVIEWER' },
+        'admin',
+      );
+
+      expect(result.linkSent).toBe(false);
     });
 
     it('lanza ConflictException si el email ya está en uso', async () => {
       prisma.user.create.mockRejectedValue(createPrismaError('P2002'));
 
       await expect(
-        service.create({
-          name: 'Ana',
-          email: 'ana@test.local',
-          password: 'password123',
-          role: 'REVIEWER',
-        }),
+        service.create(
+          { name: 'Ana', email: 'ana@test.local', role: 'REVIEWER' },
+          'admin',
+        ),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -164,8 +196,53 @@ describe('UsersService', () => {
     });
   });
 
+  describe('resetPassword', () => {
+    it('invalida la contraseña, lo audita en la misma transacción y manda el enlace', async () => {
+      prisma.user.findUnique.mockResolvedValue({ active: true });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: '2', name: 'Bo' });
+
+      const result = await service.resetPassword('2', 'admin');
+
+      expect(passwordLinks.revokePassword).toHaveBeenCalledWith(prisma, '2');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PASSWORD_RESET_BY_APPROVER',
+          actorId: 'admin',
+          entityId: '2',
+        }),
+        prisma,
+      );
+      expect(passwordLinks.send).toHaveBeenCalledWith(
+        { id: '2', name: 'Bo' },
+        'token-en-claro',
+        'PASSWORD_RESET_BY_APPROVER',
+        'admin',
+      );
+      expect(result).toEqual({ id: '2', name: 'Bo', linkSent: true });
+    });
+
+    it('nunca sobre uno mismo', async () => {
+      await expect(service.resetPassword('1', '1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(passwordLinks.revokePassword).not.toHaveBeenCalled();
+    });
+
+    it('ni sobre una cuenta desactivada o que no existe, y sin mandar nada', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ active: false });
+      await expect(service.resetPassword('2', 'admin')).rejects.toThrow(
+        ConflictException,
+      );
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+      await expect(service.resetPassword('2', 'admin')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(passwordLinks.send).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
-    it('sin password no toca la contraseña ni las sesiones', async () => {
+    it('no toca la contraseña ni las sesiones', async () => {
       prisma.user.update.mockResolvedValue({ id: '1' });
 
       await service.update('1', { name: 'Ana' }, 'admin');
@@ -173,28 +250,6 @@ describe('UsersService', () => {
       expect(argon2HashMock).not.toHaveBeenCalled();
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { name: 'Ana' } }),
-      );
-    });
-
-    it('con password la hashea y sube sessionVersion para cerrar sesiones', async () => {
-      prisma.user.update.mockResolvedValue({ id: '1' });
-
-      await service.update(
-        '1',
-        { name: 'Ana', password: 'nueva-clave' },
-        'admin',
-      );
-
-      expect(argon2HashMock).toHaveBeenCalledWith('nueva-clave');
-      expect(prisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            name: 'Ana',
-            passwordHash: 'hash-generado',
-            passwordResetTokens: { deleteMany: { usedAt: null } },
-            sessionVersion: { increment: 1 },
-          },
-        }),
       );
     });
   });

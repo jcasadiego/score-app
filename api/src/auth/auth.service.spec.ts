@@ -108,6 +108,24 @@ describe('AuthService', () => {
     );
   });
 
+  it('rechaza una cuenta que espera que su dueño defina la contraseña', async () => {
+    users.findByEmail.mockResolvedValue({
+      id: '1',
+      email: 'nueva@test.local',
+      passwordHash: 'hash-aleatorio',
+      role: 'REVIEWER',
+      active: true,
+      passwordSetAt: null,
+    });
+    // Aunque alguien acertara la contraseña aleatoria (PF-59).
+    argon2VerifyMock.mockResolvedValue(true);
+
+    await expect(service.login('nueva@test.local', 'x')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(mfa.issueChallenge).not.toHaveBeenCalled();
+  });
+
   it('con credenciales válidas pide el segundo factor y no abre sesión', async () => {
     const user = {
       id: '1',
@@ -118,6 +136,7 @@ describe('AuthService', () => {
       sessionVersion: 4,
       failedLoginAttempts: 2,
       lockedUntil: null,
+      passwordSetAt: new Date(),
     };
     users.findByEmail.mockResolvedValue(user);
     argon2VerifyMock.mockResolvedValue(true);
@@ -219,6 +238,7 @@ describe('AuthService', () => {
       sessionVersion: 0,
       failedLoginAttempts: 0,
       lockedUntil: null as Date | null,
+      passwordSetAt: new Date(),
     };
 
     it('cuenta la contraseña incorrecta sin decir nada distinto', async () => {

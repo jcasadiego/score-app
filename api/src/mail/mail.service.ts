@@ -13,6 +13,8 @@ import {
   newLeadNoticeEmail,
   NewLeadNoticeData,
   passwordResetEmail,
+  passwordSetupEmail,
+  PasswordSetupReason,
   SecurityNoticeData,
   securityNoticeEmail,
 } from './templates/emails';
@@ -22,6 +24,7 @@ export type MailType =
   | 'DIAGNOSTIC_LINK'
   | 'LINK_RECOVERY'
   | 'PASSWORD_RESET'
+  | 'PASSWORD_SETUP'
   | 'SECURITY_NOTICE'
   | 'NEW_LEAD_NOTICE'
   | 'DIAGNOSTIC_COMPLETED_NOTICE';
@@ -92,6 +95,21 @@ export class MailService {
       'PASSWORD_RESET',
       recipient.to,
       passwordResetEmail(recipient, this.brand()),
+      context,
+    );
+  }
+
+  sendPasswordSetup(
+    recipient: LinkMailRecipient & {
+      reason: PasswordSetupReason;
+      ttlHours: number;
+    },
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'PASSWORD_SETUP',
+      recipient.to,
+      passwordSetupEmail(recipient, this.brand()),
       context,
     );
   }

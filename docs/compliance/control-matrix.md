@@ -23,7 +23,9 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Separación de funciones: quien corrige un caso no lo aprueba | A.5.3 | CC6.3 | Riesgo aceptado | El Aprobador puede aprobar lo que corrigió: decisión de José del 2026-11-04, por el tamaño del equipo. Un auditor lo va a objetar. Compensa la bitácora, que debe registrar quién corrigió y quién aprobó (PF-39); revisar al crecer el equipo |
 | Nadie conoce la contraseña de otra cuenta: el dueño la define con un enlace de un solo uso al crearla y cuando un Aprobador la restablece | A.5.17 | CC6.2 | Implementado | `users.service.ts`, `password-link.service.ts`, `test/account-activation.e2e-spec.ts` (PF-59). Quien controla el correo del dueño controla la cuenta, como en toda recuperación por correo |
 | Alta y baja de usuarios; la baja corta el acceso al instante | A.5.16, A.5.18 | CC6.2, CC6.3 | Implementado | `users.service.ts`, `jwt.strategy.ts`. La revisión periódica de accesos es de la organización |
-| Enlace del cliente final registrado y revocable | A.8.5 | CC6.1 | Parcial | Sin estado todavía: PF-16. La ruta de pruebas no existe fuera de desarrollo y test |
+| Enlace del cliente final registrado y revocable | A.8.5 | CC6.1 | Implementado | Token opaco de 256 bits, solo su hash en `access_links`, vence en `ACCESS_LINK_TTL_DAYS`. La sesión corta (12 h) revisa el enlace en cada petición: revocarlo, reenviarlo o enviar el diagnóstico la corta. `access-links.service.ts`, `test/diagnostics.e2e-spec.ts` (PF-16) |
+| Un cliente final solo alcanza su propio diagnóstico (OWASP API1) | A.5.15, A.8.3 | CC6.1, CC6.3 | Implementado | El diagnóstico sale de la sesión, nunca de la URL; FK compuestas garantizan en la base que pregunta y opción sean de su versión. `AccessLinkGuard`, `test/diagnostics.e2e-spec.ts` |
+| Recuperación del enlace sin delatar quién tiene un diagnóstico ni dejar fuera al cliente | A.8.5 | CC6.1, P4.1 | Implementado | 202 siempre, envío en segundo plano, 3/min por IP y 3/hora por correo destino; el enlace anterior vale hasta que se usa el nuevo |
 
 ## Registro y monitoreo
 
@@ -43,7 +45,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Cifrado en tránsito: la API no arranca sin `sslmode` ni con enlaces http | A.8.20, A.8.24 | CC6.7 | Implementado | `validate-env.ts` y su spec. TLS público: HSTS en los dos frontends y el proveedor (PF-30) |
 | Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Elegir un proveedor que lo garantice (PF-56) |
-| Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `password-reset.service.ts` |
+| Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `common/link-token.ts`: recuperación y activación del panel, y enlace del cliente final |
 | Secretos fuera del repo, con longitud mínima | A.8.24 | CC6.1 | Implementado | `validate-env.ts`, gitleaks en CI |
 | Gestor de secretos y rotación | A.8.24 | CC6.1 | **Pendiente** | Procedimiento de rotación de JWT y API keys (PF-57) |
 
@@ -71,7 +73,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Actions fijadas por SHA y permisos mínimos | A.5.21, A.8.28 | CC9.2 | Implementado | `.github/workflows/` |
 | Revisión de seguridad por PR y por release | A.8.25, A.8.29 | CC8.1 | Implementado | `CLAUDE.md`, sección 5.1 |
 | Entornos separados; sin datos reales en pruebas | A.8.31, A.8.33 | CC8.1 | Parcial | Variables y e2e separados. El cuestionario de prueba no se carga en producción (`sampleDataAllowed`, `prisma/sample-questionnaire.ts`). QA y producción: PF-30 |
-| Cuestionario publicado inmutable y trazable: cada diagnóstico apunta a la versión exacta que respondió | A.8.32, A.5.33 | CC8.1, PI1.2 | Implementado | Trigger en la base y bloqueo de fila al editar o publicar; quién y cuándo publicó en la versión y en la bitácora (`QUESTIONNAIRE_VERSION_PUBLISHED`, `QUESTION_*`). `test/questionnaire-versions.e2e-spec.ts` (PF-12) |
+| Cuestionario publicado inmutable y trazable: cada diagnóstico apunta a la versión exacta que respondió | A.8.32, A.5.33 | CC8.1, PI1.2 | Implementado | Trigger en la base y bloqueo de fila al editar o publicar; quién y cuándo publicó en la versión y en la bitácora (`QUESTIONNAIRE_VERSION_PUBLISHED`, `QUESTION_*`). `test/questionnaire-versions.e2e-spec.ts` (PF-12). Un diagnóstico solo apunta a una versión publicada (trigger) y publicar otra no lo altera (PF-16) |
 
 ## Privacidad
 

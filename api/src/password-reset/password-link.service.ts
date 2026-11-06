@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Prisma } from '../../generated/prisma/client';
+import { hashToken, newLinkToken } from '../common/link-token';
 import { AuditActorType } from '../../generated/prisma/enums';
 import { panelLink } from '../config/panel-url';
 import { ValidatedEnv } from '../config/validate-env';
@@ -16,21 +17,7 @@ import { MailService } from '../mail/mail.service';
  */
 export const SETUP_LINK_TTL_MS = 72 * 60 * 60 * 1000;
 
-export function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-/** Token nuevo en claro (va solo en el correo) y lo que se guarda de él. */
-export function newLinkToken(ttlMs: number) {
-  const token = randomBytes(32).toString('base64url');
-  return {
-    token,
-    record: {
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + ttlMs),
-    },
-  };
-}
+export { hashToken, newLinkToken };
 
 /**
  * Hash de una contraseña aleatoria que no se guarda en ningún lado: la cuenta

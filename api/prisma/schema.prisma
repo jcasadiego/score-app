@@ -110,6 +110,8 @@ model User {
 
   createdQuestionnaireVersions   QuestionnaireVersion[] @relation("QuestionnaireVersionCreatedBy")
   publishedQuestionnaireVersions QuestionnaireVersion[] @relation("QuestionnaireVersionPublishedBy")
+  createdDiagnostics             Diagnostic[]
+  issuedAccessLinks              AccessLink[]
 
   @@map("users")
 }
@@ -197,6 +199,8 @@ model Lead {
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  diagnostic Diagnostic?
+
   @@index([email])
   @@index([createdAt])
   @@map("leads")
@@ -239,7 +243,8 @@ model QuestionnaireVersion {
   createdAt     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  questions Question[]
+  questions   Question[]
+  diagnostics Diagnostic[]
 
   @@unique([family, versionNumber])
   @@index([createdById])
@@ -265,8 +270,12 @@ model Question {
   position               Int
 
   options AnswerOption[]
+  answers Answer[]
 
   @@unique([questionnaireVersionId, code])
+  /// Para la FK compuesta de las respuestas (PF-16): una respuesta solo puede
+  /// ser de una pregunta de la versión de su diagnóstico.
+  @@unique([id, questionnaireVersionId])
   @@map("questions")
 }
 
@@ -279,9 +288,154 @@ model AnswerOption {
   value      String   @db.VarChar(64)
   position   Int
 
+  selections AnswerSelection[]
+
   @@unique([questionId, value])
   /// Para la FK compuesta de las respuestas (PF-16): una respuesta solo puede
   /// elegir opciones de su propia pregunta.
   @@unique([id, questionId])
   @@map("answer_options")
+}
+
+/// Estado guardado del diagnóstico. "Abandonado" no se guarda: es cualquier
+/// diagnóstico sin completar con `lastActivityAt` de hace más de 7 días.
+enum DiagnosticStatus {
+  /// Creado, sin respuestas todavía.
+  ACTIVE
+  IN_PROGRESS
+  /// Enviado por el cliente: ya no admite cambios suyos.
+  COMPLETED
+
+  @@map("diagnostic_status")
+}
+
+enum AccessLinkOrigin {
+  /// Emitido desde el panel, al generar el diagnóstico o al reenviar el enlace.
+  PANEL
+  /// Pedido por el propio cliente con su correo.
+  RECOVERY
+
+  @@map("access_link_origin")
+}
+
+enum ExternalPlatform {
+  SPOTIFY
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  WEBSITE
+
+  @@map("external_platform")
+}
+
+/// Diagnóstico de un lead (PF-16). Apunta a la versión publicada del
+/// cuestionario que responde: la familia sale de ella, no se repite aquí.
+model Diagnostic {
+  id                     String               @id @default(cuid())
+  /// Único: un diagnóstico por lead.
+  leadId                 String               @unique @map("lead_id")
+  lead                   Lead                 @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  questionnaireVersionId String               @map("questionnaire_version_id")
+  questionnaireVersion   QuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Restrict)
+  status                 DiagnosticStatus     @default(ACTIVE)
+  /// Quién lo generó desde el panel. Nulo cuando lo cree el módulo de Pagos.
+  createdById            String?              @map("created_by_id")
+  createdBy              User?                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  /// Motivo de generarlo sin pago (CLAUDE.md 5.3). Obligatorio si lo generó el
+  /// panel (CHECK en la migración).
+  creationReason         String?              @map("creation_reason") @db.VarChar(500)
+  /// Última escritura del cliente. Base del abandono.
+  lastActivityAt         DateTime             @default(now()) @map("last_activity_at") @db.Timestamptz(3)
+  completedAt            DateTime?            @map("completed_at") @db.Timestamptz(3)
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  accessLinks   AccessLink[]
+  answers       Answer[]
+  externalLinks ExternalLink[]
+
+  /// Para la FK compuesta de las respuestas.
+  @@unique([id, questionnaireVersionId])
+  @@index([questionnaireVersionId])
+  @@index([createdById])
+  @@index([status, lastActivityAt])
+  @@map("diagnostics")
+}
+
+/// Enlace sin contraseña del cliente final. Se guarda solo el SHA-256 del token.
+/// Sirve varias veces hasta vencer o ser revocado; su uso abre una sesión que
+/// vuelve a comprobar el enlace en cada petición.
+model AccessLink {
+  id           String           @id @default(cuid())
+  diagnosticId String           @map("diagnostic_id")
+  diagnostic   Diagnostic       @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
+  tokenHash    String           @unique @map("token_hash")
+  origin       AccessLinkOrigin
+  /// Quién lo emitió desde el panel; nulo en una recuperación.
+  createdById  String?          @map("created_by_id")
+  createdBy    User?            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  expiresAt    DateTime         @map("expires_at") @db.Timestamptz(3)
+  /// Primer canje: un enlace sin usar no corta los anteriores.
+  redeemedAt   DateTime?        @map("redeemed_at") @db.Timestamptz(3)
+  revokedAt    DateTime?        @map("revoked_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([diagnosticId])
+  @@index([createdById])
+  @@index([origin, createdAt])
+  @@map("access_links")
+}
+
+/// Respuesta del cliente a una pregunta. Las FK compuestas garantizan que la
+/// pregunta sea de la versión del diagnóstico. Texto libre en `textValue`; las
+/// opciones elegidas, en `AnswerSelection`.
+model Answer {
+  id                     String     @id @default(cuid())
+  diagnosticId           String     @map("diagnostic_id")
+  questionnaireVersionId String     @map("questionnaire_version_id")
+  questionId             String     @map("question_id")
+  diagnostic             Diagnostic @relation(fields: [diagnosticId, questionnaireVersionId], references: [id, questionnaireVersionId], onDelete: Restrict)
+  question               Question   @relation(fields: [questionId, questionnaireVersionId], references: [id, questionnaireVersionId], onDelete: Restrict)
+  /// Tope absoluto de la base; el de cada pregunta lo valida la API.
+  textValue              String?    @map("text_value") @db.VarChar(5000)
+  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  selections AnswerSelection[]
+
+  @@unique([diagnosticId, questionId])
+  /// Para la FK compuesta de las selecciones.
+  @@unique([id, questionId])
+  @@index([diagnosticId, questionnaireVersionId])
+  @@index([questionId, questionnaireVersionId])
+  @@map("answers")
+}
+
+/// Opción elegida en una respuesta de selección. La FK compuesta garantiza que
+/// la opción sea de la misma pregunta que la respuesta.
+model AnswerSelection {
+  answerId   String       @map("answer_id")
+  questionId String       @map("question_id")
+  optionId   String       @map("option_id")
+  answer     Answer       @relation(fields: [answerId, questionId], references: [id, questionId], onDelete: Cascade)
+  option     AnswerOption @relation(fields: [optionId, questionId], references: [id, questionId], onDelete: Restrict)
+
+  @@id([answerId, optionId])
+  @@index([answerId, questionId])
+  @@index([optionId, questionId])
+  @@map("answer_selections")
+}
+
+/// Perfil público del cliente en una plataforma: uno por plataforma, solo https.
+model ExternalLink {
+  id           String           @id @default(cuid())
+  diagnosticId String           @map("diagnostic_id")
+  diagnostic   Diagnostic       @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
+  platform     ExternalPlatform
+  url          String           @db.VarChar(2048)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([diagnosticId, platform])
+  @@map("external_links")
 }

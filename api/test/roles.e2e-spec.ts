@@ -77,7 +77,7 @@ describe('Roles Revisor y Aprobador (e2e)', () => {
       ['post', `${USERS}/cualquiera/password-reset`],
       ['patch', `${USERS}/cualquiera/deactivate`],
       ['patch', `${USERS}/cualquiera/activate`],
-      ['post', '/api/v1/access-links'],
+      ['post', '/api/v1/diagnostics'],
     ] as const)('Revisor recibe 403 en %s %s', async (method, path) => {
       const response = await server()
         [method](path)

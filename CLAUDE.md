@@ -71,9 +71,10 @@ pendientes:
   recuperación (`POST /auth/login` ya no abre sesión; ver `api/README.md`),
   seed del primer ADMIN, versiones del cuestionario
   (`src/questionnaire`: borrador por familia, versión publicada inmutable, con
-  un cuestionario de prueba que el seed carga fuera de producción), el token de
-  enlace stateless de
-  `apps/diagnostico` y el servicio de correo transaccional
+  un cuestionario de prueba que el seed carga fuera de producción), los
+  diagnósticos (`src/diagnostics`: enlace sin contraseña guardado como hash y
+  revocable, sesión del cliente, respuestas, enlaces externos, recuperación
+  del enlace y abandono calculado) y el servicio de correo transaccional
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
   no envía nada). Detalle en `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server

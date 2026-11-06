@@ -52,7 +52,6 @@ jobs:
       JWT_SECRET: ci-secret-panel-de-al-menos-32-caracteres
       JWT_EXPIRES_IN: 1d
       ACCESS_LINK_JWT_SECRET: ci-secret-enlace-de-al-menos-32-caracteres
-      ACCESS_LINK_JWT_EXPIRES_IN: 24h
       THROTTLE_TTL: 60000
       THROTTLE_LIMIT: 100
     steps:

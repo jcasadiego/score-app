@@ -11,8 +11,19 @@ export interface User {
   role: UserRole;
   /** Nulo si todavía no configuró la verificación en dos pasos. */
   mfaEnabledAt: string | null;
+  /**
+   * Nulo mientras espera que su dueño defina la contraseña con el enlace del
+   * correo: al crear la cuenta o tras restablecerla.
+   */
+  passwordSetAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Respuesta de las acciones que mandan un enlace para definir la contraseña. */
+export interface UserWithLinkSent extends User {
+  /** `false` si el correo no salió: hay que reenviar el enlace. */
+  linkSent: boolean;
 }
 
 export interface PaginatedUsers {
@@ -31,15 +42,12 @@ export interface UserFilters {
 export interface CreateUserData {
   name: string;
   email: string;
-  password: string;
   role: UserRole;
 }
 
 export interface UpdateUserData {
   name?: string;
   email?: string;
-  /** Contraseña nueva; la API cierra las sesiones abiertas del usuario. */
-  password?: string;
   /** Cambiarlo cierra las sesiones abiertas del usuario. */
   role?: UserRole;
 }
@@ -65,8 +73,8 @@ export function listUsers(
 export function createUser(
   token: string,
   data: CreateUserData,
-): Promise<User> {
-  return callApi<User>(token, "/users", MESSAGES, {
+): Promise<UserWithLinkSent> {
+  return callApi<UserWithLinkSent>(token, "/users", MESSAGES, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -95,8 +103,27 @@ export function deactivateUser(token: string, id: string): Promise<User> {
   });
 }
 
-export function resetUserMfa(token: string, id: string): Promise<User> {
-  return callApi<User>(token, `/users/${encodeURIComponent(id)}/reset-mfa`, MESSAGES, {
-    method: "PATCH",
-  });
+export function resetUserMfa(
+  token: string,
+  id: string,
+): Promise<UserWithLinkSent> {
+  return callApi<UserWithLinkSent>(
+    token,
+    `/users/${encodeURIComponent(id)}/reset-mfa`,
+    MESSAGES,
+    { method: "PATCH" },
+  );
+}
+
+/** Invalida su contraseña y le manda un enlace para definir otra (o reenvía el de activación). */
+export function resetUserPassword(
+  token: string,
+  id: string,
+): Promise<UserWithLinkSent> {
+  return callApi<UserWithLinkSent>(
+    token,
+    `/users/${encodeURIComponent(id)}/password-reset`,
+    MESSAGES,
+    { method: "POST" },
+  );
 }

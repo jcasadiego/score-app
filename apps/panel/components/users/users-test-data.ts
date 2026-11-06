@@ -29,6 +29,7 @@ function user(
     active,
     role: "ADMIN",
     mfaEnabledAt: null,
+    passwordSetAt: createdAt,
     createdAt,
     updatedAt: createdAt,
   };

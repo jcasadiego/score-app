@@ -39,7 +39,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <Card>
       <Typography.Title level={3} style={{ marginTop: 0, marginBottom: 4 }}>
-        Elige una contraseña nueva
+        Define tu contraseña
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 24 }}>
         Al guardarla se cerrarán las sesiones que tengas abiertas.

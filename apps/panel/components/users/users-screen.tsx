@@ -22,18 +22,14 @@ import {
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import type { PaginatedUsers, User, UserRole } from "@/lib/api/users";
 import { ROLE_LABELS } from "@/lib/theme";
-import {
-  EMAIL_MAX,
-  NAME_MAX,
-  PASSWORD_MAX,
-  PASSWORD_MIN,
-} from "@/lib/users/limits";
+import { EMAIL_MAX, NAME_MAX } from "@/lib/users/limits";
 import {
   activateUserAction,
   updateUserAction,
   createUserAction,
   deactivateUserAction,
   resetUserMfaAction,
+  resetUserPasswordAction,
   type UserActionResult,
 } from "@/app/(panel)/users/actions";
 import { ReactiveSearch } from "@/components/reactive-search";
@@ -47,7 +43,6 @@ interface UsersScreenProps {
 interface UserFormValues {
   name: string;
   email: string;
-  password?: string;
   role: UserRole;
 }
 
@@ -154,14 +149,11 @@ export function UsersScreen({
       ? await updateUserAction(editingUser.id, {
           name: values.name,
           email: values.email,
-          // Vacío = no se cambia.
-          password: values.password || undefined,
           role: values.role,
         })
       : await createUserAction({
           name: values.name,
           email: values.email,
-          password: values.password ?? "",
           role: values.role,
         });
 
@@ -173,9 +165,23 @@ export function UsersScreen({
     }
 
     setModalOpen(false);
-    message.success(
-      editingUser ? "Cambios guardados." : "Usuario creado.",
-    );
+    if (editingUser) {
+      message.success("Cambios guardados.");
+    } else {
+      notifyLink(result, `Usuario creado. Le enviamos a ${values.email} el enlace para activar su cuenta.`);
+    }
+  }
+
+  /** El correo con el enlace puede fallar aunque la acción se haya guardado. */
+  function notifyLink(result: UserActionResult, successMessage: string) {
+    if (result.linkSent === false) {
+      message.warning(
+        "Se guardó el cambio, pero no pudimos enviar el correo. Usa “Reenviar enlace” para intentarlo de nuevo.",
+        8,
+      );
+      return;
+    }
+    message.success(successMessage);
   }
 
   async function runActiveChange(
@@ -191,7 +197,7 @@ export function UsersScreen({
       message.error(result.error ?? "Ocurrió un error inesperado.");
       return;
     }
-    message.success(successMessage);
+    notifyLink(result, successMessage);
   }
 
   function activate(user: User) {
@@ -224,7 +230,7 @@ export function UsersScreen({
     modal.confirm({
       title: `¿Restablecer la verificación en dos pasos de ${user.name}?`,
       content:
-        "Hazlo solo si perdió su autenticador y sus códigos de recuperación, y tras confirmar su identidad. Se cierran sus sesiones y la configurará de nuevo al entrar.",
+        "Hazlo solo si perdió su autenticador y sus códigos de recuperación, y tras confirmar su identidad. Se cierran sus sesiones, su contraseña deja de servir y le enviamos un enlace para definir otra y configurar la verificación de nuevo.",
       okText: "Restablecer",
       okButtonProps: { danger: true },
       cancelText: "Cancelar",
@@ -232,7 +238,28 @@ export function UsersScreen({
         runActiveChange(
           user,
           resetUserMfaAction,
-          `${user.name} configurará la verificación al entrar.`,
+          `Le enviamos a ${user.email} el enlace para volver a entrar.`,
+        ),
+    });
+  }
+
+  function confirmResetPassword(user: User) {
+    const pending = !user.passwordSetAt;
+    modal.confirm({
+      title: pending
+        ? `¿Reenviar el enlace de activación a ${user.name}?`
+        : `¿Restablecer la contraseña de ${user.name}?`,
+      content: pending
+        ? "El enlace anterior deja de servir. El nuevo vence en 72 horas."
+        : "Su contraseña deja de servir y se cierran sus sesiones. Le enviamos un enlace para que defina una nueva; nadie más la conocerá.",
+      okText: pending ? "Reenviar" : "Restablecer",
+      okButtonProps: { danger: !pending },
+      cancelText: "Cancelar",
+      onOk: () =>
+        runActiveChange(
+          user,
+          resetUserPasswordAction,
+          `Le enviamos a ${user.email} el enlace para definir su contraseña.`,
         ),
     });
   }
@@ -241,6 +268,21 @@ export function UsersScreen({
     const isCurrentUser = user.id === currentUserId;
     return [
       { key: "edit", label: "Editar", onClick: () => openEdit(user) },
+      // Sobre una cuenta desactivada no sirve: el enlace no la deja entrar.
+      ...(user.active
+        ? [
+            {
+              key: "reset-password",
+              label: isCurrentUser
+                ? "Para tu contraseña, usa “¿Olvidaste tu contraseña?”"
+                : user.passwordSetAt
+                  ? "Restablecer contraseña"
+                  : "Reenviar enlace de activación",
+              disabled: isCurrentUser,
+              onClick: () => confirmResetPassword(user),
+            },
+          ]
+        : []),
       ...(user.mfaEnabledAt
         ? [
             {
@@ -306,12 +348,14 @@ export function UsersScreen({
       title: "Estado",
       dataIndex: "active",
       key: "active",
-      width: 110,
-      render: (active: boolean) =>
-        active ? (
+      width: 180,
+      render: (active: boolean, user) =>
+        !active ? (
+          <Tag>Inactivo</Tag>
+        ) : user.passwordSetAt ? (
           <Tag color="green">Activo</Tag>
         ) : (
-          <Tag>Inactivo</Tag>
+          <Tag color="gold">Pendiente de activar</Tag>
         ),
     },
     {
@@ -462,6 +506,13 @@ export function UsersScreen({
             <Input maxLength={EMAIL_MAX} autoComplete="off" />
           </Form.Item>
 
+          {!editingUser && (
+            <Typography.Paragraph type="secondary">
+              Le enviaremos un enlace a este correo para que defina su
+              contraseña y active su cuenta. Nadie más la conocerá.
+            </Typography.Paragraph>
+          )}
+
           <Form.Item
             name="role"
             label="Rol"
@@ -473,32 +524,6 @@ export function UsersScreen({
             rules={[{ required: true, message: "Elige un rol." }]}
           >
             <Select options={ROLE_OPTIONS} />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            label={editingUser ? "Nueva contraseña" : "Contraseña"}
-            extra={
-              editingUser
-                ? "Déjala vacía para no cambiarla. Si la cambias, se cierran las sesiones abiertas de este usuario."
-                : undefined
-            }
-            rules={[
-              {
-                required: !editingUser,
-                message: "Ingresa una contraseña.",
-              },
-              {
-                min: PASSWORD_MIN,
-                message: `Debe tener al menos ${PASSWORD_MIN} caracteres.`,
-              },
-              {
-                max: PASSWORD_MAX,
-                message: `Debe tener como máximo ${PASSWORD_MAX} caracteres.`,
-              },
-            ]}
-          >
-            <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>

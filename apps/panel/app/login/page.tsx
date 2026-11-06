@@ -13,15 +13,11 @@ export const metadata: Metadata = {
 const NOTICES: Record<string, LoginNotice> = {
   "password-reset": {
     type: "success",
-    text: "Listo, tu contraseña cambió. Inicia sesión con la nueva.",
+    text: "Listo, tu contraseña quedó guardada. Inicia sesión con ella.",
   },
   "role-changed": {
     type: "warning",
     text: "Tu rol cambió. Vuelve a iniciar sesión para continuar.",
-  },
-  "password-changed": {
-    type: "success",
-    text: "Cambiaste tu contraseña. Inicia sesión de nuevo con la nueva.",
   },
   "mfa-expired": {
     type: "warning",

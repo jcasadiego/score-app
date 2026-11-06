@@ -211,7 +211,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     diagnóstico sin completar más reciente de ese correo, sin revocar el
     anterior. 3/min por IP y 3/hora por correo destino.
   - La bitácora registra cada acción con su actor (`END_CLIENT` = id del
-    diagnóstico), sin el token, el motivo ni las respuestas.
+    diagnóstico) y el `accessLinkId` usado, sin el token, el motivo ni las
+    respuestas. Como el panel puede copiar el enlace del cliente, ese id
+    rastrea cada cambio hasta quién emitió el enlace (`ACCESS_LINK_ISSUED`).
 - `src/leads/` — `POST /api/v1/leads/prequalification`, el endpoint
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un

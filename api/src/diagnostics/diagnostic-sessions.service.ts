@@ -14,7 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AccessLinksService } from './access-links.service';
+import { AccessLinksService, ClientSession } from './access-links.service';
 import { AnswerInput, validateAnswer } from './answer-rules';
 import {
   ANSWER_SELECT,
@@ -75,10 +75,11 @@ export class DiagnosticSessionsService {
 
   /** Crea o reemplaza la respuesta a una pregunta, opciones incluidas. */
   async saveAnswer(
-    diagnosticId: string,
+    session: ClientSession,
     questionId: string,
     input: AnswerInput,
   ): Promise<AnswerView & { questionId: string }> {
+    const diagnosticId = session.sub;
     return this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       const question = await this.findQuestion(tx, diagnostic, questionId);
@@ -113,7 +114,7 @@ export class DiagnosticSessionsService {
       });
 
       await this.touch(tx, diagnosticId, diagnostic, true);
-      await this.recordClientEvent(tx, 'ANSWER_SAVED', diagnosticId, {
+      await this.recordClientEvent(tx, 'ANSWER_SAVED', session, {
         questionId,
       });
       const saved = await tx.answer.findUniqueOrThrow({
@@ -124,7 +125,11 @@ export class DiagnosticSessionsService {
     });
   }
 
-  async deleteAnswer(diagnosticId: string, questionId: string): Promise<void> {
+  async deleteAnswer(
+    session: ClientSession,
+    questionId: string,
+  ): Promise<void> {
+    const diagnosticId = session.sub;
     await this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       await this.findQuestion(tx, diagnostic, questionId);
@@ -134,17 +139,18 @@ export class DiagnosticSessionsService {
       });
       if (count === 0) return;
       await this.touch(tx, diagnosticId, diagnostic, false);
-      await this.recordClientEvent(tx, 'ANSWER_DELETED', diagnosticId, {
+      await this.recordClientEvent(tx, 'ANSWER_DELETED', session, {
         questionId,
       });
     });
   }
 
   async saveExternalLink(
-    diagnosticId: string,
+    session: ClientSession,
     platform: ExternalPlatform,
     rawUrl: string,
   ) {
+    const diagnosticId = session.sub;
     const result = validateExternalLink(platform, rawUrl);
     if ('error' in result) {
       throw new BadRequestException({
@@ -163,7 +169,7 @@ export class DiagnosticSessionsService {
         select: EXTERNAL_LINK_SELECT,
       });
       await this.touch(tx, diagnosticId, diagnostic, false);
-      await this.recordClientEvent(tx, 'EXTERNAL_LINK_SAVED', diagnosticId, {
+      await this.recordClientEvent(tx, 'EXTERNAL_LINK_SAVED', session, {
         platform,
       });
       return link;
@@ -171,9 +177,10 @@ export class DiagnosticSessionsService {
   }
 
   async deleteExternalLink(
-    diagnosticId: string,
+    session: ClientSession,
     platform: ExternalPlatform,
   ): Promise<void> {
+    const diagnosticId = session.sub;
     await this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       const { count } = await tx.externalLink.deleteMany({
@@ -181,7 +188,7 @@ export class DiagnosticSessionsService {
       });
       if (count === 0) return;
       await this.touch(tx, diagnosticId, diagnostic, false);
-      await this.recordClientEvent(tx, 'EXTERNAL_LINK_DELETED', diagnosticId, {
+      await this.recordClientEvent(tx, 'EXTERNAL_LINK_DELETED', session, {
         platform,
       });
     });
@@ -192,7 +199,8 @@ export class DiagnosticSessionsService {
    * 409 con cuáles faltan. Al completarse revoca sus enlaces (la sesión termina
    * aquí) y avisa al equipo.
    */
-  async submit(diagnosticId: string) {
+  async submit(session: ClientSession) {
+    const diagnosticId = session.sub;
     const completed = await this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       const missing = await tx.question.findMany({
@@ -233,7 +241,7 @@ export class DiagnosticSessionsService {
         },
       });
       const revoked = await this.accessLinks.revokeAll(tx, diagnosticId);
-      await this.recordClientEvent(tx, 'DIAGNOSTIC_COMPLETED', diagnosticId, {
+      await this.recordClientEvent(tx, 'DIAGNOSTIC_COMPLETED', session, {
         revokedAccessLinks: revoked,
       });
       return result;
@@ -313,20 +321,24 @@ export class DiagnosticSessionsService {
     });
   }
 
+  /**
+   * Con el enlace usado: el panel puede copiar el enlace del cliente, y así cada
+   * cambio se rastrea hasta quién emitió ese enlace (`ACCESS_LINK_ISSUED`).
+   */
   private recordClientEvent(
     tx: Prisma.TransactionClient,
     action: string,
-    diagnosticId: string,
+    session: ClientSession,
     data: Prisma.InputJsonObject,
   ) {
     return this.audit.record(
       {
         actorType: AuditActorType.END_CLIENT,
-        actorId: diagnosticId,
+        actorId: session.sub,
         action,
         entity: 'Diagnostic',
-        entityId: diagnosticId,
-        data,
+        entityId: session.sub,
+        data: { ...data, accessLinkId: session.linkId },
       },
       tx,
     );

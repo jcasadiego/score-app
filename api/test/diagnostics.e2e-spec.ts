@@ -733,6 +733,21 @@ describe('Diagnósticos (e2e, base propia)', () => {
       });
       const saved = logs.find((l) => l.action === 'ANSWER_SAVED');
       expect(saved).toMatchObject({ actorType: 'END_CLIENT', actorId: id });
+      // Con el enlace usado: se rastrea hasta quién lo emitió.
+      const link = await prisma.accessLink.findFirstOrThrow({
+        where: { diagnosticId: id },
+      });
+      expect(saved?.data).toMatchObject({
+        questionId: questions.story.id,
+        accessLinkId: link.id,
+      });
+      expect(
+        logs.find(
+          (l) =>
+            l.action === 'ACCESS_LINK_ISSUED' &&
+            (l.data as { accessLinkId?: string }).accessLinkId === link.id,
+        ),
+      ).toMatchObject({ actorType: 'PANEL_USER', actorId: approver.id });
 
       const everything = JSON.stringify(
         await prisma.auditLog.findMany({ select: { data: true } }),

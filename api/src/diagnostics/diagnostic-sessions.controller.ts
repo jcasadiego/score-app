@@ -62,7 +62,7 @@ export class DiagnosticSessionsController {
     @Param('questionId') questionId: string,
     @Body() dto: AnswerDto,
   ) {
-    return this.sessions.saveAnswer(req.accessLink.sub, questionId, dto);
+    return this.sessions.saveAnswer(req.accessLink, questionId, dto);
   }
 
   @Delete('current/answers/:questionId')
@@ -74,7 +74,7 @@ export class DiagnosticSessionsController {
     @Req() req: RequestWithAccessLink,
     @Param('questionId') questionId: string,
   ) {
-    return this.sessions.deleteAnswer(req.accessLink.sub, questionId);
+    return this.sessions.deleteAnswer(req.accessLink, questionId);
   }
 
   @Put('current/external-links/:platform')
@@ -87,11 +87,7 @@ export class DiagnosticSessionsController {
     @Param('platform', platformPipe) platform: ExternalPlatform,
     @Body() dto: ExternalLinkDto,
   ) {
-    return this.sessions.saveExternalLink(
-      req.accessLink.sub,
-      platform,
-      dto.url,
-    );
+    return this.sessions.saveExternalLink(req.accessLink, platform, dto.url);
   }
 
   @Delete('current/external-links/:platform')
@@ -104,7 +100,7 @@ export class DiagnosticSessionsController {
     @Req() req: RequestWithAccessLink,
     @Param('platform', platformPipe) platform: ExternalPlatform,
   ) {
-    return this.sessions.deleteExternalLink(req.accessLink.sub, platform);
+    return this.sessions.deleteExternalLink(req.accessLink, platform);
   }
 
   /** Envía el diagnóstico. Desde aquí no admite cambios y la sesión termina. */
@@ -113,6 +109,6 @@ export class DiagnosticSessionsController {
   @UseGuards(AccessLinkGuard)
   @AuditRoute({ byService: true })
   submit(@Req() req: RequestWithAccessLink) {
-    return this.sessions.submit(req.accessLink.sub);
+    return this.sessions.submit(req.accessLink);
   }
 }

@@ -25,6 +25,7 @@ const PRODUCTION = {
   TRUST_PROXY_HOPS: '1',
   PANEL_API_SECRET: 'z'.repeat(32),
   PANEL_URL: 'https://panel.example.com',
+  DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
 
 describe('validateEnv · MFA', () => {
@@ -54,6 +55,15 @@ describe('validateEnv · cifrado en tránsito', () => {
     expect(() =>
       validateEnv({ ...PRODUCTION, PANEL_URL: 'http://panel.example.com' }),
     ).toThrow(/PANEL_URL: en producción debe usar https/);
+  });
+
+  it('en producción exige https en el enlace del cliente final', () => {
+    expect(() =>
+      validateEnv({
+        ...PRODUCTION,
+        DIAGNOSTIC_URL: 'http://diagnostico.example.com',
+      }),
+    ).toThrow(/DIAGNOSTIC_URL: en producción debe usar https/);
   });
 
   it('en desarrollo no exige cifrar la base local', () => {
@@ -101,6 +111,26 @@ describe('validateEnv · correo', () => {
     expect(() =>
       validateEnv({ ...BASE, ...RESEND, NODE_ENV: 'production' }),
     ).toThrow(/PANEL_URL: obligatoria en producción/);
+  });
+
+  it('en producción exige DIAGNOSTIC_URL para el enlace del cliente', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, DIAGNOSTIC_URL: undefined }),
+    ).toThrow(/DIAGNOSTIC_URL: obligatoria en producción/);
+  });
+});
+
+describe('validateEnv · enlace del cliente final', () => {
+  it('vence en 30 días si no se configura', () => {
+    expect(validateEnv(BASE).ACCESS_LINK_TTL_DAYS).toBe(30);
+  });
+
+  it('rechaza vigencias fuera de 1 a 90 días', () => {
+    for (const ACCESS_LINK_TTL_DAYS of ['0', '91', '1.5']) {
+      expect(() => validateEnv({ ...BASE, ACCESS_LINK_TTL_DAYS })).toThrow(
+        /ACCESS_LINK_TTL_DAYS/,
+      );
+    }
   });
 });
 

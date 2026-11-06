@@ -1,7 +1,6 @@
 import { Test } from '@nestjs/testing';
-import { INestApplication, NotFoundException } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AccessLinkController } from './../src/access-link/access-link.controller';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
 import { parseCorsOrigins } from './../src/config/cors';
@@ -65,18 +64,6 @@ describe('Configuración de seguridad (e2e)', () => {
       const response = await request(app.getHttpServer()).get('/api/v1/users');
 
       expect(response.headers['cache-control']).toBe('no-store');
-    });
-  });
-
-  describe('POST /access-links, solo para pruebas', () => {
-    it('no existe en producción, aunque quien llame sea ADMIN', async () => {
-      await startApp();
-      const controller = app.get(AccessLinkController);
-      process.env.NODE_ENV = 'production';
-
-      await expect(controller.issue({ subjectId: 'x' })).rejects.toThrow(
-        NotFoundException,
-      );
     });
   });
 

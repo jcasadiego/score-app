@@ -13,7 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PasswordResetModule } from './password-reset/password-reset.module';
 import { QuestionnaireModule } from './questionnaire/questionnaire.module';
 import { RulesModule } from './rules/rules.module';
-import { AccessLinkModule } from './access-link/access-link.module';
+import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 import { UsersModule } from './users/users.module';
 import { validateEnv } from './config/validate-env';
 
@@ -32,7 +32,7 @@ import { validateEnv } from './config/validate-env';
     ScoringEngineModule,
     UsersModule,
     AuthModule,
-    AccessLinkModule,
+    DiagnosticsModule,
     LeadsModule,
     QuestionnaireModule,
     MailModule,

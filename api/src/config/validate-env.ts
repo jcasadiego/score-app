@@ -35,10 +35,12 @@ const EnvSchema = z
       .int()
       .positive()
       .default(604_800),
+    // Firma la sesión del cliente final tras canjear su enlace.
     ACCESS_LINK_JWT_SECRET: z
       .string()
       .min(32, 'debe tener al menos 32 caracteres'),
-    ACCESS_LINK_JWT_EXPIRES_IN: z.string().default('24h'),
+    // Vigencia del enlace que recibe el cliente por correo.
+    ACCESS_LINK_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
     // Cifra los secretos TOTP. Perderla obliga a reconfigurar el MFA de todos.
     MFA_ENCRYPTION_KEY: z
       .base64()
@@ -58,6 +60,8 @@ const EnvSchema = z
     ),
     // Base de los enlaces del panel que salen por correo (recuperación).
     PANEL_URL: optional(z.url()),
+    // Base del enlace que recibe el cliente final (apps/diagnostico).
+    DIAGNOSTIC_URL: optional(z.url()),
     // `log` no envía nada real (desarrollo); `resend` envía de verdad.
     MAIL_DRIVER: z.enum(['log', 'resend']).default('log'),
     RESEND_API_KEY: optional(z.string()),
@@ -99,23 +103,29 @@ const EnvSchema = z
             'en producción, conexión cifrada: sslmode=require, verify-ca o verify-full',
         });
       }
-      // Los enlaces de recuperación llevan un token: no pueden viajar sin cifrar.
-      if (env.PANEL_URL && !env.PANEL_URL.startsWith('https://')) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['PANEL_URL'],
-          message: 'en producción debe usar https',
-        });
+      // Los enlaces que salen por correo llevan un token: no pueden viajar sin cifrar.
+      for (const key of ['PANEL_URL', 'DIAGNOSTIC_URL'] as const) {
+        if (env[key] && !env[key].startsWith('https://')) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'en producción debe usar https',
+          });
+        }
       }
     }
     // Fuera de desarrollo, un correo que no sale debe impedir el arranque,
     // no descubrirse cuando un cliente reclama que no le llegó el enlace.
-    if (env.NODE_ENV === 'production' && !env.PANEL_URL) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PANEL_URL'],
-        message: 'obligatoria en producción (va en los enlaces por correo)',
-      });
+    if (env.NODE_ENV === 'production') {
+      for (const key of ['PANEL_URL', 'DIAGNOSTIC_URL'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'obligatoria en producción (va en los enlaces por correo)',
+          });
+        }
+      }
     }
     // Sin él, un solo contador de login para todo el equipo.
     if (env.NODE_ENV === 'production' && !env.PANEL_API_SECRET) {

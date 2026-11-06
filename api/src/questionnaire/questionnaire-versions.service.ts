@@ -36,7 +36,7 @@ const VERSION_FIELDS = {
   updatedAt: true,
 } satisfies Prisma.QuestionnaireVersionSelect;
 
-const QUESTION_SELECT = {
+export const QUESTION_SELECT = {
   id: true,
   code: true,
   text: true,

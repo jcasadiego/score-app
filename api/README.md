@@ -14,7 +14,7 @@ pnpm install
 cp .env.example .env         # ajustar si hace falta
 docker compose up -d         # levanta Postgres local
 pnpm prisma migrate dev      # aplica el schema
-pnpm prisma db seed          # crea el primer usuario ADMIN (ver ADMIN_* en .env)
+pnpm prisma db seed          # crea el primer ADMIN (ADMIN_* en .env) y, fuera de producción, el cuestionario de prueba
 pnpm start:dev                # http://localhost:3000
 ```
 
@@ -104,6 +104,21 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   body. Un evento crítico se registra desde su servicio, pasando el `tx` a
   `AuditService.record(...)`, para que ambos se confirmen o se reviertan juntos.
   La base rechaza `UPDATE`, `DELETE` y `TRUNCATE` sobre `audit_logs`.
+- `src/questionnaire/` — versiones del cuestionario por familia (PF-12):
+  `QuestionnaireVersion` → `Question` → `AnswerOption`. Un borrador (`DRAFT`,
+  a lo sumo uno por familia) se edita; una versión publicada es inmutable, y un
+  trigger lo garantiza también en la base. `code` (pregunta) y `value` (opción)
+  son estables entre versiones. Rutas en `/questionnaire-versions`: ver, Revisor y
+  Aprobador; crear el borrador, editar preguntas, reordenarlas y publicar, solo
+  Aprobador. Crear y editar reciben la pregunta completa con sus opciones, en una
+  sola operación. Publicar valida que el borrador esté completo y, si no, responde
+  409 con la lista de lo que falta. Un borrador nuevo copia la última versión
+  publicada que no sea de prueba.
+- `prisma/sample-questionnaire.ts` — cuestionario de **prueba** (5-6 preguntas
+  por familia, con `isSample` y el prefijo `[Prueba]`). Lo carga `pnpm prisma db
+  seed` solo con `APP_ENV` en `development` o `qa` (o sin `APP_ENV` y con
+  `NODE_ENV=development`); es idempotente. Para reemplazarlo, se publica el
+  cuestionario oficial como una versión nueva.
 - `src/rules/` — versión de reglas aplicada a cada caso (requisito
   duro). El contenido de las reglas vive en una columna `jsonb`, no en
   código.
@@ -208,10 +223,10 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 
 ## Pendiente a propósito (no construir todavía)
 
-- Modelos de dominio del cuestionario (`Diagnostic`, respuestas, etc.) y la
-  detección de contradicciones — dependen de la especificación completa
-  del cuestionario de las 4 familias (Proyecto, B2B, Profesional,
-  Catálogo), que todavía no existe. Mientras tanto, `AccessLinkService`
+- `Diagnostic`, las respuestas (PF-16) y la detección de contradicciones. La
+  estructura del cuestionario ya existe; su contenido oficial depende de la
+  especificación de las 4 familias (Proyecto, B2B, Profesional, Catálogo), que
+  todavía no existe. Mientras tanto, `AccessLinkService`
   no persiste enlaces ni los invalida tras un solo uso — eso depende de
   la forma de `Diagnostic`.
 - El motor de cálculo real detrás de `ScoringEnginePort`.

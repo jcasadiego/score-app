@@ -70,7 +70,8 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Actualizaciones y alertas automáticas de dependencias | A.8.8 | CC7.1 | Implementado | `.github/dependabot.yml` y alertas de Dependabot, activadas por José el 2026-11-04 |
 | Actions fijadas por SHA y permisos mínimos | A.5.21, A.8.28 | CC9.2 | Implementado | `.github/workflows/` |
 | Revisión de seguridad por PR y por release | A.8.25, A.8.29 | CC8.1 | Implementado | `CLAUDE.md`, sección 5.1 |
-| Entornos separados; sin datos reales en pruebas | A.8.31, A.8.33 | CC8.1 | Parcial | Variables y e2e separados. QA y producción: PF-30 |
+| Entornos separados; sin datos reales en pruebas | A.8.31, A.8.33 | CC8.1 | Parcial | Variables y e2e separados. El cuestionario de prueba no se carga en producción (`sampleDataAllowed`, `prisma/sample-questionnaire.ts`). QA y producción: PF-30 |
+| Cuestionario publicado inmutable y trazable: cada diagnóstico apunta a la versión exacta que respondió | A.8.32, A.5.33 | CC8.1, PI1.2 | Implementado | Trigger en la base y bloqueo de fila al editar o publicar; quién y cuándo publicó en la versión y en la bitácora (`QUESTIONNAIRE_VERSION_PUBLISHED`, `QUESTION_*`). `test/questionnaire-versions.e2e-spec.ts` (PF-12) |
 
 ## Privacidad
 

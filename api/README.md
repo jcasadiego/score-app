@@ -99,7 +99,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   sin llave foránea) y un detalle libre en `data` (tabla `audit_logs`). El
   `AuditInterceptor` registra toda request exitosa que cambia datos, con la
   acción, la entidad y los campos que declara su `@AuditRoute()`; el actor sale
-  de `request.user` (JWT de panel) o `request.accessLink` (token de enlace).
+  de `request.user` (JWT de panel) o `request.accessLink` (sesión del cliente final).
   `auditFailures` registra los intentos fallidos o denegados, sin guardar el
   body. Un evento crítico se registra desde su servicio, pasando el `tx` a
   `AuditService.record(...)`, para que ambos se confirmen o se reviertan juntos.
@@ -174,10 +174,44 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   mensaje para enlace inválido, usado o vencido. La misma confirmación activa
   una cuenta nueva o restablecida por un Aprobador (`passwordSetAt`). La bitácora guarda la
   solicitud y el cambio sin token ni email en claro.
-- `src/access-link/` — token de vida corta para `apps/diagnostico`
-  (`POST /access-links` con `{ subjectId }`, solo ADMIN, para QA)
-  (firmar/verificar, sin persistencia). Ver TODO en
-  `access-link.service.ts`.
+- `src/diagnostics/` — diagnósticos del cliente final (PF-16). Un
+  `Diagnostic` por lead, que apunta a la última versión publicada de su
+  familia (un trigger exige que esté publicada); la familia sale de la
+  versión. Respuestas en `Answer` (texto libre) y `AnswerSelection`
+  (opciones), con FK compuestas que garantizan en la base que la pregunta
+  sea de la versión y la opción de la pregunta. Enlaces externos en
+  `ExternalLink` (Spotify, YouTube, Instagram, TikTok y sitio web; solo
+  https y dominios permitidos). Estados `ACTIVE` → `IN_PROGRESS` →
+  `COMPLETED`; `ABANDONED` se calcula (7 días sin actividad) y no se guarda.
+  - **Enlace sin contraseña** (`AccessLink`): token opaco de 256 bits del
+    que solo se guarda el SHA-256; vence en `ACCESS_LINK_TTL_DAYS` (30) y
+    sirve varias veces. Va en el fragmento de la URL,
+    `DIAGNOSTIC_URL/access#token=`, para que no llegue a los logs de
+    `apps/diagnostico`. `POST /diagnostic-sessions` (`{ token }`, 10/min
+    por IP) lo canjea por una sesión JWT de 12 h firmada con
+    `ACCESS_LINK_JWT_SECRET`, que nombra al enlace: `AccessLinkGuard` revisa
+    en cada petición que siga vigente, así que revocarlo corta la sesión.
+    Canjear un enlace revoca los emitidos antes que él.
+  - **Cliente** (sesión): `GET /diagnostic-sessions/current` (cuestionario,
+    respuestas, enlaces y progreso), `PUT`/`DELETE
+    current/answers/:questionId` (`{ text }` o `{ optionIds }`),
+    `PUT`/`DELETE current/external-links/:platform` (`{ url }`) y
+    `POST current/submission` (201; 409 con las obligatorias que faltan).
+    Enviar revoca sus enlaces y dispara `notifyDiagnosticCompleted`.
+  - **Panel**: `GET /diagnostics` (paginado; `status` incluye `ABANDONED`,
+    `family`, `search` por nombre o email del lead) y `GET /diagnostics/:id`,
+    para Revisor y Aprobador, auditados como lecturas. `POST /diagnostics`
+    (`{ leadId, reason }`, solo Aprobador: generar sin pago lleva motivo)
+    responde 201 con `Location` y el enlace una sola vez; `POST
+    /diagnostics/:id/access-links` (Revisor y Aprobador) revoca los vigentes
+    y envía uno nuevo. Si el correo falla, la operación queda hecha y la
+    respuesta trae `emailSent: false` para copiar el enlace.
+  - **Recuperación** (pública): `POST /access-link-recoveries` (`{ email }`)
+    responde siempre 202 y envía en segundo plano un enlace nuevo para el
+    diagnóstico sin completar más reciente de ese correo, sin revocar el
+    anterior. 3/min por IP y 3/hora por correo destino.
+  - La bitácora registra cada acción con su actor (`END_CLIENT` = id del
+    diagnóstico), sin el token, el motivo ni las respuestas.
 - `src/leads/` — `POST /api/v1/leads/prequalification`, el endpoint
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un
@@ -214,8 +248,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 - `src/notifications/` — avisos por correo al equipo, a todos los usuarios
   activos del panel: lead nuevo (lo dispara `LeadsService.create`, también
   desde el alias legacy) y diagnóstico completado
-  (`notifyDiagnosticCompleted`, todavía sin quien lo llame: se conecta con
-  PF-16). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
+  (`notifyDiagnosticCompleted`, al enviar el diagnóstico). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
   un fallo del correo afectan a la operación que los dispara. Cada envío queda
   en la bitácora asociado al lead o al diagnóstico, sin sus datos personales.
   Los enlaces salen de `PANEL_URL`.
@@ -223,12 +256,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 
 ## Pendiente a propósito (no construir todavía)
 
-- `Diagnostic`, las respuestas (PF-16) y la detección de contradicciones. La
-  estructura del cuestionario ya existe; su contenido oficial depende de la
-  especificación de las 4 familias (Proyecto, B2B, Profesional, Catálogo), que
-  todavía no existe. Mientras tanto, `AccessLinkService`
-  no persiste enlaces ni los invalida tras un solo uso — eso depende de
-  la forma de `Diagnostic`.
+- La detección de contradicciones. El contenido oficial del cuestionario
+  depende de la especificación de las 4 familias (Proyecto, B2B,
+  Profesional, Catálogo), que todavía no existe.
 - El motor de cálculo real detrás de `ScoringEnginePort`.
 - Aislamiento de datos por caso a nivel de Postgres (RLS): la convención
   acordada es que toda tabla de dominio nueva lleve una columna

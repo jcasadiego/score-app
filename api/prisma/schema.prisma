@@ -108,6 +108,9 @@ model User {
   sessions            UserSession[]
   recoveryCodes       UserRecoveryCode[]
 
+  createdQuestionnaireVersions   QuestionnaireVersion[] @relation("QuestionnaireVersionCreatedBy")
+  publishedQuestionnaireVersions QuestionnaireVersion[] @relation("QuestionnaireVersionPublishedBy")
+
   @@map("users")
 }
 
@@ -197,4 +200,88 @@ model Lead {
   @@index([email])
   @@index([createdAt])
   @@map("leads")
+}
+
+enum QuestionnaireVersionStatus {
+  /// Editable. A lo sumo uno por familia (índice parcial en la migración).
+  DRAFT
+  /// Inmutable: un trigger rechaza cualquier cambio a la versión, sus
+  /// preguntas y sus opciones.
+  PUBLISHED
+
+  @@map("questionnaire_version_status")
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  FREE_TEXT
+
+  @@map("question_type")
+}
+
+/// Versión del cuestionario de una familia. Cada diagnóstico apunta a la versión
+/// publicada que respondió, sin copiar sus preguntas (PF-16).
+model QuestionnaireVersion {
+  id            String                     @id @default(cuid())
+  family        DiagnosticFamily
+  versionNumber Int                        @map("version_number")
+  status        QuestionnaireVersionStatus @default(DRAFT)
+  /// Contenido de prueba mientras llega el cuestionario oficial. Nunca existe en
+  /// producción (lo carga `prisma/sample-questionnaire.ts`), y un borrador nuevo
+  /// no copia sus preguntas.
+  isSample      Boolean                    @default(false) @map("is_sample")
+  createdById   String                     @map("created_by_id")
+  createdBy     User                       @relation("QuestionnaireVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  publishedAt   DateTime?                  @map("published_at") @db.Timestamptz(3)
+  publishedById String?                    @map("published_by_id")
+  publishedBy   User?                      @relation("QuestionnaireVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  questions Question[]
+
+  @@unique([family, versionNumber])
+  @@index([createdById])
+  @@index([publishedById])
+  @@map("questionnaire_versions")
+}
+
+/// Pregunta de una versión. `code` es estable entre versiones: identifica la
+/// misma pregunta aunque cambie su texto.
+model Question {
+  id                     String               @id @default(cuid())
+  questionnaireVersionId String               @map("questionnaire_version_id")
+  /// Borrar una versión no está permitido; borrar una pregunta de un borrador
+  /// arrastra sus opciones.
+  questionnaireVersion   QuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Restrict)
+  code                   String               @db.VarChar(64)
+  text                   String               @db.VarChar(500)
+  type                   QuestionType
+  helpText               String?              @map("help_text") @db.VarChar(1000)
+  required               Boolean
+  /// Solo en `FREE_TEXT`, y ahí obligatorio (CHECK en la migración).
+  maxLength              Int?                 @map("max_length")
+  position               Int
+
+  options AnswerOption[]
+
+  @@unique([questionnaireVersionId, code])
+  @@map("questions")
+}
+
+/// Opción de una pregunta de selección. `value` es estable entre versiones.
+model AnswerOption {
+  id         String   @id @default(cuid())
+  questionId String   @map("question_id")
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String   @db.VarChar(300)
+  value      String   @db.VarChar(64)
+  position   Int
+
+  @@unique([questionId, value])
+  /// Para la FK compuesta de las respuestas (PF-16): una respuesta solo puede
+  /// elegir opciones de su propia pregunta.
+  @@unique([id, questionId])
+  @@map("answer_options")
 }

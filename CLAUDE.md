@@ -69,7 +69,9 @@ pendientes:
   contraseña del panel por correo, política de contraseñas (12 a 128) y
   bloqueo tras 5 intentos, segundo factor TOTP obligatorio con códigos de
   recuperación (`POST /auth/login` ya no abre sesión; ver `api/README.md`),
-  seed del primer ADMIN, el token de
+  seed del primer ADMIN, versiones del cuestionario
+  (`src/questionnaire`: borrador por familia, versión publicada inmutable, con
+  un cuestionario de prueba que el seed carga fuera de producción), el token de
   enlace stateless de
   `apps/diagnostico` y el servicio de correo transaccional
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`

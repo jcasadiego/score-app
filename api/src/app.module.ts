@@ -11,6 +11,7 @@ import { LeadsModule } from './leads/leads.module';
 import { ScoringEngineModule } from './scoring-engine/scoring-engine.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PasswordResetModule } from './password-reset/password-reset.module';
+import { QuestionnaireModule } from './questionnaire/questionnaire.module';
 import { RulesModule } from './rules/rules.module';
 import { AccessLinkModule } from './access-link/access-link.module';
 import { UsersModule } from './users/users.module';
@@ -33,6 +34,7 @@ import { validateEnv } from './config/validate-env';
     AuthModule,
     AccessLinkModule,
     LeadsModule,
+    QuestionnaireModule,
     MailModule,
     PasswordResetModule,
     HealthModule,

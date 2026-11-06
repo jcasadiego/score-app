@@ -12,6 +12,7 @@ agregue un dato personal o un proveedor lo anota aquí en el mismo PR.
 |---|---|---|---|---|---|
 | Nombre, correo, teléfono (opcional), familia y UTM | Lead | `leads` | Contacto comercial tras la precalificación | Por definir | Por definir |
 | Nombre, correo, hash de contraseña y cuándo se definió, rol, estado | Equipo interno | `users` | Acceso al panel | Por definir | Por definir |
+| Quién creó y quién publicó cada versión del cuestionario | Equipo interno | `questionnaire_versions` | Trazabilidad de cambios al cuestionario | Por definir | Mientras exista la versión: una publicada no se borra |
 | Sesión e intentos fallidos | Equipo interno | `user_sessions`, `users` | Seguridad de la cuenta | Por definir | La sesión, hasta 7 días |
 | Secreto TOTP cifrado y códigos de recuperación (solo hash) | Equipo interno | `users`, `user_recovery_codes` | Segundo factor del panel | Por definir | Mientras la cuenta tenga MFA |
 | Enlace de recuperación o activación (solo hash) | Equipo interno | `password_reset_tokens` | Recuperar el acceso o definir la primera contraseña | Por definir | Vence en 1 hora (recuperación) o 72 horas (activación o restablecido por un Aprobador); la fila no se borra todavía |

@@ -80,8 +80,8 @@ pendientes:
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la
-  pantalla de Usuarios (`app/(panel)/users/`), Leads y la
-  recuperación de contraseña (`/forgot-password`,
+  pantalla de Usuarios (`app/(panel)/users/`), Leads, Diagnósticos
+  (`app/(panel)/diagnostics/`) y la recuperación de contraseña (`/forgot-password`,
   `/reset-password`). Detalle en
   `apps/panel/README.md`.
 - **`apps/diagnostico`:** solo scaffold — su flujo depende de la

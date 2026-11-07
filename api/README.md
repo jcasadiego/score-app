@@ -228,6 +228,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):
   `GET /leads` (paginado, filtros `family`/`status` y búsqueda `search`
   por nombre/email, en la base; más recientes primero), `GET /leads/:id`
+  (con `diagnostic: { id } | null`, para que el panel ofrezca abrirlo)
   y `PATCH /leads/:id/status` (`NEW`/`CONTACTED`/`CONVERTED`). El resto
   de los datos del lead no se edita desde el panel.
 - `src/mail/` — correo transaccional. Los módulos llaman a

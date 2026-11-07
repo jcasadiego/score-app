@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   App,
@@ -29,6 +30,7 @@ import {
 import { updateLeadStatusAction } from "@/app/(panel)/leads/actions";
 import { ReactiveSearch } from "@/components/reactive-search";
 import { LocalDate } from "@/components/local-date";
+import { GenerateDiagnosticModal } from "@/components/diagnostics/generate-diagnostic-modal";
 
 interface LeadScreenFilters {
   q: string;
@@ -39,6 +41,8 @@ interface LeadScreenFilters {
 interface LeadsScreenProps {
   page: PaginatedLeads;
   filters: LeadScreenFilters;
+  /** Generar sin pago es solo del Aprobador; la API lo valida igual. */
+  canGenerateDiagnostic: boolean;
 }
 
 const pluralLeads = new Intl.PluralRules("es");
@@ -81,7 +85,11 @@ function StatusTag({ status }: { status: LeadStatus }) {
  * El cambio de estado es una Server Action con `revalidatePath`, que trae
  * la lista actualizada en la misma respuesta — no hay copia local.
  */
-export function LeadsScreen({ page, filters }: LeadsScreenProps) {
+export function LeadsScreen({
+  page,
+  filters,
+  canGenerateDiagnostic,
+}: LeadsScreenProps) {
   const { message } = App.useApp();
   const router = useRouter();
   const pathname = usePathname();
@@ -95,6 +103,10 @@ export function LeadsScreen({ page, filters }: LeadsScreenProps) {
   const [lastOpenedLead, setLastOpenedLead] = useState<Lead | null>(null);
   // Vacía el buscador al limpiar los filtros.
   const [searchReset, setSearchReset] = useState(0);
+  // Lead para el que se genera el diagnóstico; `generateKey` monta un
+  // formulario nuevo en cada apertura.
+  const [generateFor, setGenerateFor] = useState<Lead | null>(null);
+  const [generateKey, setGenerateKey] = useState(0);
   const openLead = lastOpenedLead
     ? (page.data.find((l) => l.id === lastOpenedLead.id) ?? lastOpenedLead)
     : null;
@@ -320,6 +332,36 @@ export function LeadsScreen({ page, filters }: LeadsScreenProps) {
               />
             </div>
 
+            <div>
+              <Typography.Text
+                type="secondary"
+                style={{ display: "block", marginBottom: 8 }}
+              >
+                Diagnóstico
+              </Typography.Text>
+              {openLead.diagnostic ? (
+                <Link
+                  href={`/diagnostics/${encodeURIComponent(openLead.diagnostic.id)}`}
+                >
+                  <Button>Ver diagnóstico</Button>
+                </Link>
+              ) : canGenerateDiagnostic ? (
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    setGenerateKey((k) => k + 1);
+                    setGenerateFor(openLead);
+                  }}
+                >
+                  Generar diagnóstico
+                </Button>
+              ) : (
+                <Typography.Text type="secondary">
+                  Todavía no tiene. Lo genera un Aprobador.
+                </Typography.Text>
+              )}
+            </div>
+
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Correo">
                 <Typography.Text
@@ -360,6 +402,19 @@ export function LeadsScreen({ page, filters }: LeadsScreenProps) {
           </Flex>
         )}
       </Drawer>
+
+      {canGenerateDiagnostic && generateFor && (
+        <GenerateDiagnosticModal
+          key={generateKey}
+          open
+          lead={{
+            id: generateFor.id,
+            name: generateFor.name,
+            email: generateFor.email,
+          }}
+          onClose={() => setGenerateFor(null)}
+        />
+      )}
     </div>
   );
 }

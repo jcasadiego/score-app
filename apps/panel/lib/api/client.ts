@@ -59,12 +59,14 @@ async function buildError(
   // Forma de error de la api: RFC 9457 (`docs/errores.md`).
   const body = (await response.json().catch(() => null)) as {
     detail?: string;
+    code?: string;
   } | null;
 
   if (response.status === 409) {
     return new ApiError(
       409,
       body?.detail ?? messages.conflict ?? GENERIC_ERROR_MESSAGE,
+      body?.code,
     );
   }
   if (response.status === 404) {

@@ -29,6 +29,10 @@ interface AppShellProps {
 function menuItems(role: string) {
   return [
     { key: "/leads", label: <Link href="/leads">Leads</Link> },
+    {
+      key: "/diagnostics",
+      label: <Link href="/diagnostics">Diagnósticos</Link>,
+    },
     ...(role === "ADMIN"
       ? [{ key: "/users", label: <Link href="/users">Usuarios</Link> }]
       : []),
@@ -98,7 +102,8 @@ export function AppShell({ user, children }: AppShellProps) {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[pathname]}
+          // El detalle (`/diagnostics/:id`) marca su sección.
+          selectedKeys={[`/${pathname.split("/")[1] ?? ""}`]}
           items={menuItems(user.role)}
           onClick={() => {
             if (!screens.lg) setCollapsed(true);

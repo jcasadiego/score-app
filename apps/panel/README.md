@@ -71,9 +71,22 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
 - Todas las pantallas autenticadas cuelgan de `app/(panel)/layout.tsx`,
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
   pantallas de cada módulo se agregan ahí: Usuarios
-  (`app/(panel)/users/`) y Leads (`app/(panel)/leads/`, lista con
-  filtros, detalle en un `Drawer` y cambio de estado). Las llamadas a la
-  api pasan por `lib/api/client.ts`.
+  (`app/(panel)/users/`), Leads (`app/(panel)/leads/`, lista con
+  filtros, detalle en un `Drawer` y cambio de estado) y Diagnósticos
+  (`app/(panel)/diagnostics/`, PF-18). Las llamadas a la api pasan por
+  `lib/api/client.ts`; un 409 conserva el `code` de la api en `ApiError`.
+- **Diagnósticos:**
+  - `/diagnostics` lista con estado (también "Abandonado", que calcula la
+    api), progreso y última actividad; filtros y página en la URL.
+  - `/diagnostics/[id]` es el detalle de solo lectura: respuestas, enlaces
+    externos (solo `https`, con `rel="noopener noreferrer"`) y enlaces de
+    acceso. Es la ruta que usa el aviso de diagnóstico completado.
+  - Generar (solo Aprobador, con motivo) se hace desde esta pantalla o desde
+    el `Drawer` de un lead sin diagnóstico. Reenviar el enlace (Revisor y
+    Aprobador) pide confirmación.
+  - El enlace del cliente se muestra una sola vez en el modal
+    (`components/diagnostics/issued-link.tsx`): no va a la URL ni se guarda.
+    Si el correo falla, el modal lo dice y deja reintentar.
 - Fechas con `components/local-date.tsx`: se formatean en la zona del
   navegador solo en el cliente, para no romper la hidratación.
 - Tema único en `lib/theme.ts` (colores, radio, fuente) aplicado por

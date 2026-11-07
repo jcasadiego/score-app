@@ -12,6 +12,8 @@ export interface Lead {
   utmMedium: string | null;
   utmCampaign: string | null;
   status: LeadStatus;
+  /** El diagnóstico del lead, si ya se generó (uno por lead). */
+  diagnostic: { id: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,4 +63,8 @@ export function updateLeadStatus(
     MESSAGES,
     { method: "PATCH", body: JSON.stringify({ status }) },
   );
+}
+
+export function getLead(token: string, id: string): Promise<Lead> {
+  return callApi<Lead>(token, `/leads/${encodeURIComponent(id)}`, MESSAGES);
 }

@@ -32,6 +32,8 @@ const PANEL_SELECT = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  // Para ofrecer "Ver diagnóstico" en vez de generar uno segundo (PF-18).
+  diagnostic: { select: { id: true } },
 } satisfies Prisma.LeadSelect;
 
 export type PanelLead = Prisma.LeadGetPayload<{

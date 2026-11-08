@@ -81,7 +81,7 @@ pendientes:
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la
   pantalla de Usuarios (`app/(panel)/users/`), Leads, Diagnósticos
-  (`app/(panel)/diagnostics/`) y la recuperación de contraseña (`/forgot-password`,
+  (`app/(panel)/diagnostics/`), Cuestionario (`app/(panel)/questionnaire/`) y la recuperación de contraseña (`/forgot-password`,
   `/reset-password`). Detalle en
   `apps/panel/README.md`.
 - **`apps/diagnostico`:** el flujo del cliente final (PF-17): bienvenida que

@@ -28,6 +28,10 @@ import {
   DiagnosticStatusTag,
 } from "./diagnostics-screen";
 import { ResendLinkButton } from "./resend-link-button";
+import {
+  CalculationSection,
+  type CalculationData,
+} from "./calculation-section";
 
 type AccessLinkRow = Diagnostic["accessLinks"][number];
 
@@ -124,7 +128,14 @@ function AnswerView({ question }: { question: DiagnosticQuestion }) {
 }
 
 /** Solo lectura: corregir respuestas es del módulo de Revisión. */
-export function DiagnosticDetail({ diagnostic }: { diagnostic: Diagnostic }) {
+export function DiagnosticDetail({
+  diagnostic,
+  calculations,
+}: {
+  diagnostic: Diagnostic;
+  /** Nulo si el diagnóstico todavía no se envió. */
+  calculations: CalculationData | null;
+}) {
   const completed = diagnostic.status === "COMPLETED";
 
   return (
@@ -202,6 +213,11 @@ export function DiagnosticDetail({ diagnostic }: { diagnostic: Diagnostic }) {
           )}
         </Descriptions.Item>
       </Descriptions>
+
+      <CalculationSection
+        diagnosticId={diagnostic.id}
+        data={calculations}
+      />
 
       <Card title="Respuestas" size="small">
         {diagnostic.questions.length === 0 ? (

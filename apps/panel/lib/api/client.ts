@@ -73,7 +73,14 @@ async function buildError(
     );
   }
   if (response.status === 404) {
-    return new ApiError(404, messages.notFound);
+    return new ApiError(404, messages.notFound, body?.code);
+  }
+  if (response.status === 503) {
+    return new ApiError(
+      503,
+      body?.detail ?? GENERIC_ERROR_MESSAGE,
+      body?.code,
+    );
   }
   if (response.status === 401) {
     return new ApiError(401, "Tu sesión expiró. Vuelve a iniciar sesión.");

@@ -89,6 +89,20 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   - El enlace del cliente se muestra una sola vez en el modal
     (`components/diagnostics/issued-link.tsx`): no va a la URL ni se guarda.
     Si el correo falla, el modal lo dice y deja reintentar.
+  - **Sección "Resultado"** del detalle (PF-25,
+    `components/diagnostics/calculation-section.tsx`):
+    - Muestra el cálculo vigente (el último exitoso), con su versión de
+      reglas y fecha. La salida del motor se ve legible y como texto.
+    - Un resultado del motor de prueba lleva la etiqueta **SIMULADO**.
+    - Si el último intento está en curso o falló, lo avisa junto al vigente.
+      Debajo va el historial, paginado en la URL (`?calcPage=`).
+    - Calcular, recalcular o reintentar pide confirmación. Mientras hay un
+      cálculo en curso, la sección consulta solo el último intento, cada vez
+      más espaciado, y deja de consultar al terminar o al salir. Al terminar,
+      recarga la pantalla una vez.
+    - Con el motor desactivado (`GET /scoring-engine/status`), muestra el
+      aviso acordado y el botón queda deshabilitado.
+    - Un diagnóstico sin enviar dice que todavía no hay resultado.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),

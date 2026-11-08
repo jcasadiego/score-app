@@ -96,6 +96,34 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     `APP_ENV` y `SCORING_ENGINE_DRIVER` son obligatorias.
   - El simulado registra y activa una versión de reglas simulada si no hay
     ninguna activa.
+- `src/ai/` — servicio compartido de IA (PF-32). Sin rutas: lo usan otros
+  módulos (Flags, Delivery) con `AiService.run(task)`.
+  - **La tarea:** un prompt versionado del repo (`src/ai/prompts/`), los datos
+    y un esquema zod de la respuesta. El módulo no sabe qué proveedor hay
+    detrás.
+  - **Proveedores** (`AiProviderAdapter`): `claude` (SDK oficial de
+    Anthropic, salida estructurada) y `stub` (ejemplo que cumple el esquema,
+    sin costo). Agregar otro es escribir un adapter nuevo.
+  - **Configuración:** `AI_PROVIDER`/`AI_MODEL` por defecto, y
+    `AI_FLAGS_*`/`AI_REPORT_*` por uso. `disabled` apaga la IA.
+    - Modelo por defecto: `claude-opus-5-5`, con el fallback del servidor si
+      declina por seguridad.
+    - Con `APP_ENV=production` no se admite `stub`.
+    - Con `claude`, `ANTHROPIC_API_KEY` es obligatoria.
+  - **Seguridad:**
+    - Los datos se minimizan antes de salir (`minimize.ts`): rechaza claves de
+      contacto y enmascara correos, teléfonos y los textos de `redact`.
+    - Van como JSON dentro de `<client_data>`, separados de las instrucciones,
+      con reglas fijas contra la inyección (`prompt-envelope.ts`, OWASP LLM01).
+    - La respuesta se valida con zod; si no cumple, `invalid_output` (LLM05).
+  - **Resultado:** `run` nunca lanza por un fallo del proveedor; devuelve
+    `ok: false` con el motivo (`disabled`, `timeout`, `rate_limited`,
+    `provider_error`, `refused`, `invalid_output`).
+  - **Registro:** cada llamada queda en `ai_call_logs` (proveedor, modelo,
+    versión de prompt, tokens, costo aproximado de `pricing.ts`, duración,
+    resultado), sin contenido, y como `AI_TASK_RUN` en la bitácora.
+  - **Prueba:** `pnpm ai:test` corre una tarea de prueba con la
+    configuración local (con `claude` gasta tokens reales).
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

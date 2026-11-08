@@ -84,8 +84,12 @@ pendientes:
   (`app/(panel)/diagnostics/`) y la recuperación de contraseña (`/forgot-password`,
   `/reset-password`). Detalle en
   `apps/panel/README.md`.
-- **`apps/diagnostico`:** solo scaffold — su flujo depende de la
-  especificación del cuestionario.
+- **`apps/diagnostico`:** el flujo del cliente final (PF-17): bienvenida que
+  canjea el enlace al pulsar "Comenzar", sesión en cookie `httpOnly`, preguntas
+  una por una con guardado automático, enlaces externos, revisión y envío, y
+  "¿Perdiste tu enlace?". Muestra el cuestionario publicado que le toque, así
+  que funciona con el de prueba hasta tener la especificación real. CSP con
+  nonce en `proxy.ts`. Detalle en `apps/diagnostico/README.md`.
 
 **`api`** — NestJS 12 + TypeScript + Prisma 7 sobre PostgreSQL:
 

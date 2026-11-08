@@ -56,7 +56,8 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Validación estricta de entrada; errores sin detalles internos | A.8.26, A.8.28 | CC6.6 | Implementado | `bootstrap.ts`, `global-exception.filter.ts` |
 | Encabezados de seguridad, CORS por lista, sin caché en la API | A.8.26 | CC6.6, C1.1 | Implementado | `bootstrap.ts`, `test/security-config.e2e-spec.ts` |
 | CSP del panel con nonce por petición | A.8.26 | CC6.6 | Implementado | `apps/panel/proxy.ts` |
-| CSP de `apps/diagnostico` | A.8.26 | CC6.6 | Parcial | Línea base con `'unsafe-inline'` en scripts. Pasar a nonce con el flujo real (PF-17) |
+| CSP de `apps/diagnostico` con nonce por petición, sin `'unsafe-inline'` en producción | A.8.26 | CC6.6 | Implementado | `apps/diagnostico/proxy.ts` (PF-17). El navegador no habla con la API: `connect-src 'self'` |
+| Sesión del cliente final fuera del alcance de JavaScript | A.8.5, A.8.26 | CC6.1 | Implementado | Cookie `httpOnly`, `Secure` y `SameSite=Strict` (`apps/diagnostico/lib/session/cookie.ts`); el token del enlace sale de la URL y del historial al entrar (PF-17) |
 | Prueba de penetración antes del primer release | A.8.29 | CC4.1, CC7.1 | **Pendiente** | PF-61, antes del primer release; una externa si el auditor la pide |
 
 ## Desarrollo y cambios

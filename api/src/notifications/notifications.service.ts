@@ -55,8 +55,8 @@ export class NotificationsService {
   }
 
   /**
-   * Todavía sin quien lo llame: lo dispara el envío del diagnóstico cuando
-   * exista (PF-16), y la ruta del detalle en el panel la confirma PF-18.
+   * Lo dispara el envío del diagnóstico (`DiagnosticSessionsService.submit`).
+   * El enlace apunta al detalle del panel, `/diagnostics/:id`.
    */
   notifyDiagnosticCompleted(diagnostic: DiagnosticCompletedNotification): void {
     const id = encodeURIComponent(diagnostic.diagnosticId);

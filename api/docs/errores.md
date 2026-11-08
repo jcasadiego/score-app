@@ -26,7 +26,7 @@ Un código publicado no cambia de significado.
 | `BAD_REQUEST` | 400 | Otra petición mal formada, como un JSON inválido. |
 | `INVALID_RESET_LINK` | 400 | Enlace de recuperación inválido, usado o vencido. |
 | `UNAUTHORIZED` | 401 | Sin sesión, o sesión o enlace no válidos. |
-| `INVALID_ACCESS_LINK` | 401 | Enlace del cliente inválido, vencido o revocado, o diagnóstico ya enviado. |
+| `INVALID_ACCESS_LINK` | 401 | Enlace del cliente inválido, vencido o revocado. |
 | `INVALID_MFA_CODE` | 401 | Código de verificación o de recuperación incorrecto, ya usado, o cuenta bloqueada. |
 | `MFA_CHALLENGE_EXPIRED` | 401 | El reto de MFA venció o dejó de valer: hay que volver a iniciar sesión. |
 | `FORBIDDEN` | 403 | El rol no alcanza. |
@@ -38,7 +38,7 @@ Un código publicado no cambia de significado.
 | `DUPLICATE_QUESTION_CODE` | 409 | Ya hay una pregunta con ese `code` en la versión. |
 | `DIAGNOSTIC_ALREADY_EXISTS` | 409 | El lead ya tiene un diagnóstico. |
 | `NO_PUBLISHED_QUESTIONNAIRE` | 409 | La familia del lead no tiene una versión publicada del cuestionario. |
-| `DIAGNOSTIC_COMPLETED` | 409 | El diagnóstico ya fue enviado: no admite cambios ni enlaces nuevos. |
+| `DIAGNOSTIC_COMPLETED` | 409 | El diagnóstico ya fue enviado: no admite cambios ni enlaces nuevos, y su enlace no vencido ya no abre sesión. |
 | `DIAGNOSTIC_INCOMPLETE` | 409 | Faltan obligatorias por responder; `errors` trae cada una (`field` = id de la pregunta, `code` = `REQUIRED_QUESTION_UNANSWERED`). |
 | `TOO_MANY_REQUESTS` | 429 | Se pasó un límite de intentos. |
 | `INTERNAL_ERROR` | 500 | Error no controlado; la causa queda en el log. |

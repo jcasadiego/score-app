@@ -89,9 +89,11 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   hoja de cálculo a portar, o construir desde cero; ver `CLAUDE.md`
   sección 3).
 - `src/common/app-throttler.guard.ts` — límite de peticiones. Cuenta por usuario
-  si el JWT tiene firma válida, por la IP que informa el panel en rutas sin sesión
-  (`x-client-ip`, solo con `x-panel-secret` igual a `PANEL_API_SECRET`) y, si no,
-  por IP de conexión. Cada contador es por ruta y vive en memoria, así que con
+  si el JWT del panel tiene firma válida, por diagnóstico si trae una sesión de
+  cliente final válida, por la IP que informa el panel o `apps/diagnostico` en
+  rutas sin sesión (`x-client-ip`, solo con `x-panel-secret` igual a
+  `PANEL_API_SECRET` o `x-diagnostic-secret` igual a `DIAGNOSTIC_API_SECRET`) y,
+  si no, por IP de conexión. Cada contador es por ruta y vive en memoria, así que con
   varias instancias de la API hará falta un almacén compartido.
 - `src/audit/` — bitácora de auditoría (requisito duro). Cada evento
   guarda actor tipado (`PANEL_USER` / `END_CLIENT` / `SYSTEM` + id
@@ -191,7 +193,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     por IP) lo canjea por una sesión JWT de 12 h firmada con
     `ACCESS_LINK_JWT_SECRET`, que nombra al enlace: `AccessLinkGuard` revisa
     en cada petición que siga vigente, así que revocarlo corta la sesión.
-    Canjear un enlace revoca los emitidos antes que él.
+    Canjear un enlace revoca los emitidos antes que él. Si el diagnóstico ya se
+    envió, un enlace no vencido responde 409 `DIAGNOSTIC_COMPLETED` en vez de
+    401, para que el cliente sepa que ya terminó.
   - **Cliente** (sesión): `GET /diagnostic-sessions/current` (cuestionario,
     respuestas, enlaces y progreso), `PUT`/`DELETE
     current/answers/:questionId` (`{ text }` o `{ optionIds }`),

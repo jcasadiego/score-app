@@ -574,10 +574,12 @@ describe('Diagnósticos (e2e, base propia)', () => {
       expect(body).toMatchObject({ id, status: 'COMPLETED' });
 
       await answer(session, questions.story.id, { text: 'Otro' }).expect(401);
-      await server()
+      // Con el enlace del correo, el cliente sabe que ya lo envió.
+      const { body: redeemed } = await server()
         .post(SESSIONS)
         .send({ token: tokenFrom(url) })
-        .expect(401);
+        .expect(409);
+      expect(redeemed.code).toBe('DIAGNOSTIC_COMPLETED');
       const { body: conflict } = await server()
         .post(`${DIAGNOSTICS}/${id}/access-links`)
         .set(as(approver.token))

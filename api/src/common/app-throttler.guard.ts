@@ -3,64 +3,93 @@ import { isIP } from 'node:net';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { SESSION_AUDIENCE } from '../diagnostics/access-links.service';
 
 interface ThrottledRequest {
   ip?: string;
   headers: Record<string, string | string[] | undefined>;
 }
 
+/** Apps que llaman desde su servidor y pueden informar la IP de su usuario. */
+const TRUSTED_APPS = [
+  { header: 'x-panel-secret', secretEnv: 'PANEL_API_SECRET' },
+  { header: 'x-diagnostic-secret', secretEnv: 'DIAGNOSTIC_API_SECRET' },
+] as const;
+
 function sha256(value: string): Buffer {
   return createHash('sha256').update(value).digest();
 }
 
 /**
- * El panel llama a la API desde su servidor: contar solo por IP de conexión
- * juntaría a todo el equipo en un contador por ruta. Por eso cuenta, en orden:
+ * El panel y `apps/diagnostico` llaman a la API desde su servidor: contar solo
+ * por IP de conexión juntaría a todos sus usuarios en un contador por ruta. Por
+ * eso cuenta, en orden:
  *
- * 1. Por usuario, si el JWT tiene una firma válida. Un token vencido o revocado
- *    también vale aquí: identifica a quien lo emitió, y `JwtAuthGuard` lo rechaza
- *    después. Una firma falsa no puede gastar el contador de otra persona.
- * 2. Por la IP que informa el panel en rutas sin sesión (login, recuperación),
- *    solo si trae `PANEL_API_SECRET`. Sin el secreto, el encabezado no cuenta.
- * 3. Por la IP de la conexión, como hasta ahora.
+ * 1. Por usuario del panel, si el JWT tiene una firma válida. Un token vencido o
+ *    revocado también vale aquí: identifica a quien lo emitió, y `JwtAuthGuard`
+ *    lo rechaza después. Una firma falsa no puede gastar el contador de otro.
+ * 2. Por diagnóstico, si trae una sesión de cliente final con firma válida (con
+ *    la misma regla del vencimiento).
+ * 3. Por la IP que informa el panel o `apps/diagnostico` en rutas sin sesión
+ *    (login, canje y recuperación de enlaces), solo si trae el secreto de esa
+ *    app. Sin el secreto, el encabezado no cuenta.
+ * 4. Por la IP de la conexión.
  */
 @Injectable()
 export class AppThrottlerGuard extends ThrottlerGuard {
   private readonly jwt = new JwtService();
 
   protected getTracker(req: ThrottledRequest): Promise<string> {
-    const userId = this.userIdFromToken(req);
+    const token = this.bearerToken(req);
+    const userId = token && this.subject(token, process.env.JWT_SECRET);
     if (userId) return Promise.resolve(`user:${userId}`);
 
-    return super.getTracker({ ip: this.ipFromPanel(req) ?? req.ip });
+    const diagnosticId =
+      token &&
+      this.subject(token, process.env.ACCESS_LINK_JWT_SECRET, SESSION_AUDIENCE);
+    if (diagnosticId) return Promise.resolve(`diagnostic:${diagnosticId}`);
+
+    return super.getTracker({ ip: this.ipFromTrustedApp(req) ?? req.ip });
   }
 
-  private userIdFromToken(req: ThrottledRequest): string | null {
+  private bearerToken(req: ThrottledRequest): string | null {
     const [scheme, token] = String(req.headers.authorization ?? '').split(' ');
-    if (scheme !== 'Bearer' || !token) return null;
+    return scheme === 'Bearer' && token ? token : null;
+  }
 
+  private subject(
+    token: string,
+    secret: string | undefined,
+    audience?: string,
+  ): string | null {
+    if (!secret) return null;
     try {
       const { sub } = this.jwt.verify<{ sub?: string }>(token, {
-        secret: process.env.JWT_SECRET,
+        secret,
         algorithms: ['HS256'],
         ignoreExpiration: true,
+        ...(audience && { audience }),
       });
-      return sub ?? null;
+      return typeof sub === 'string' ? sub : null;
     } catch {
       return null;
     }
   }
 
-  private ipFromPanel(req: ThrottledRequest): string | null {
-    const expected = process.env.PANEL_API_SECRET;
-    const received = req.headers['x-panel-secret'];
+  private ipFromTrustedApp(req: ThrottledRequest): string | null {
     const ip = req.headers['x-client-ip'];
-    if (!expected || typeof received !== 'string' || typeof ip !== 'string') {
-      return null;
-    }
+    if (typeof ip !== 'string' || !isIP(ip)) return null;
 
-    // Con hash, para comparar siempre el mismo largo en tiempo constante.
-    const isPanel = timingSafeEqual(sha256(received), sha256(expected));
-    return isPanel && isIP(ip) ? ip : null;
+    const trusted = TRUSTED_APPS.some(({ header, secretEnv }) => {
+      const expected = process.env[secretEnv];
+      const received = req.headers[header];
+      // Con hash, para comparar siempre el mismo largo en tiempo constante.
+      return (
+        !!expected &&
+        typeof received === 'string' &&
+        timingSafeEqual(sha256(received), sha256(expected))
+      );
+    });
+    return trusted ? ip : null;
   }
 }

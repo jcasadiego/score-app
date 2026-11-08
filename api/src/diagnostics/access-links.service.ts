@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '../../generated/prisma/client';
@@ -13,9 +18,10 @@ import { diagnosticLink } from '../config/diagnostic-url';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DIAGNOSTIC_COMPLETED } from './diagnostic-view';
 
 /** Un token del panel o de otro uso no abre una sesión de cliente. */
-const SESSION_AUDIENCE = 'diagnostic-session';
+export const SESSION_AUDIENCE = 'diagnostic-session';
 /** La sesión es corta: el cliente vuelve a entrar con el mismo enlace. */
 export const SESSION_TTL_SECONDS = 12 * 60 * 60;
 /** Recuperaciones por correo destino y hora; pasado el tope no se envía nada. */
@@ -137,6 +143,8 @@ export class AccessLinksService {
    * Cambia el token del enlace por una sesión. El enlace sirve varias veces
    * hasta vencer; al usarlo se revocan los emitidos antes que él, así que un
    * enlace de recuperación deja sin valor al anterior recién cuando se usa.
+   * Si el diagnóstico ya se envió, un enlace no vencido lo dice (409): quien lo
+   * tiene es el cliente, y así no le pide un enlace nuevo que no va a llegar.
    */
   async redeem(
     token: string,
@@ -150,7 +158,7 @@ export class AccessLinksService {
       throw this.invalidLink();
     }
 
-    const expiresAt = await this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       // Ordena el canje con un envío o un reenvío simultáneos del mismo diagnóstico.
       const [diagnostic] = await tx.$queryRaw<{ status: DiagnosticStatus }[]>`
         SELECT status FROM diagnostics WHERE id = ${link.diagnosticId} FOR UPDATE
@@ -165,13 +173,11 @@ export class AccessLinksService {
         },
       });
       const now = new Date();
-      if (
-        diagnostic?.status === DiagnosticStatus.COMPLETED ||
-        current.revokedAt ||
-        current.expiresAt <= now
-      ) {
-        return null;
+      if (current.expiresAt <= now) return null;
+      if (diagnostic?.status === DiagnosticStatus.COMPLETED) {
+        return 'completed' as const;
       }
+      if (current.revokedAt) return null;
 
       if (!current.redeemedAt) {
         await tx.accessLink.update({
@@ -206,10 +212,16 @@ export class AccessLinksService {
       );
     });
 
-    if (!expiresAt) {
+    if (!outcome || outcome === 'completed') {
       this.recordRejected(link.diagnosticId);
-      throw this.invalidLink();
+      throw outcome
+        ? new ConflictException({
+            message: 'Este diagnóstico ya fue enviado.',
+            code: DIAGNOSTIC_COMPLETED,
+          })
+        : this.invalidLink();
     }
+    const expiresAt = outcome;
 
     const sessionToken = await this.jwt.signAsync(
       { sub: link.diagnosticId, lid: link.id } satisfies SessionPayload,

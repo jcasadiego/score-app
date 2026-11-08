@@ -10,10 +10,12 @@ import {
   getScoringEngineStatus,
   listCalculations,
 } from "@/lib/api/calculations";
+import { listFlags } from "@/lib/api/flags";
 import { ApiError } from "@/lib/api/errors";
 import { PageError } from "@/components/page-error";
 import { DiagnosticDetail } from "@/components/diagnostics/diagnostic-detail";
 import type { CalculationData } from "@/components/diagnostics/calculation-section";
+import type { FlagsData } from "@/components/diagnostics/flags-section";
 import { CALCULATIONS_PAGE_SIZE } from "@/lib/diagnostics/calculation-labels";
 import { MAX_PAGE } from "@/lib/users/limits";
 
@@ -42,6 +44,7 @@ export default async function DiagnosticPage({
 
   let diagnostic: Diagnostic;
   let calculations: CalculationData | null = null;
+  let flags: FlagsData | null = null;
   const token = await getToken();
   try {
     if (!token) {
@@ -50,12 +53,25 @@ export default async function DiagnosticPage({
     diagnostic = await getDiagnostic(token, id);
     // Sin enviar no hay cálculos: no se consultan.
     if (diagnostic.status === "COMPLETED") {
-      const [engine, current, latestPage, history] = await Promise.all([
-        getScoringEngineStatus(token),
-        getCurrentCalculation(token, id),
-        listCalculations(token, id, 1, 1),
-        listCalculations(token, id, historyPage, CALCULATIONS_PAGE_SIZE),
-      ]);
+      const [engine, current, latestPage, history, flagsList] =
+        await Promise.all([
+          getScoringEngineStatus(token),
+          getCurrentCalculation(token, id),
+          listCalculations(token, id, 1, 1),
+          listCalculations(token, id, historyPage, CALCULATIONS_PAGE_SIZE),
+          // Si fallan solo las alertas, el resto del detalle se muestra igual.
+          listFlags(token, id).then(
+            (list): FlagsData => ({ list }),
+            (error: unknown): FlagsData => {
+              if (error instanceof ApiError && error.status === 401) throw error;
+              return {
+                list: null,
+                error: "No pudimos cargar las alertas. Recarga la página.",
+              };
+            },
+          ),
+        ]);
+      flags = flagsList;
       calculations = {
         engine,
         current,
@@ -72,5 +88,9 @@ export default async function DiagnosticPage({
     );
   }
 
-  return <DiagnosticDetail diagnostic={diagnostic} calculations={calculations} />;
+  return <DiagnosticDetail
+      diagnostic={diagnostic}
+      calculations={calculations}
+      flags={flags}
+    />;
 }

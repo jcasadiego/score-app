@@ -14,6 +14,7 @@ import {
   type TableColumnsType,
 } from "antd";
 import type {
+  DiagnosticListItem,
   DiagnosticSummary,
   PaginatedDiagnostics,
 } from "@/lib/api/diagnostics";
@@ -132,7 +133,7 @@ export function DiagnosticsScreen({
     navigate({ q: "", family: undefined, status: undefined });
   }
 
-  const columns: TableColumnsType<DiagnosticSummary> = [
+  const columns: TableColumnsType<DiagnosticListItem> = [
     {
       title: "Lead",
       key: "lead",
@@ -175,6 +176,20 @@ export function DiagnosticsScreen({
       render: (_, diagnostic) => (
         <DiagnosticProgress progress={diagnostic.progress} />
       ),
+    },
+    {
+      title: "Alertas",
+      dataIndex: "openFlagCount",
+      key: "openFlagCount",
+      width: 120,
+      render: (count: number) =>
+        count > 0 ? (
+          <Tag color="red" style={{ marginInlineEnd: 0 }}>
+            {count === 1 ? "1 abierta" : `${count} abiertas`}
+          </Tag>
+        ) : (
+          <Typography.Text type="secondary">—</Typography.Text>
+        ),
     },
     {
       title: "Última actividad",
@@ -258,13 +273,13 @@ export function DiagnosticsScreen({
         />
       </Flex>
 
-      <Table<DiagnosticSummary>
+      <Table<DiagnosticListItem>
         rowKey="id"
         size="middle"
         dataSource={page.data}
         columns={columns}
         loading={navigating}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1020 }}
         locale={{ emptyText: emptyState }}
         onRow={(diagnostic) => ({
           onClick: () => router.push(diagnosticHref(diagnostic.id)),

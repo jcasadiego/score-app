@@ -28,6 +28,7 @@ import {
   ENGINE_DISABLED_MESSAGE,
   HIDDEN_OUTPUT_KEYS,
   OUTPUT_LABELS,
+  POLL_DELAYS_MS,
   isCalculationInProgress,
 } from "@/lib/diagnostics/calculation-labels";
 import { LocalDate } from "@/components/local-date";
@@ -44,13 +45,6 @@ export interface CalculationData {
   latest: CalculationSummary | null;
   history: CalculationsPage;
 }
-
-/**
- * Esperas entre consultas mientras un cálculo sigue en curso: rápido al
- * principio y cada vez más espaciado. Después de la última, se deja de
- * consultar (el usuario puede recargar).
- */
-const POLL_DELAYS_MS = [1_500, 3_000, 5_000, 8_000, 13_000, 20_000, 30_000, 30_000, 30_000];
 
 function SimulatedTag() {
   return (

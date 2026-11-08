@@ -32,6 +32,7 @@ import {
   CalculationSection,
   type CalculationData,
 } from "./calculation-section";
+import { FlagsSection, questionAnchor, type FlagsData } from "./flags-section";
 
 type AccessLinkRow = Diagnostic["accessLinks"][number];
 
@@ -131,12 +132,25 @@ function AnswerView({ question }: { question: DiagnosticQuestion }) {
 export function DiagnosticDetail({
   diagnostic,
   calculations,
+  flags,
 }: {
   diagnostic: Diagnostic;
   /** Nulo si el diagnóstico todavía no se envió. */
   calculations: CalculationData | null;
+  flags: FlagsData | null;
 }) {
   const completed = diagnostic.status === "COMPLETED";
+  // Cuántas alertas abiertas involucran cada pregunta, para resaltarla.
+  const openFlagsByQuestion = new Map<string, number>();
+  for (const flag of flags?.list?.flags ?? []) {
+    if (flag.status !== "OPEN") continue;
+    for (const question of flag.questions) {
+      openFlagsByQuestion.set(
+        question.id,
+        (openFlagsByQuestion.get(question.id) ?? 0) + 1,
+      );
+    }
+  }
 
   return (
     <Flex vertical gap={24}>
@@ -203,7 +217,7 @@ export function DiagnosticDetail({
             <NoData />
           )}
         </Descriptions.Item>
-        <Descriptions.Item label="Motivo (sin pago)" span={2}>
+        <Descriptions.Item label="Motivo (sin pago)" span="filled">
           {diagnostic.creationReason ? (
             <span style={{ overflowWrap: "anywhere" }}>
               {diagnostic.creationReason}
@@ -219,6 +233,8 @@ export function DiagnosticDetail({
         data={calculations}
       />
 
+      <FlagsSection diagnosticId={diagnostic.id} data={flags} />
+
       <Card title="Respuestas" size="small">
         {diagnostic.questions.length === 0 ? (
           <Empty
@@ -230,7 +246,11 @@ export function DiagnosticDetail({
           // `Listy` es una lista virtual que aquí no hace falta.
           <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {diagnostic.questions.map((question, index) => (
-              <li key={question.id}>
+              <li
+                key={question.id}
+                id={questionAnchor(question.id)}
+                style={{ scrollMarginTop: 80 }}
+              >
                 {index > 0 && <Divider style={{ margin: "12px 0" }} />}
                 <Flex vertical gap={6} style={{ width: "100%", minWidth: 0 }}>
                   <Typography.Text strong style={{ overflowWrap: "anywhere" }}>
@@ -245,6 +265,15 @@ export function DiagnosticDetail({
                       </Typography.Text>
                     )}
                   </Typography.Text>
+                  {openFlagsByQuestion.has(question.id) && (
+                    <div>
+                      <Tag color="red">
+                        {openFlagsByQuestion.get(question.id) === 1
+                          ? "1 alerta abierta"
+                          : `${openFlagsByQuestion.get(question.id)} alertas abiertas`}
+                      </Tag>
+                    </div>
+                  )}
                   <AnswerView question={question} />
                 </Flex>
               </li>

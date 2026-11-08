@@ -18,6 +18,16 @@ import {
 } from "@/lib/api/calculations";
 import { ENGINE_DISABLED_MESSAGE } from "@/lib/diagnostics/calculation-labels";
 import {
+  getFlagAnalysis,
+  requestFlagAnalysis,
+  reviewFlag,
+} from "@/lib/api/flags";
+import {
+  REVIEW_NOTE_MAX,
+  isAnalysisInProgress,
+  type FlagStatus,
+} from "@/lib/diagnostics/flag-labels";
+import {
   CREATION_REASON_MAX,
   CREATION_REASON_MIN,
 } from "@/lib/diagnostics/labels";
@@ -217,6 +227,93 @@ export async function latestCalculationAction(
     if (!isId(diagnosticId)) return { ok: false };
     const { data } = await listCalculations(token, diagnosticId, 1, 1);
     return { ok: true, latest: data[0] ?? null };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    return { ok: false };
+  }
+}
+
+const FLAG_STATUSES: readonly FlagStatus[] = ["OPEN", "REVIEWED", "DISMISSED"];
+
+/**
+ * Marca una alerta revisada, descartada (con nota) o la reabre (Revisor y
+ * Aprobador). Sin actualización optimista: si falla, la pantalla no cambia.
+ */
+export async function reviewFlagAction(
+  diagnosticId: string,
+  flagId: string,
+  status: FlagStatus,
+  note: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const token = await sessionToken();
+    const cleanNote = typeof note === "string" ? note.trim() : "";
+    if (
+      !isId(diagnosticId) ||
+      !isId(flagId) ||
+      !FLAG_STATUSES.includes(status) ||
+      cleanNote.length > REVIEW_NOTE_MAX
+    ) {
+      throw new ApiError(400, "Revisa la alerta y la nota e intenta de nuevo.");
+    }
+    if (status === "DISMISSED" && !cleanNote) {
+      throw new ApiError(400, "Para descartar una alerta hace falta una nota.");
+    }
+    await reviewFlag(token, flagId, status, cleanNote || undefined);
+    revalidatePath(`/diagnostics/${diagnosticId}`);
+    revalidatePath("/diagnostics");
+    return { ok: true };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    return {
+      ok: false,
+      error:
+        error instanceof ApiError
+          ? error.message
+          : "No pudimos guardar el cambio de la alerta. Intenta de nuevo.",
+    };
+  }
+}
+
+/** Reintenta el análisis con IA de un cálculo (Revisor y Aprobador). */
+export async function requestFlagAnalysisAction(
+  diagnosticId: string,
+  calculationId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const token = await sessionToken();
+    if (!isId(diagnosticId) || !isId(calculationId)) {
+      throw new ApiError(400, "Ese cálculo no es válido.");
+    }
+    await requestFlagAnalysis(token, calculationId);
+    revalidatePath(`/diagnostics/${diagnosticId}`);
+    return { ok: true };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    if (error instanceof ApiError && error.code === "FLAG_ANALYSIS_NOT_RETRYABLE") {
+      revalidatePath(`/diagnostics/${diagnosticId}`);
+    }
+    return {
+      ok: false,
+      error:
+        error instanceof ApiError && error.code === "AI_DISABLED"
+          ? "La IA está desactivada: el análisis se hará cuando se active."
+          : error instanceof ApiError
+            ? error.message
+            : "No pudimos reintentar el análisis. Intenta de nuevo.",
+    };
+  }
+}
+
+/** Si el análisis con IA sigue en curso, sin recargar toda la pantalla. */
+export async function flagAnalysisInProgressAction(
+  calculationId: string,
+): Promise<{ ok: boolean; inProgress?: boolean }> {
+  try {
+    const token = await sessionToken();
+    if (!isId(calculationId)) return { ok: false };
+    const analysis = await getFlagAnalysis(token, calculationId);
+    return { ok: true, inProgress: isAnalysisInProgress(analysis.status) };
   } catch (error) {
     await redirectIfSessionExpired(error);
     return { ok: false };

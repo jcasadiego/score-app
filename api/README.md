@@ -124,6 +124,31 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     resultado), sin contenido, y como `AI_TASK_RUN` en la bitácora.
   - **Prueba:** `pnpm ai:test` corre una tarea de prueba con la
     configuración local (con `claude` gasta tokens reales).
+- `src/flags/` — alertas para el revisor (PF-34). Nunca cambian el resultado
+  ni las respuestas.
+  - **Al terminar bien un cálculo**, en la misma transacción, se crean:
+    - el flag de baja confianza (`ENGINE`), si la Confianza del motor queda
+      bajo `FLAG_LOW_CONFIDENCE_THRESHOLD` (0.5);
+    - el `FlagAnalysis` pendiente.
+  - **Análisis con IA:** corre en segundo plano con el prompt versionado
+    `flags.contradictions` (`src/ai/prompts/`).
+    - Crea un flag `AI` por cada posible contradicción, con sus preguntas en
+      `flag_questions` y su severidad.
+    - Si la IA nota respuestas que intentan darle instrucciones, crea un flag
+      aparte, para que quede rastro.
+    - Si la IA nombra una pregunta que no es de la versión del diagnóstico, el
+      análisis falla (`invalid_question`) y no crea ningún flag.
+  - **Estado del análisis:** cero flags solo significa "sin alertas" si el
+    análisis está `SUCCEEDED`. Al arrancar se retoman los pendientes. Con la IA
+    desactivada, quedan pendientes.
+  - **Rutas** (Revisor y Aprobador):
+    - `GET /diagnostics/:id/flags?calculationId=` (por defecto, el cálculo
+      vigente; trae el análisis y `openCount`).
+    - `PATCH /flags/:id` (`REVIEWED`, `DISMISSED` con nota, u `OPEN` para
+      reabrir).
+    - `GET` y `POST /calculations/:id/flag-analysis`. El `POST` reintenta un
+      fallido o crea el de un cálculo anterior a los flags: 202, 409 si ya
+      terminó o sigue en curso, 503 con la IA desactivada.
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AiModule } from './ai/ai.module';
 import { AuditModule } from './audit/audit.module';
+import { FlagsModule } from './flags/flags.module';
 import { AuthModule } from './auth/auth.module';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
@@ -29,6 +30,7 @@ import { validateEnv } from './config/validate-env';
     PrismaModule,
     AuditModule,
     AiModule,
+    FlagsModule,
     RulesModule,
     UsersModule,
     AuthModule,

@@ -46,6 +46,9 @@ Un código publicado no cambia de significado.
 | `CALCULATION_IN_PROGRESS` | 409 | El diagnóstico ya tiene un cálculo pendiente o en curso. |
 | `NO_CURRENT_CALCULATION` | 404 | El diagnóstico todavía no tiene un cálculo exitoso. |
 | `SCORING_ENGINE_DISABLED` | 503 | El motor está desactivado (`SCORING_ENGINE_DRIVER=disabled`): los cálculos quedan pendientes. |
+| `CALCULATION_NOT_SUCCEEDED` | 409 | Se pidió el análisis de flags de un cálculo que no terminó bien. |
+| `FLAG_ANALYSIS_NOT_RETRYABLE` | 409 | El análisis de flags ya terminó bien o sigue en curso. |
+| `AI_DISABLED` | 503 | La IA está desactivada para este uso (`AI_*_PROVIDER=disabled`): los análisis quedan pendientes. |
 | `SERVICE_UNAVAILABLE` | 503 | La API o una dependencia no está disponible. |
 
 Otro estado HTTP sin código propio recibe su frase en `UPPER_SNAKE_CASE`.

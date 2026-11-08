@@ -117,6 +117,7 @@ model User {
   createdDiagnostics             Diagnostic[]
   issuedAccessLinks              AccessLink[]
   requestedCalculations          Calculation[]
+  reviewedFlags                  Flag[]
 
   @@map("users")
 }
@@ -274,8 +275,9 @@ model Question {
   maxLength              Int?                 @map("max_length")
   position               Int
 
-  options AnswerOption[]
-  answers Answer[]
+  options       AnswerOption[]
+  answers       Answer[]
+  flagQuestions FlagQuestion[]
 
   @@unique([questionnaireVersionId, code])
   /// Para la FK compuesta de las respuestas (PF-16): una respuesta solo puede
@@ -482,6 +484,8 @@ model Calculation {
   /// Quién lo pidió desde el panel. Nulo si se disparó al completar el diagnóstico.
   requestedById    String?           @map("requested_by_id")
   requestedBy      User?             @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  flagAnalysis     FlagAnalysis?
+  flags            Flag[]
   startedAt        DateTime?         @map("started_at") @db.Timestamptz(3)
   finishedAt       DateTime?         @map("finished_at") @db.Timestamptz(3)
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -531,4 +535,105 @@ model AiCallLog {
   @@index([createdAt])
   @@index([entity, entityId])
   @@map("ai_call_logs")
+}
+
+/// Origen de un flag (PF-34).
+enum FlagSource {
+  /// Regla sobre la salida del motor (baja confianza).
+  ENGINE
+  /// Posible contradicción señalada por la IA.
+  AI
+
+  @@map("flag_source")
+}
+
+enum FlagSeverity {
+  HIGH
+  MEDIUM
+  LOW
+
+  @@map("flag_severity")
+}
+
+enum FlagStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+
+  @@map("flag_status")
+}
+
+enum FlagAnalysisStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+
+  @@map("flag_analysis_status")
+}
+
+/// Análisis con IA de un cálculo exitoso (PF-34). Uno por cálculo. Cero flags
+/// solo significa "sin alertas" si el análisis terminó `SUCCEEDED`.
+model FlagAnalysis {
+  id            String             @id @default(cuid())
+  calculationId String             @unique @map("calculation_id")
+  calculation   Calculation        @relation(fields: [calculationId], references: [id], onDelete: Restrict)
+  status        FlagAnalysisStatus @default(PENDING)
+  /// Con qué se hizo: quedan al terminar, con éxito o no.
+  provider      String?            @db.VarChar(32)
+  model         String?            @db.VarChar(64)
+  promptId      String?            @map("prompt_id") @db.VarChar(64)
+  promptVersion String?            @map("prompt_version") @db.VarChar(16)
+  isSimulated   Boolean?           @map("is_simulated")
+  /// Motivo de un fallo (`timeout`, `invalid_output`, `invalid_question`...).
+  failureReason String?            @map("failure_reason") @db.VarChar(32)
+  startedAt     DateTime?          @map("started_at") @db.Timestamptz(3)
+  finishedAt    DateTime?          @map("finished_at") @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  flags Flag[]
+
+  @@index([status])
+  @@map("flag_analyses")
+}
+
+/// Alerta para el revisor sobre un cálculo. Nunca cambia el resultado ni las
+/// respuestas. Las de IA son siempre "posible contradicción".
+model Flag {
+  id            String        @id @default(cuid())
+  calculationId String        @map("calculation_id")
+  calculation   Calculation   @relation(fields: [calculationId], references: [id], onDelete: Restrict)
+  /// El análisis que lo generó (solo los de IA).
+  analysisId    String?       @map("analysis_id")
+  analysis      FlagAnalysis? @relation(fields: [analysisId], references: [id], onDelete: Restrict)
+  source        FlagSource
+  severity      FlagSeverity
+  message       String        @db.VarChar(1000)
+  status        FlagStatus    @default(OPEN)
+  /// Nota del revisor; obligatoria al descartar (CHECK en la migración).
+  reviewNote    String?       @map("review_note") @db.VarChar(1000)
+  reviewedById  String?       @map("reviewed_by_id")
+  reviewedBy    User?         @relation(fields: [reviewedById], references: [id], onDelete: Restrict)
+  reviewedAt    DateTime?     @map("reviewed_at") @db.Timestamptz(3)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  questions FlagQuestion[]
+
+  @@index([calculationId, status])
+  @@index([analysisId])
+  @@index([reviewedById])
+  @@map("flags")
+}
+
+/// Preguntas involucradas en un flag (tabla puente).
+model FlagQuestion {
+  flagId     String   @map("flag_id")
+  flag       Flag     @relation(fields: [flagId], references: [id], onDelete: Restrict)
+  questionId String   @map("question_id")
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@id([flagId, questionId])
+  @@index([questionId])
+  @@map("flag_questions")
 }

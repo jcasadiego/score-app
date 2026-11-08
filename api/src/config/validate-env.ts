@@ -85,6 +85,9 @@ const EnvSchema = z
     AI_FLAGS_MODEL: optional(z.string().max(64)),
     AI_REPORT_PROVIDER: optional(z.enum(AI_PROVIDERS)),
     AI_REPORT_MODEL: optional(z.string().max(64)),
+    // Flags (PF-34): Confianza del motor por debajo de esto genera un flag.
+    // 0.5 mientras la escala real del motor no esté confirmada.
+    FLAG_LOW_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.5),
     AI_TIMEOUT_MS: z.coerce
       .number()
       .int()

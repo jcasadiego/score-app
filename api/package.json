@@ -19,9 +19,11 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.mts",
-    "mail:test": "ts-node scripts/send-test-email.ts"
+    "mail:test": "ts-node scripts/send-test-email.ts",
+    "ai:test": "ts-node scripts/ai-smoke.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@nestjs/common": "^12.3.2",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.3.2",

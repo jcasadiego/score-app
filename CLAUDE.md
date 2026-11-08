@@ -79,7 +79,9 @@ pendientes:
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
   no envía nada) y los cálculos del motor (`src/calculations`: un cálculo
   por envío y por recálculo, nunca sobrescrito, con
-  `SCORING_ENGINE_DRIVER` en `disabled` o `stub`). Detalle en `api/README.md`.
+  `SCORING_ENGINE_DRIVER` en `disabled` o `stub`) y el servicio compartido de IA
+  (`src/ai`: Claude o simulado por uso, datos minimizados, salida validada y
+  registro de uso sin contenido). Detalle en `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la

@@ -59,6 +59,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | CSP de `apps/diagnostico` con nonce por petición, sin `'unsafe-inline'` en producción | A.8.26 | CC6.6 | Implementado | `apps/diagnostico/proxy.ts` (PF-17). El navegador no habla con la API: `connect-src 'self'` |
 | Sesión del cliente final fuera del alcance de JavaScript | A.8.5, A.8.26 | CC6.1 | Implementado | Cookie `httpOnly`, `Secure` y `SameSite=Strict` (`apps/diagnostico/lib/session/cookie.ts`); el token del enlace sale de la URL y del historial al entrar (PF-17) |
 | El resultado simulado del motor no llega a producción, y cada cálculo queda trazable | A.8.25, A.8.29 | PI1.3, CC8.1 | Implementado | `validate-env.ts` (con `APP_ENV=production`, `SCORING_ENGINE_DRIVER=stub` no arranca); `calculations` guarda entrada, salida, versión de reglas y motor, y marca lo simulado (PF-24) |
+| IA: datos minimizados, contenido del cliente aislado de las instrucciones, salida validada y registro de uso sin contenido | A.5.34, A.8.11, A.8.26 | C1.1, P4.1, CC6.6 | Implementado | `src/ai` (PF-32): `minimize.ts`, `prompt-envelope.ts` (OWASP LLM01), validación con zod (LLM05), `ai_call_logs`; con `APP_ENV=production` no arranca con `stub` |
 | Prueba de penetración antes del primer release | A.8.29 | CC4.1, CC7.1 | **Pendiente** | PF-61, antes del primer release; una externa si el auditor la pide |
 
 ## Desarrollo y cambios

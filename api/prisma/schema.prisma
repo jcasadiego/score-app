@@ -492,3 +492,43 @@ model Calculation {
   @@index([status])
   @@map("calculations")
 }
+
+/// Resultado de una llamada a la IA (PF-32).
+enum AiCallOutcome {
+  SUCCEEDED
+  FAILED
+
+  @@map("ai_call_outcome")
+}
+
+/// Una llamada a un proveedor de IA. Solo metadatos: nunca el prompt con
+/// respuestas del cliente ni la salida. Sirve para conocer el costo real por
+/// diagnóstico. `entity`/`entityId` nombran sobre qué se pidió (por ejemplo,
+/// `Diagnostic` y su id), por referencia y sin llave foránea, como la bitácora.
+model AiCallLog {
+  id               String        @id @default(cuid())
+  /// Para qué se usó (`flags`, `report`).
+  use              String        @db.VarChar(32)
+  provider         String        @db.VarChar(32)
+  /// Modelo pedido, y el que respondió si el proveedor usó otro (fallback).
+  model            String        @db.VarChar(64)
+  servedModel      String?       @map("served_model") @db.VarChar(64)
+  promptId         String        @map("prompt_id") @db.VarChar(64)
+  promptVersion    String        @map("prompt_version") @db.VarChar(16)
+  outcome          AiCallOutcome
+  /// Motivo de un fallo (`timeout`, `rate_limited`, `invalid_output`...).
+  failureReason    String?       @map("failure_reason") @db.VarChar(32)
+  inputTokens      Int?          @map("input_tokens")
+  outputTokens     Int?          @map("output_tokens")
+  /// Aproximado, con la tabla de precios de `src/ai/pricing.ts`. Nulo si el
+  /// modelo no tiene precio conocido.
+  estimatedCostUsd Decimal?      @map("estimated_cost_usd") @db.Decimal(12, 6)
+  durationMs       Int           @map("duration_ms")
+  entity           String?       @db.VarChar(64)
+  entityId         String?       @map("entity_id") @db.VarChar(64)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@map("ai_call_logs")
+}

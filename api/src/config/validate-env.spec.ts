@@ -27,6 +27,7 @@ const PRODUCTION = {
   DIAGNOSTIC_API_SECRET: 'y'.repeat(32),
   APP_ENV: 'production',
   SCORING_ENGINE_DRIVER: 'disabled',
+  AI_PROVIDER: 'disabled',
   PANEL_URL: 'https://panel.example.com',
   DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
@@ -213,6 +214,46 @@ describe('validateEnv · motor de cálculo', () => {
     expect(() =>
       validateEnv({ ...BASE, SCORING_ENGINE_DRIVER: 'real' }),
     ).toThrow(/SCORING_ENGINE_DRIVER/);
+  });
+});
+
+describe('validateEnv · IA', () => {
+  it('en desarrollo, el proveedor es opcional', () => {
+    expect(validateEnv(BASE).AI_PROVIDER).toBeUndefined();
+  });
+
+  it('con NODE_ENV=production no arranca sin AI_PROVIDER', () => {
+    expect(() => validateEnv({ ...PRODUCTION, AI_PROVIDER: '' })).toThrow(
+      /AI_PROVIDER: obligatoria con NODE_ENV=production/,
+    );
+  });
+
+  it.each(['AI_PROVIDER', 'AI_FLAGS_PROVIDER', 'AI_REPORT_PROVIDER'])(
+    'con APP_ENV=production, %s no admite el simulado',
+    (key) => {
+      expect(() => validateEnv({ ...PRODUCTION, [key]: 'stub' })).toThrow(
+        new RegExp(`${key}: con APP_ENV=production no admite 'stub'`),
+      );
+    },
+  );
+
+  it('con claude exige la API key, también si solo un uso lo pide', () => {
+    expect(() => validateEnv({ ...BASE, AI_FLAGS_PROVIDER: 'claude' })).toThrow(
+      /ANTHROPIC_API_KEY: obligatoria con AI_FLAGS_PROVIDER=claude/,
+    );
+    expect(
+      validateEnv({
+        ...BASE,
+        AI_PROVIDER: 'claude',
+        ANTHROPIC_API_KEY: 'sk-ant-prueba',
+      }).AI_PROVIDER,
+    ).toBe('claude');
+  });
+
+  it('rechaza un proveedor desconocido', () => {
+    expect(() => validateEnv({ ...BASE, AI_PROVIDER: 'openai' })).toThrow(
+      /AI_PROVIDER/,
+    );
   });
 });
 

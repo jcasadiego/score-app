@@ -12,6 +12,12 @@ import {
 } from "@/lib/api/diagnostics";
 import { getLead, listLeads } from "@/lib/api/leads";
 import {
+  listCalculations,
+  requestCalculation,
+  type CalculationSummary,
+} from "@/lib/api/calculations";
+import { ENGINE_DISABLED_MESSAGE } from "@/lib/diagnostics/calculation-labels";
+import {
   CREATION_REASON_MAX,
   CREATION_REASON_MIN,
 } from "@/lib/diagnostics/labels";
@@ -158,5 +164,61 @@ export async function searchLeadsAction(
           ? error.message
           : "No pudimos buscar leads. Intenta de nuevo.",
     };
+  }
+}
+
+export interface CalculationActionResult {
+  ok: boolean;
+  /** `in-progress` (409) y `disabled` (503) no son errores graves. */
+  reason?: "in-progress" | "disabled";
+  error?: string;
+}
+
+/** Recalcular o reintentar (Revisor y Aprobador, lo valida la API). */
+export async function requestCalculationAction(
+  diagnosticId: string,
+): Promise<CalculationActionResult> {
+  try {
+    const token = await sessionToken();
+    if (!isId(diagnosticId)) {
+      throw new ApiError(400, "Ese diagnóstico no es válido.");
+    }
+    await requestCalculation(token, diagnosticId);
+    revalidatePath(`/diagnostics/${diagnosticId}`);
+    return { ok: true };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    if (error instanceof ApiError && error.code === "CALCULATION_IN_PROGRESS") {
+      revalidatePath(`/diagnostics/${diagnosticId}`);
+      return { ok: false, reason: "in-progress" };
+    }
+    if (error instanceof ApiError && error.status === 503) {
+      return { ok: false, reason: "disabled", error: ENGINE_DISABLED_MESSAGE };
+    }
+    return {
+      ok: false,
+      error:
+        error instanceof ApiError
+          ? error.message
+          : "No pudimos pedir el cálculo. Intenta de nuevo.",
+    };
+  }
+}
+
+/**
+ * Solo el último intento, para saber si un cálculo en curso terminó sin
+ * recargar toda la pantalla.
+ */
+export async function latestCalculationAction(
+  diagnosticId: string,
+): Promise<{ ok: boolean; latest?: CalculationSummary | null }> {
+  try {
+    const token = await sessionToken();
+    if (!isId(diagnosticId)) return { ok: false };
+    const { data } = await listCalculations(token, diagnosticId, 1, 1);
+    return { ok: true, latest: data[0] ?? null };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    return { ok: false };
   }
 }

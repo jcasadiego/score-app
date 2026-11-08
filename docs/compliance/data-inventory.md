@@ -34,7 +34,7 @@ anotarlo aquí, porque también es un dato personal.
 |---|---|---|---|---|---|
 | Resend | Correo y nombre del destinatario, y el enlace de acceso del cliente. En los avisos al equipo, nombre, familia y UTM del lead | Correo transaccional | Por confirmar | Por firmar | En uso con cuenta de desarrollo. Falta la cuenta y el dominio del cliente |
 | Hosting y base de datos | Todo lo anterior | Operar SCORE | Por definir | Por firmar | Por elegir (PF-30) |
-| Proveedor de IA | Texto de respuestas | Flags y borrador del informe | Por definir | Por firmar | Sin integrar (PF-32). Revisar sus condiciones de retención y de entrenamiento |
+| Anthropic (Claude API) | Respuestas del diagnóstico por `code`/`value`, minimizadas: nunca nombre, correo ni teléfono del lead (`src/ai/minimize.ts`) | Flags y borrador del informe | Por confirmar | Por firmar: cuenta a nombre de Music Finance Pro | Servicio listo (PF-32), sin cuenta real. Condiciones oficiales: borra entradas y salidas en 30 días; hasta 2 años si se marcan por violar su política de uso; no las usa para entrenar (privacy.claude.com, revisado el 2026-11-08). Evaluar un acuerdo de retención cero |
 | Pasarela de pagos y CRM | Por definir | Pagos y CRM | Por definir | Por firmar | Sin delimitar |
 
 GitHub aloja el código. No debe recibir datos de clientes: ni en fixtures ni en

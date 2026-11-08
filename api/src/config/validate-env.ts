@@ -20,6 +20,8 @@ function hasEncryptedDatabaseConnection(databaseUrl: string): boolean {
  * adelante (ej. un JWT_SECRET undefined que rompe silenciosamente la
  * firma de tokens).
  */
+const AI_PROVIDERS = ['disabled', 'stub', 'claude'] as const;
+
 const EnvSchema = z
   .object({
     // Sin valor por defecto: si faltara en un servidor, la API arrancaría como
@@ -73,6 +75,23 @@ const EnvSchema = z
     // es el adapter simulado. PF-26 agregará el real. Vacío en desarrollo =
     // `stub`; obligatorio con NODE_ENV=production.
     SCORING_ENGINE_DRIVER: optional(z.enum(['disabled', 'stub'])),
+    // IA (PF-32): proveedor y modelo por defecto, y por uso (`AI_FLAGS_*`,
+    // `AI_REPORT_*`). `disabled` no llama a nadie; `stub` responde datos de
+    // ejemplo sin costo. Vacío en desarrollo = `stub`; obligatorio con
+    // NODE_ENV=production.
+    AI_PROVIDER: optional(z.enum(AI_PROVIDERS)),
+    AI_MODEL: optional(z.string().max(64)),
+    AI_FLAGS_PROVIDER: optional(z.enum(AI_PROVIDERS)),
+    AI_FLAGS_MODEL: optional(z.string().max(64)),
+    AI_REPORT_PROVIDER: optional(z.enum(AI_PROVIDERS)),
+    AI_REPORT_MODEL: optional(z.string().max(64)),
+    AI_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(600_000)
+      .default(60_000),
+    ANTHROPIC_API_KEY: optional(z.string().min(1)),
     // `log` no envía nada real (desarrollo); `resend` envía de verdad.
     MAIL_DRIVER: z.enum(['log', 'resend']).default('log'),
     RESEND_API_KEY: optional(z.string()),
@@ -174,6 +193,36 @@ const EnvSchema = z
             message: 'obligatoria con NODE_ENV=production',
           });
         }
+      }
+    }
+    if (env.NODE_ENV === 'production' && !env.AI_PROVIDER) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AI_PROVIDER'],
+        message: 'obligatoria con NODE_ENV=production',
+      });
+    }
+    const aiProviders = [
+      ['AI_PROVIDER', env.AI_PROVIDER],
+      ['AI_FLAGS_PROVIDER', env.AI_FLAGS_PROVIDER],
+      ['AI_REPORT_PROVIDER', env.AI_REPORT_PROVIDER],
+    ] as const;
+    for (const [key, provider] of aiProviders) {
+      // Una respuesta inventada nunca puede llegar a un caso real.
+      if (env.APP_ENV === 'production' && provider === 'stub') {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message:
+            "con APP_ENV=production no admite 'stub' (respuestas de ejemplo)",
+        });
+      }
+      if (provider === 'claude' && !env.ANTHROPIC_API_KEY) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ANTHROPIC_API_KEY'],
+          message: `obligatoria con ${key}=claude`,
+        });
       }
     }
     // Un resultado simulado nunca puede llegar a un cliente real.

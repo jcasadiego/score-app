@@ -148,10 +148,7 @@ export class CalculationsService implements OnApplicationBootstrap {
   dispatch(calculationId: string): void {
     if (!this.engine.enabled) return;
     void this.process(calculationId).catch((error: unknown) =>
-      this.logger.error(
-        `Falló el procesamiento del cálculo ${calculationId}`,
-        error instanceof Error ? error.stack : undefined,
-      ),
+      this.logFailure(calculationId, error),
     );
   }
 
@@ -340,10 +337,7 @@ export class CalculationsService implements OnApplicationBootstrap {
     void (async () => {
       for (const { id } of queued) {
         await this.process(id).catch((error: unknown) =>
-          this.logger.error(
-            `Falló el procesamiento del cálculo ${id}`,
-            error instanceof Error ? error.stack : undefined,
-          ),
+          this.logFailure(id, error),
         );
       }
     })();
@@ -391,6 +385,21 @@ export class CalculationsService implements OnApplicationBootstrap {
       throw new NotFoundException(`Cálculo ${calculationId} no encontrado`);
     }
     return calculation;
+  }
+
+  /**
+   * Solo el tipo y el código del error: el mensaje de Prisma puede citar los
+   * valores de la consulta, y ahí van las respuestas del cliente.
+   */
+  private logFailure(calculationId: string, error: unknown): void {
+    const name = error instanceof Error ? error.name : 'desconocido';
+    const code =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? ` (${error.code})`
+        : '';
+    this.logger.error(
+      `Falló el procesamiento del cálculo ${calculationId}: ${name}${code}`,
+    );
   }
 
   private async assertDiagnosticExists(diagnosticId: string): Promise<void> {

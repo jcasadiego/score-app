@@ -8,7 +8,6 @@ import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
-import { ScoringEngineModule } from './scoring-engine/scoring-engine.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PasswordResetModule } from './password-reset/password-reset.module';
 import { QuestionnaireModule } from './questionnaire/questionnaire.module';
@@ -29,7 +28,6 @@ import { validateEnv } from './config/validate-env';
     PrismaModule,
     AuditModule,
     RulesModule,
-    ScoringEngineModule,
     UsersModule,
     AuthModule,
     DiagnosticsModule,

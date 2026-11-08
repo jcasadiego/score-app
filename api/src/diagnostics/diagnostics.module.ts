@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { CalculationsModule } from '../calculations/calculations.module';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AccessLinkGuard } from './access-link.guard';
@@ -16,6 +17,7 @@ import { DiagnosticsService } from './diagnostics.service';
   imports: [
     AuditModule,
     AuthModule,
+    CalculationsModule,
     MailModule,
     NotificationsModule,
     JwtModule.register({}),

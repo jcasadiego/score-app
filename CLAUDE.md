@@ -39,7 +39,8 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   una hoja de cálculo, está solo documentado, o parcialmente definido (ver
   `Alcance_Preliminar_MVP_SCORE.docx`, sección 03). En `api`, el motor
   queda detrás de `ScoringEnginePort` (`api/src/scoring-engine/`) para no
-  bloquear el resto por esto — hoy solo hay un adaptador de ejemplo.
+  bloquear el resto por esto. Hoy hay un adapter simulado y el modo
+  `disabled` (PF-24); el real es PF-26.
 - **Especificación completa del cuestionario** de las cuatro familias
   (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
   dominio real de `api` (modelos de diagnóstico/respuestas, detección de
@@ -76,7 +77,9 @@ pendientes:
   revocable, sesión del cliente, respuestas, enlaces externos, recuperación
   del enlace y abandono calculado) y el servicio de correo transaccional
   (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
-  no envía nada). Detalle en `api/README.md`.
+  no envía nada) y los cálculos del motor (`src/calculations`: un cálculo
+  por envío y por recálculo, nunca sobrescrito, con
+  `SCORING_ENGINE_DRIVER` en `disabled` o `stub`). Detalle en `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
   `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la

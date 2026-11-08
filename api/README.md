@@ -83,11 +83,42 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 - `src/prisma/` — `PrismaService` global, conecta vía driver adapter
   (`@prisma/adapter-pg`), requerido por Prisma 7.
 - `src/scoring-engine/` — el motor de cálculo de SCORE queda detrás de
-  `ScoringEnginePort` (`scoring-engine.port.ts`). Hoy solo existe
-  `StubScoringEngineAdapter`, un adaptador de ejemplo — se reemplaza
-  cuando se confirme el escenario real del motor (API ya ejecutable,
-  hoja de cálculo a portar, o construir desde cero; ver `CLAUDE.md`
-  sección 3).
+  `ScoringEnginePort` (`scoring-engine.port.ts`). Ningún módulo llama al motor
+  directo, y la API nunca calcula por su cuenta.
+  - `SCORING_ENGINE_DRIVER` elige el motor al arrancar. Cambiarlo es cambiar la
+    variable y reiniciar, sin desplegar.
+    - `disabled`: los cálculos quedan `PENDING`.
+    - `stub`: `SimulatedScoringEngineAdapter`, determinístico, con la forma del
+      brief (Potencial 0–100, Madurez 1–4, Confianza 0–1, D1–D8). Sus
+      resultados quedan marcados como simulados.
+    - El motor real llega con PF-26.
+  - Con `APP_ENV=production` no se admite `stub`. Con `NODE_ENV=production`,
+    `APP_ENV` y `SCORING_ENGINE_DRIVER` son obligatorias.
+  - El simulado registra y activa una versión de reglas simulada si no hay
+    ninguna activa.
+- `src/calculations/` — cálculos del motor (PF-24).
+  - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
+    se crea en la misma transacción y se procesa en segundo plano; el cliente
+    no espera al motor.
+  - **Reinicios:** al arrancar se retoman los pendientes y los que quedaron en
+    `RUNNING` (se supone una sola instancia de la API).
+  - **Qué se guarda:** cada cálculo queda aparte con entrada (respuestas por
+    `code`/`value`), salida, versión de reglas, motor y estado. Nunca se
+    sobrescribe.
+  - **Último intento y vigente:** último intento = el más reciente. Cálculo
+    vigente = el más reciente `SUCCEEDED`.
+  - **Base de datos:** a lo sumo un cálculo `PENDING`/`RUNNING` por diagnóstico
+    y una `RuleSetVersion` activa, ambos con índices únicos parciales.
+  - **Rutas** (Revisor y Aprobador, matriz 5.3):
+    - `POST /diagnostics/:id/calculations`: 202 con `Location`; 503 con el
+      motor apagado; 409 si no está enviado o ya hay uno en curso.
+    - `GET /diagnostics/:id/calculations`: historial, último intento primero.
+    - `GET .../calculations/current` y `GET .../calculations/:calculationId`
+      (el detalle trae lo enviado).
+    - `GET /scoring-engine/status`.
+  - **Privacidad:** las lecturas se auditan, y las respuestas nunca van a la
+    bitácora ni a los logs. Si el motor falla, el panel ve un mensaje
+    genérico.
 - `src/common/app-throttler.guard.ts` — límite de peticiones. Cuenta por usuario
   si el JWT del panel tiene firma válida, por diagnóstico si trae una sesión de
   cliente final válida, por la IP que informa el panel o `apps/diagnostico` en

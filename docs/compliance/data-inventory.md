@@ -19,6 +19,7 @@ agregue un dato personal o un proveedor lo anota aquí en el mismo PR.
 | Actor, acción, entidad, id de petición; correo enmascarado en los envíos | Equipo y clientes | `audit_logs` | Trazabilidad | Por definir | Por definir. Solo inserción: el borrado deberá respetarlo |
 | Método, ruta, estado, duración, actor | Equipo y clientes | Logs de la API | Operación y seguridad | Por definir | Por definir |
 | Respuestas del diagnóstico (texto libre y opciones), posible información financiera | Cliente final | `answers`, `answer_selections` | Diagnóstico | Por definir | Por definir (PF-49) |
+| Copia de las respuestas enviada al motor y su resultado | Cliente final | `calculations` (`input`, `output`) | Calcular el resultado del diagnóstico y conservar qué se calculó con qué | Por definir | Por definir (PF-49); la misma que las respuestas |
 | Enlaces a sus perfiles públicos (Spotify, YouTube, Instagram, TikTok, sitio web) | Cliente final | `external_links` | Diagnóstico | Por definir | Por definir (PF-49) |
 | Estado, actividad y fechas del diagnóstico; quién lo generó y el motivo de generarlo sin pago | Cliente final y equipo interno | `diagnostics` | Seguimiento del diagnóstico y control del acceso sin pago | Por definir | Por definir (PF-49) |
 | Enlace de acceso del cliente (solo hash), uso y revocación | Cliente final | `access_links` | Acceso sin contraseña | Por definir | Vence en 30 días (`ACCESS_LINK_TTL_DAYS`); la fila no se borra todavía |

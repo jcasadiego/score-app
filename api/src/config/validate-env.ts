@@ -66,6 +66,13 @@ const EnvSchema = z
     PANEL_URL: optional(z.url()),
     // Base del enlace que recibe el cliente final (apps/diagnostico).
     DIAGNOSTIC_URL: optional(z.url()),
+    // Entorno de despliegue. Distingue QA de producción, que comparten
+    // NODE_ENV=production. Obligatorio con NODE_ENV=production.
+    APP_ENV: optional(z.enum(['development', 'qa', 'production'])),
+    // Motor de cálculo (PF-24): `disabled` deja los cálculos pendientes; `stub`
+    // es el adapter simulado. PF-26 agregará el real. Vacío en desarrollo =
+    // `stub`; obligatorio con NODE_ENV=production.
+    SCORING_ENGINE_DRIVER: optional(z.enum(['disabled', 'stub'])),
     // `log` no envía nada real (desarrollo); `resend` envía de verdad.
     MAIL_DRIVER: z.enum(['log', 'resend']).default('log'),
     RESEND_API_KEY: optional(z.string()),
@@ -156,6 +163,26 @@ const EnvSchema = z
         code: 'custom',
         path: ['DIAGNOSTIC_API_SECRET'],
         message: 'debe ser distinto de PANEL_API_SECRET',
+      });
+    }
+    if (env.NODE_ENV === 'production') {
+      for (const key of ['APP_ENV', 'SCORING_ENGINE_DRIVER'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'obligatoria con NODE_ENV=production',
+          });
+        }
+      }
+    }
+    // Un resultado simulado nunca puede llegar a un cliente real.
+    if (env.APP_ENV === 'production' && env.SCORING_ENGINE_DRIVER === 'stub') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SCORING_ENGINE_DRIVER'],
+        message:
+          "con APP_ENV=production no admite 'stub' (el resultado es simulado)",
       });
     }
     if (env.NODE_ENV === 'production' && env.MAIL_DRIVER !== 'resend') {

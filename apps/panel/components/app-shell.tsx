@@ -33,6 +33,10 @@ function menuItems(role: string) {
       key: "/diagnostics",
       label: <Link href="/diagnostics">Diagnósticos</Link>,
     },
+    {
+      key: "/questionnaire",
+      label: <Link href="/questionnaire">Cuestionario</Link>,
+    },
     ...(role === "ADMIN"
       ? [{ key: "/users", label: <Link href="/users">Usuarios</Link> }]
       : []),

@@ -72,9 +72,11 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
   pantallas de cada módulo se agregan ahí: Usuarios
   (`app/(panel)/users/`), Leads (`app/(panel)/leads/`, lista con
-  filtros, detalle en un `Drawer` y cambio de estado) y Diagnósticos
-  (`app/(panel)/diagnostics/`, PF-18). Las llamadas a la api pasan por
-  `lib/api/client.ts`; un 409 conserva el `code` de la api en `ApiError`.
+  filtros, detalle en un `Drawer` y cambio de estado), Diagnósticos
+  (`app/(panel)/diagnostics/`, PF-18) y Cuestionario
+  (`app/(panel)/questionnaire/`, PF-14). Las llamadas a la api pasan por
+  `lib/api/client.ts`; un 400 o 409 conserva el `code` y la lista `errors`
+  de la api en `ApiError`.
 - **Diagnósticos:**
   - `/diagnostics` lista con estado (también "Abandonado", que calcula la
     api), progreso y última actividad; filtros y página en la URL.
@@ -87,6 +89,21 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   - El enlace del cliente se muestra una sola vez en el modal
     (`components/diagnostics/issued-link.tsx`): no va a la URL ni se guarda.
     Si el correo falla, el modal lo dice y deja reintentar.
+- **Cuestionario:**
+  - `/questionnaire?family=` muestra una pestaña por familia. En cada una
+    se ve el borrador y la última versión publicada (`&view=published`),
+    con las preguntas en orden. Lo publicado es de solo lectura.
+  - Revisor y Aprobador lo ven. Solo el Aprobador ve los botones para crear
+    el borrador (copia la última versión publicada que no sea de prueba),
+    agregar, editar, quitar y reordenar preguntas, y publicar. Igual quien
+    decide es la api.
+  - Una pregunta se edita completa en un modal
+    (`components/questionnaire/question-modal.tsx`), con sus opciones
+    dentro: agregar, quitar y reordenar. Se propone el `code`/`value` a
+    partir del texto. Si la api rechaza algo, el modal muestra el motivo y
+    conserva lo escrito.
+  - Publicar pide confirmación. Si falta algo, se muestra la lista `errors`
+    de la api.
 - Fechas con `components/local-date.tsx`: se formatean en la zona del
   navegador solo en el cliente, para no romper la hidratación.
 - Tema único en `lib/theme.ts` (colores, radio, fuente) aplicado por

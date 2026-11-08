@@ -11,6 +11,7 @@ import {
   ExternalPlatform,
 } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import { CalculationsService } from '../calculations/calculations.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,6 +47,7 @@ export class DiagnosticSessionsService {
     private readonly audit: AuditService,
     private readonly accessLinks: AccessLinksService,
     private readonly notifications: NotificationsService,
+    private readonly calculations: CalculationsService,
   ) {}
 
   /** Cuestionario con las respuestas guardadas, enlaces externos y progreso. */
@@ -197,7 +199,7 @@ export class DiagnosticSessionsService {
   /**
    * Envía el diagnóstico si todas las obligatorias tienen respuesta; si no,
    * 409 con cuáles faltan. Al completarse revoca sus enlaces (la sesión termina
-   * aquí) y avisa al equipo.
+   * aquí), deja pendiente su cálculo y avisa al equipo.
    */
   async submit(session: ClientSession) {
     const diagnosticId = session.sub;
@@ -244,10 +246,13 @@ export class DiagnosticSessionsService {
       await this.recordClientEvent(tx, 'DIAGNOSTIC_COMPLETED', session, {
         revokedAccessLinks: revoked,
       });
-      return result;
+      // En la misma transacción: un reinicio no puede perder el cálculo.
+      const calculation = await this.calculations.enqueue(tx, diagnosticId);
+      return { ...result, calculationId: calculation.id };
     });
 
-    // PF-24: aquí se dispara el cálculo del motor cuando exista.
+    // El cliente no espera al motor: se procesa en segundo plano.
+    this.calculations.dispatch(completed.calculationId);
     this.notifications.notifyDiagnosticCompleted({
       diagnosticId,
       leadName: completed.lead.name,

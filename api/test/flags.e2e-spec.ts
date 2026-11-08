@@ -466,6 +466,41 @@ describe('Flags (e2e, base propia)', () => {
       .expect(404);
   });
 
+  it('el listado de diagnósticos trae los flags abiertos del cálculo vigente', async () => {
+    engine.confidence = 0.1;
+    const low = await flagged();
+    engine.confidence = 0.9;
+    const high = await flagged();
+    const openFlags = async () => {
+      const { body } = await server()
+        .get(`${DIAGNOSTICS}?pageSize=100`)
+        .set(as(reviewer.token))
+        .expect(200);
+      const rows = body.data as { id: string; openFlagCount: number }[];
+      const count = (id: string) =>
+        rows.find((row) => row.id === id)?.openFlagCount;
+      return { low: count(low.id), high: count(high.id) };
+    };
+    expect(await openFlags()).toEqual({ low: 1, high: 0 });
+
+    const [flag] = (await flagsOf(low.id).set(as(reviewer.token))).body.flags;
+    await server()
+      .patch(`/api/v1/flags/${flag.id}`)
+      .set(as(reviewer.token))
+      .send({ status: 'REVIEWED' })
+      .expect(200);
+    expect(await openFlags()).toEqual({ low: 0, high: 0 });
+
+    // Al recalcular, cuenta el cálculo nuevo, no la suma del historial.
+    engine.confidence = 0.2;
+    await server()
+      .post(`${DIAGNOSTICS}/${low.id}/calculations`)
+      .set(as(approver.token))
+      .expect(202);
+    await settled(low.id);
+    expect(await openFlags()).toEqual({ low: 1, high: 0 });
+  });
+
   it('las rutas exigen sesión del panel', async () => {
     const { id, session, calculation } = await flagged();
     await flagsOf(id).expect(401);

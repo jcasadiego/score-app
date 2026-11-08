@@ -68,7 +68,7 @@ export function ResendLinkButton({
         title="Enlace reenviado"
         open={link !== null}
         onCancel={() => !sending && setLink(null)}
-        maskClosable={false}
+        mask={{ closable: false }}
         destroyOnHidden
         footer={
           <Button type="primary" onClick={() => setLink(null)} disabled={sending}>

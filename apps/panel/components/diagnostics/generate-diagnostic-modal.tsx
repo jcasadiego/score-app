@@ -120,7 +120,7 @@ export function GenerateDiagnosticModal({
         title="Diagnóstico generado"
         open={open}
         onCancel={close}
-        maskClosable={false}
+        mask={{ closable: false }}
         destroyOnHidden
         footer={[
           <Link key="open" href={diagnosticHref(result.diagnosticId)}>

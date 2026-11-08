@@ -16,6 +16,12 @@ describe('minimize', () => {
     );
   });
 
+  it('no rechaza códigos que solo contienen "name"', () => {
+    expect(minimize({ artist_name_known: 'yes' })).toEqual({
+      artist_name_known: 'yes',
+    });
+  });
+
   it('enmascara correos y teléfonos dentro de los textos', () => {
     const result = minimize({
       story: 'Escríbeme a ana.perez@correo.com o al +57 300 123 4567.',

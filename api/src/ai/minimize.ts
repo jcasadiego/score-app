@@ -4,9 +4,14 @@
  * segunda barrera.
  */
 
-/** Claves que nunca deben viajar: datos de contacto del lead. */
+/**
+ * Claves que nunca deben viajar: datos de contacto del lead. Correo y teléfono
+ * en cualquier parte de la clave (`clientEmail`, `contact_phone`); el nombre
+ * solo como clave propia, para no rechazar códigos como `artist_name_known`.
+ */
 const CONTACT_KEYS =
-  /^(name|full_?name|first_?name|last_?name|email|e_?mail|phone|telephone|mobile|nombre|correo|telefono|teléfono|celular)$/i;
+  /(email|e_mail|correo|phone|telefono|teléfono|celular|mobile|whatsapp)|^(name|full_?name|first_?name|last_?name|nombre|nombre_?completo)$/i;
+/^(name|full_?name|first_?name|last_?name|email|e_?mail|phone|telephone|mobile|nombre|correo|telefono|teléfono|celular)$/i;
 
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 /** Candidatos a teléfono: dígitos con separadores. */

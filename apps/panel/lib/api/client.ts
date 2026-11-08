@@ -1,5 +1,5 @@
 import "server-only";
-import { ApiError } from "./errors";
+import { ApiError, type ApiFieldError } from "./errors";
 
 const GENERIC_ERROR_MESSAGE = "Ocurrió un error inesperado. Intenta de nuevo.";
 
@@ -60,13 +60,16 @@ async function buildError(
   const body = (await response.json().catch(() => null)) as {
     detail?: string;
     code?: string;
+    errors?: ApiFieldError[];
   } | null;
+  const errors = Array.isArray(body?.errors) ? body.errors : undefined;
 
   if (response.status === 409) {
     return new ApiError(
       409,
       body?.detail ?? messages.conflict ?? GENERIC_ERROR_MESSAGE,
       body?.code,
+      errors,
     );
   }
   if (response.status === 404) {
@@ -79,7 +82,12 @@ async function buildError(
     return new ApiError(403, "No tienes permiso para hacer esto.");
   }
   if (response.status === 400) {
-    return new ApiError(400, "Revisa los datos ingresados e intenta de nuevo.");
+    return new ApiError(
+      400,
+      "Revisa los datos ingresados e intenta de nuevo.",
+      body?.code,
+      errors,
+    );
   }
 
   return new ApiError(response.status, GENERIC_ERROR_MESSAGE);

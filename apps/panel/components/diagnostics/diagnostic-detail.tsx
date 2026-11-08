@@ -5,9 +5,9 @@ import {
   Breadcrumb,
   Card,
   Descriptions,
+  Divider,
   Empty,
   Flex,
-  List,
   Table,
   Tag,
   Typography,
@@ -204,26 +204,37 @@ export function DiagnosticDetail({ diagnostic }: { diagnostic: Diagnostic }) {
       </Descriptions>
 
       <Card title="Respuestas" size="small">
-        <List
-          dataSource={diagnostic.questions}
-          locale={{ emptyText: "Esta versión no tiene preguntas." }}
-          renderItem={(question, index) => (
-            <List.Item key={question.id}>
-              <Flex vertical gap={6} style={{ width: "100%", minWidth: 0 }}>
-                <Typography.Text strong style={{ overflowWrap: "anywhere" }}>
-                  {index + 1}. {question.text}
-                  {question.required && (
-                    <Typography.Text type="secondary" style={{ fontWeight: 400 }}>
-                      {" "}
-                      (obligatoria)
-                    </Typography.Text>
-                  )}
-                </Typography.Text>
-                <AnswerView question={question} />
-              </Flex>
-            </List.Item>
-          )}
-        />
+        {diagnostic.questions.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="Esta versión no tiene preguntas."
+          />
+        ) : (
+          // Lista ordenada simple: `List` de Ant Design está deprecado, y
+          // `Listy` es una lista virtual que aquí no hace falta.
+          <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {diagnostic.questions.map((question, index) => (
+              <li key={question.id}>
+                {index > 0 && <Divider style={{ margin: "12px 0" }} />}
+                <Flex vertical gap={6} style={{ width: "100%", minWidth: 0 }}>
+                  <Typography.Text strong style={{ overflowWrap: "anywhere" }}>
+                    {index + 1}. {question.text}
+                    {question.required && (
+                      <Typography.Text
+                        type="secondary"
+                        style={{ fontWeight: 400 }}
+                      >
+                        {" "}
+                        (obligatoria)
+                      </Typography.Text>
+                    )}
+                  </Typography.Text>
+                  <AnswerView question={question} />
+                </Flex>
+              </li>
+            ))}
+          </ol>
+        )}
       </Card>
 
       <Card title="Enlaces externos" size="small">

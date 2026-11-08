@@ -1,31 +1,14 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV !== "production";
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
-
 /**
- * Línea base mientras la app es solo el esqueleto. `'unsafe-inline'` en scripts
- * hace falta porque estas páginas son estáticas y no pueden llevar nonce: al
- * construir el flujo del cuestionario (PF-17) hay que pasar a nonce, como en
- * `apps/panel/proxy.ts`. El modo de desarrollo de Next necesita `eval` y websocket.
+ * La Content-Security-Policy no está aquí: lleva un nonce distinto por petición,
+ * así que la pone `proxy.ts`.
  */
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
-  "font-src 'self'",
-  `connect-src 'self' ${apiUrl}${isDev ? " ws:" : ""}`,
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
-
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
+  // El token del enlace viaja en el fragmento (`#`), que nunca va en el
+  // `Referer`; aun así, a otros sitios solo se manda el origen.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Strict-Transport-Security",

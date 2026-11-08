@@ -14,6 +14,7 @@ import {
   DiagnosticStatus,
 } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import { FlagsService } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   SCORING_ENGINE_PORT,
@@ -100,6 +101,7 @@ export class CalculationsService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(SCORING_ENGINE_PORT) private readonly engine: ScoringEnginePort,
+    private readonly flags: FlagsService,
   ) {}
 
   status() {
@@ -242,7 +244,7 @@ export class CalculationsService implements OnApplicationBootstrap {
       return this.finishFailed(claim, calculation.diagnosticId, 'unknownRules');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const flagAnalysis = await this.prisma.$transaction(async (tx) => {
       const { count: finished } = await tx.calculation.updateMany({
         where: claim,
         data: {
@@ -253,7 +255,7 @@ export class CalculationsService implements OnApplicationBootstrap {
           finishedAt: new Date(),
         },
       });
-      if (finished === 0) return;
+      if (finished === 0) return null;
       await this.audit.record(
         {
           actorType: AuditActorType.SYSTEM,
@@ -268,7 +270,15 @@ export class CalculationsService implements OnApplicationBootstrap {
         },
         tx,
       );
+      // En la misma transacción: un reinicio no pierde el análisis (PF-34).
+      return this.flags.onCalculationSucceeded(
+        tx,
+        calculationId,
+        output.result,
+      );
     });
+    // Los flags se analizan después, sin hacer esperar a nadie.
+    if (flagAnalysis) this.flags.dispatch(flagAnalysis.analysisId);
   }
 
   private async finishFailed(

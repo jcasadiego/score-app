@@ -17,7 +17,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
-  await verifySession();
+  const session = await verifySession();
   const params = await searchParams;
 
   const requestedPage = Number(firstValue(params.page));
@@ -53,6 +53,10 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
   }
 
   return (
-    <LeadsScreen page={result} filters={{ q: q ?? "", family, status }} />
+    <LeadsScreen
+      page={result}
+      filters={{ q: q ?? "", family, status }}
+      canGenerateDiagnostic={session.role === "ADMIN"}
+    />
   );
 }

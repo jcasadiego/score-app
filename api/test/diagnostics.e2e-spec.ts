@@ -303,6 +303,13 @@ describe('Diagnósticos (e2e, base propia)', () => {
       expect(JSON.stringify(detail)).not.toContain(token);
       expect(JSON.stringify(detail)).not.toContain(sha256(token));
       expect(detail.creationReason).toBe('Cortesía comercial');
+
+      // El lead del panel dice qué diagnóstico tiene (PF-18).
+      const { body: panelLead } = await server()
+        .get(`/api/v1/leads/${lead.id}`)
+        .set(as(reviewer.token))
+        .expect(200);
+      expect(panelLead.diagnostic).toEqual({ id: body.id });
     });
 
     it('exige el motivo', async () => {

@@ -42,6 +42,10 @@ Un código publicado no cambia de significado.
 | `DIAGNOSTIC_INCOMPLETE` | 409 | Faltan obligatorias por responder; `errors` trae cada una (`field` = id de la pregunta, `code` = `REQUIRED_QUESTION_UNANSWERED`). |
 | `TOO_MANY_REQUESTS` | 429 | Se pasó un límite de intentos. |
 | `INTERNAL_ERROR` | 500 | Error no controlado; la causa queda en el log. |
+| `DIAGNOSTIC_NOT_COMPLETED` | 409 | Se pidió calcular un diagnóstico que el cliente todavía no envió. |
+| `CALCULATION_IN_PROGRESS` | 409 | El diagnóstico ya tiene un cálculo pendiente o en curso. |
+| `NO_CURRENT_CALCULATION` | 404 | El diagnóstico todavía no tiene un cálculo exitoso. |
+| `SCORING_ENGINE_DISABLED` | 503 | El motor está desactivado (`SCORING_ENGINE_DRIVER=disabled`): los cálculos quedan pendientes. |
 | `SERVICE_UNAVAILABLE` | 503 | La API o una dependencia no está disponible. |
 
 Otro estado HTTP sin código propio recibe su frase en `UPPER_SNAKE_CASE`.

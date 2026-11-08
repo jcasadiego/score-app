@@ -25,6 +25,8 @@ const PRODUCTION = {
   TRUST_PROXY_HOPS: '1',
   PANEL_API_SECRET: 'z'.repeat(32),
   DIAGNOSTIC_API_SECRET: 'y'.repeat(32),
+  APP_ENV: 'production',
+  SCORING_ENGINE_DRIVER: 'disabled',
   PANEL_URL: 'https://panel.example.com',
   DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
@@ -172,6 +174,45 @@ describe('validateEnv · DIAGNOSTIC_API_SECRET', () => {
         DIAGNOSTIC_API_SECRET: 'x'.repeat(32),
       }),
     ).toThrow(/DIAGNOSTIC_API_SECRET: debe ser distinto de PANEL_API_SECRET/);
+  });
+});
+
+describe('validateEnv · motor de cálculo', () => {
+  it('en desarrollo, APP_ENV y SCORING_ENGINE_DRIVER son opcionales', () => {
+    const env = validateEnv(BASE);
+    expect(env.APP_ENV).toBeUndefined();
+    expect(env.SCORING_ENGINE_DRIVER).toBeUndefined();
+  });
+
+  it.each(['APP_ENV', 'SCORING_ENGINE_DRIVER'])(
+    'con NODE_ENV=production no arranca sin %s',
+    (key) => {
+      expect(() => validateEnv({ ...PRODUCTION, [key]: '' })).toThrow(
+        new RegExp(`${key}: obligatoria con NODE_ENV=production`),
+      );
+    },
+  );
+
+  it('con APP_ENV=production no admite el adapter simulado', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, SCORING_ENGINE_DRIVER: 'stub' }),
+    ).toThrow(/SCORING_ENGINE_DRIVER: con APP_ENV=production no admite 'stub'/);
+  });
+
+  it('en QA sí admite el adapter simulado', () => {
+    expect(
+      validateEnv({
+        ...PRODUCTION,
+        APP_ENV: 'qa',
+        SCORING_ENGINE_DRIVER: 'stub',
+      }).SCORING_ENGINE_DRIVER,
+    ).toBe('stub');
+  });
+
+  it('rechaza un motor desconocido', () => {
+    expect(() =>
+      validateEnv({ ...BASE, SCORING_ENGINE_DRIVER: 'real' }),
+    ).toThrow(/SCORING_ENGINE_DRIVER/);
   });
 });
 

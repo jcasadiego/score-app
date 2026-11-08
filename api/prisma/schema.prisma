@@ -39,12 +39,16 @@ model AuditLog {
 /// El contenido de las reglas es configuración, no código — vive en
 /// `content` mientras se define la especificación completa del
 /// cuestionario y su lógica.
+/// Versión de las reglas del motor. A lo sumo una activa (índice único parcial
+/// en la migración).
 model RuleSetVersion {
   id        String   @id @default(cuid())
   number    Int      @unique @default(autoincrement())
   content   Json
   active    Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  calculations Calculation[]
 
   @@map("rule_set_versions")
 }
@@ -112,6 +116,7 @@ model User {
   publishedQuestionnaireVersions QuestionnaireVersion[] @relation("QuestionnaireVersionPublishedBy")
   createdDiagnostics             Diagnostic[]
   issuedAccessLinks              AccessLink[]
+  requestedCalculations          Calculation[]
 
   @@map("users")
 }
@@ -353,6 +358,7 @@ model Diagnostic {
   accessLinks   AccessLink[]
   answers       Answer[]
   externalLinks ExternalLink[]
+  calculations  Calculation[]
 
   /// Para la FK compuesta de las respuestas.
   @@unique([id, questionnaireVersionId])
@@ -438,4 +444,51 @@ model ExternalLink {
 
   @@unique([diagnosticId, platform])
   @@map("external_links")
+}
+
+/// Estado de un cálculo del motor (PF-24).
+enum CalculationStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+
+  @@map("calculation_status")
+}
+
+/// Un cálculo del motor para un diagnóstico completado. Nunca se sobrescribe:
+/// recalcular crea otro. El último intento es el más reciente; el cálculo
+/// vigente, el más reciente `SUCCEEDED`. A lo sumo uno `PENDING` o `RUNNING`
+/// por diagnóstico (índice único parcial en la migración).
+model Calculation {
+  id               String            @id @default(cuid())
+  diagnosticId     String            @map("diagnostic_id")
+  diagnostic       Diagnostic        @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
+  status           CalculationStatus @default(PENDING)
+  /// Lo que se envía al motor: familia y respuestas por `code` y `value`. En
+  /// `jsonb` porque el formato del motor real no está confirmado (PF-26).
+  input            Json
+  /// Lo que devolvió el motor. Nulo hasta terminar con éxito.
+  output           Json?
+  /// Versión de reglas que aplicó el motor. Nula hasta tener resultado.
+  ruleSetVersionId String?           @map("rule_set_version_id")
+  ruleSetVersion   RuleSetVersion?   @relation(fields: [ruleSetVersionId], references: [id], onDelete: Restrict)
+  /// Motor que lo procesó (`stub`, o el real de PF-26).
+  engine           String?           @db.VarChar(32)
+  /// Resultado del adapter simulado: nunca es un resultado real.
+  isSimulated      Boolean?          @map("is_simulated")
+  /// Mensaje para el panel si falló, sin detalles internos del motor.
+  error            String?           @db.VarChar(500)
+  /// Quién lo pidió desde el panel. Nulo si se disparó al completar el diagnóstico.
+  requestedById    String?           @map("requested_by_id")
+  requestedBy      User?             @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  startedAt        DateTime?         @map("started_at") @db.Timestamptz(3)
+  finishedAt       DateTime?         @map("finished_at") @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([diagnosticId, createdAt])
+  @@index([ruleSetVersionId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("calculations")
 }

@@ -9,6 +9,7 @@ import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 const SECRET = 'secreto-del-panel-de-al-menos-32-caracteres';
+const DIAGNOSTIC_SECRET = 'secreto-de-diagnostico-de-al-menos-32-caracteres';
 const PASSWORD = 'clave-limite-123';
 const LOGIN_LIMIT = 5;
 const USER_A = 'limite.a.e2e@example.com';
@@ -21,6 +22,7 @@ describe('Límite de peticiones (e2e)', () => {
   // App nueva por test: el throttler guarda los contadores en memoria.
   beforeEach(async () => {
     process.env.PANEL_API_SECRET = SECRET;
+    process.env.DIAGNOSTIC_API_SECRET = DIAGNOSTIC_SECRET;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -33,6 +35,7 @@ describe('Límite de peticiones (e2e)', () => {
 
   afterEach(async () => {
     delete process.env.PANEL_API_SECRET;
+    delete process.env.DIAGNOSTIC_API_SECRET;
     await prisma.user.deleteMany({
       where: { email: { in: [USER_A, USER_B] } },
     });
@@ -88,6 +91,37 @@ describe('Límite de peticiones (e2e)', () => {
       await exhaustLogin(() => fromPanel(`203.0.113.${++n}`));
 
       await badLogin(fromPanel('203.0.113.200')).expect(429);
+    });
+  });
+
+  describe('recuperar el enlace desde apps/diagnostico', () => {
+    const RECOVERY_LIMIT = 3;
+    const recover = (headers: Record<string, string>) =>
+      request(app.getHttpServer())
+        .post('/api/v1/access-link-recoveries')
+        .set(headers)
+        .send({ email: 'nadie@example.com' });
+    const fromDiagnostic = (ip: string, secret = DIAGNOSTIC_SECRET) => ({
+      'x-diagnostic-secret': secret,
+      'x-client-ip': ip,
+    });
+
+    it('una IP real agotada no bloquea a otra', async () => {
+      for (let i = 0; i < RECOVERY_LIMIT; i++) {
+        await recover(fromDiagnostic('198.51.100.10')).expect(202);
+      }
+
+      await recover(fromDiagnostic('198.51.100.10')).expect(429);
+      await recover(fromDiagnostic('198.51.100.11')).expect(202);
+    });
+
+    it('el secreto del panel no vale con el encabezado de diagnóstico', async () => {
+      let n = 0;
+      for (let i = 0; i < RECOVERY_LIMIT; i++) {
+        await recover(fromDiagnostic(`198.51.100.${++n}`, SECRET)).expect(202);
+      }
+
+      await recover(fromDiagnostic('198.51.100.200', SECRET)).expect(429);
     });
   });
 

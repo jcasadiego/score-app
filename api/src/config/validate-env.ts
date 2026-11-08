@@ -58,6 +58,10 @@ const EnvSchema = z
     PANEL_API_SECRET: optional(
       z.string().min(32, 'debe tener al menos 32 caracteres'),
     ),
+    // Lo mismo para apps/diagnostico, que llama a la API desde su servidor.
+    DIAGNOSTIC_API_SECRET: optional(
+      z.string().min(32, 'debe tener al menos 32 caracteres'),
+    ),
     // Base de los enlaces del panel que salen por correo (recuperación).
     PANEL_URL: optional(z.url()),
     // Base del enlace que recibe el cliente final (apps/diagnostico).
@@ -133,6 +137,25 @@ const EnvSchema = z
         code: 'custom',
         path: ['PANEL_API_SECRET'],
         message: 'obligatoria en producción (límite de login por cliente)',
+      });
+    }
+    // Sin él, todos los clientes finales comparten el contador del canje.
+    if (env.NODE_ENV === 'production' && !env.DIAGNOSTIC_API_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DIAGNOSTIC_API_SECRET'],
+        message: 'obligatoria en producción (límite del canje por cliente)',
+      });
+    }
+    // Con el mismo secreto, filtrar el de una app expondría a la otra.
+    if (
+      env.DIAGNOSTIC_API_SECRET &&
+      env.DIAGNOSTIC_API_SECRET === env.PANEL_API_SECRET
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DIAGNOSTIC_API_SECRET'],
+        message: 'debe ser distinto de PANEL_API_SECRET',
       });
     }
     if (env.NODE_ENV === 'production' && env.MAIL_DRIVER !== 'resend') {

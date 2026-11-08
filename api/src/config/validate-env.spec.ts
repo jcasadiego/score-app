@@ -24,6 +24,7 @@ const PRODUCTION = {
   CORS_ORIGINS: 'https://diagnostico.example.com,https://sitio.example.com',
   TRUST_PROXY_HOPS: '1',
   PANEL_API_SECRET: 'z'.repeat(32),
+  DIAGNOSTIC_API_SECRET: 'y'.repeat(32),
   PANEL_URL: 'https://panel.example.com',
   DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
@@ -149,6 +150,28 @@ describe('validateEnv · PANEL_API_SECRET', () => {
     expect(() => validateEnv({ ...BASE, PANEL_API_SECRET: 'corto' })).toThrow(
       /PANEL_API_SECRET: debe tener al menos 32 caracteres/,
     );
+  });
+});
+
+describe('validateEnv · DIAGNOSTIC_API_SECRET', () => {
+  it('es opcional en desarrollo', () => {
+    expect(validateEnv(BASE).DIAGNOSTIC_API_SECRET).toBeUndefined();
+  });
+
+  it('en producción no arranca sin él', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, DIAGNOSTIC_API_SECRET: '' }),
+    ).toThrow(/DIAGNOSTIC_API_SECRET: obligatoria en producción/);
+  });
+
+  it('debe ser distinto del secreto del panel', () => {
+    expect(() =>
+      validateEnv({
+        ...BASE,
+        PANEL_API_SECRET: 'x'.repeat(32),
+        DIAGNOSTIC_API_SECRET: 'x'.repeat(32),
+      }),
+    ).toThrow(/DIAGNOSTIC_API_SECRET: debe ser distinto de PANEL_API_SECRET/);
   });
 });
 

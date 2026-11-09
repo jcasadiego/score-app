@@ -49,6 +49,14 @@ Un código publicado no cambia de significado.
 | `CALCULATION_NOT_SUCCEEDED` | 409 | Se pidió el análisis de flags de un cálculo que no terminó bien. |
 | `FLAG_ANALYSIS_NOT_RETRYABLE` | 409 | El análisis de flags ya terminó bien o sigue en curso. |
 | `AI_DISABLED` | 503 | La IA está desactivada para este uso (`AI_*_PROVIDER=disabled`): los análisis quedan pendientes. |
+| `REVIEW_ALREADY_TAKEN` | 409 | Otra persona activa ya tomó el caso. |
+| `REVIEW_TAKEN_BY_OTHER` | 403 | El caso es de otra persona: solo ella lo corrige, y solo un Aprobador lo libera. |
+| `REVIEW_NOT_TAKEN` | 409 | Hay que tomar el caso antes de corregirlo. |
+| `REVIEW_APPROVED` | 409 | El caso está aprobado: no admite correcciones ni otra aprobación hasta reabrirlo. |
+| `REVIEW_NOT_APPROVED` | 409 | Se pidió reabrir un caso sin aprobación vigente. |
+| `APPROVAL_REQUIREMENTS_NOT_MET` | 409 | El caso no se puede aprobar; `errors` trae lo que falta (`NO_CALCULATION`, `LATEST_CALCULATION_NOT_SUCCEEDED`, `CORRECTIONS_NOT_CALCULATED`, `FLAG_ANALYSIS_NOT_SUCCEEDED`, `OPEN_FLAGS`, `SIMULATED_RESULT`). |
+| `REVIEW_VERSION_MISMATCH` | 412 | El caso cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |
+| `IF_MATCH_REQUIRED` | 428 | Falta `If-Match` con el ETag del caso (`GET /reviews/:id`). No se acepta `*` ni un ETag débil. |
 | `SERVICE_UNAVAILABLE` | 503 | La API o una dependencia no está disponible. |
 
 Otro estado HTTP sin código propio recibe su frase en `UPPER_SNAKE_CASE`.

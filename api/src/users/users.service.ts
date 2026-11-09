@@ -83,10 +83,11 @@ export class UsersService {
     private readonly passwordLinks: PasswordLinkService,
   ) {}
 
-  /** Correos de quienes reciben los avisos al equipo. */
-  async findActiveEmails(): Promise<string[]> {
+  /** Correos de los usuarios activos con alguno de esos roles (avisos al equipo). */
+  async findActiveEmails(roles: readonly UserRole[]): Promise<string[]> {
+    if (roles.length === 0) return [];
     const users = await this.prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, role: { in: [...roles] } },
       select: { email: true },
     });
     return users.map((user) => user.email);

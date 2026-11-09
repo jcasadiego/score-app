@@ -384,9 +384,10 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   Prueba manual: `pnpm mail:test tu@email.com` (necesita Postgres);
   con `MAIL_DRIVER=resend` y remitente `onboarding@resend.dev` llega de
   verdad, pero solo al email dueño de la cuenta de Resend.
-- `src/notifications/` — avisos por correo al equipo, a todos los usuarios
-  activos del panel: lead nuevo (lo dispara `LeadsService.create`, también
-  desde el alias legacy) y diagnóstico completado
+- `src/notifications/` — avisos por correo al equipo, solo a los usuarios
+  activos del rol que tiene que actuar (`NOTICE_RECIPIENTS`, PF-38): lead
+  nuevo a los Aprobadores (lo dispara `LeadsService.create`, también desde el
+  alias legacy) y diagnóstico completado a Revisores y Aprobadores
   (`notifyDiagnosticCompleted`, al enviar el diagnóstico). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
   un fallo del correo afectan a la operación que los dispara. Cada envío queda
   en la bitácora asociado al lead o al diagnóstico, sin sus datos personales.

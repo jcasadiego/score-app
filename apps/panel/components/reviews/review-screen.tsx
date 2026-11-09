@@ -357,6 +357,13 @@ export function ReviewScreen({
         breadcrumb={{ href: "/reviews", label: "Bandeja de revisión" }}
         header={header}
         renderAnswer={renderAnswer}
+        // En un caso aprobado, recalcular anula la aprobación: solo el Aprobador.
+        calculationOptions={{
+          canRecalculate: !approved || me.isApprover,
+          recalculateWarning: approved
+            ? "El caso está aprobado: recalcular anula la aprobación y vuelve a revisión."
+            : undefined,
+        }}
       >
         <CorrectionsCard corrections={corrections} />
         <NotesCard reviewId={review.id} notes={notes} />

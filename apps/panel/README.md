@@ -132,6 +132,8 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
     formulario sigue el tipo de pregunta y pide motivo; la original y la
     corregida se ven lado a lado. Mientras haya correcciones sin recalcular,
     un aviso ofrece "Recalcular".
+  - En un caso aprobado, recalcular anula la aprobación: el Revisor no ve el
+    botón y al Aprobador la confirmación se lo advierte.
   - Aprobar y reabrir: solo el Aprobador. Si no se puede, la pantalla lista
     lo que falta (`approvalBlockers` de la API); si lo único que falta es el
     análisis con IA, ofrece aprobar con excepción y motivo. El Revisor ve

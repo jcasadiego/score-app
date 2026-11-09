@@ -162,6 +162,7 @@ export function DiagnosticDetail({
   header,
   renderAnswer,
   children,
+  calculationOptions,
 }: {
   diagnostic: Diagnostic;
   /** Nulo si el diagnóstico todavía no se envió. */
@@ -171,6 +172,8 @@ export function DiagnosticDetail({
   header?: ReactNode;
   renderAnswer?: (question: DiagnosticQuestion) => ReactNode;
   children?: ReactNode;
+  /** Si se puede recalcular y qué avisar al confirmar (revisión). */
+  calculationOptions?: { canRecalculate: boolean; recalculateWarning?: string };
 }) {
   const completed = diagnostic.status === "COMPLETED";
   // Cuántas alertas abiertas involucran cada pregunta, para resaltarla.
@@ -266,6 +269,7 @@ export function DiagnosticDetail({
       <CalculationSection
         diagnosticId={diagnostic.id}
         data={calculations}
+        {...calculationOptions}
       />
 
       <FlagsSection diagnosticId={diagnostic.id} data={flags} />

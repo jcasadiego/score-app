@@ -118,6 +118,11 @@ model User {
   issuedAccessLinks              AccessLink[]
   requestedCalculations          Calculation[]
   reviewedFlags                  Flag[]
+  assignedReviews                Review[]
+  answerCorrections              AnswerCorrection[]
+  approvals                      ReviewApproval[]       @relation("ReviewApprovalApprovedBy")
+  voidedApprovals                ReviewApproval[]       @relation("ReviewApprovalVoidedBy")
+  reviewNotes                    ReviewNote[]
 
   @@map("users")
 }
@@ -297,6 +302,8 @@ model AnswerOption {
 
   selections AnswerSelection[]
 
+  correctionSelections AnswerCorrectionSelection[]
+
   @@unique([questionId, value])
   /// Para la FK compuesta de las respuestas (PF-16): una respuesta solo puede
   /// elegir opciones de su propia pregunta.
@@ -361,6 +368,7 @@ model Diagnostic {
   answers       Answer[]
   externalLinks ExternalLink[]
   calculations  Calculation[]
+  review        Review?
 
   /// Para la FK compuesta de las respuestas.
   @@unique([id, questionnaireVersionId])
@@ -409,7 +417,8 @@ model Answer {
   createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  selections AnswerSelection[]
+  selections  AnswerSelection[]
+  corrections AnswerCorrection[]
 
   @@unique([diagnosticId, questionId])
   /// Para la FK compuesta de las selecciones.
@@ -463,32 +472,36 @@ enum CalculationStatus {
 /// vigente, el más reciente `SUCCEEDED`. A lo sumo uno `PENDING` o `RUNNING`
 /// por diagnóstico (índice único parcial en la migración).
 model Calculation {
-  id               String            @id @default(cuid())
-  diagnosticId     String            @map("diagnostic_id")
-  diagnostic       Diagnostic        @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
-  status           CalculationStatus @default(PENDING)
+  id                 String            @id @default(cuid())
+  diagnosticId       String            @map("diagnostic_id")
+  diagnostic         Diagnostic        @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
+  status             CalculationStatus @default(PENDING)
   /// Lo que se envía al motor: familia y respuestas por `code` y `value`. En
   /// `jsonb` porque el formato del motor real no está confirmado (PF-26).
-  input            Json
+  input              Json
   /// Lo que devolvió el motor. Nulo hasta terminar con éxito.
-  output           Json?
+  output             Json?
   /// Versión de reglas que aplicó el motor. Nula hasta tener resultado.
-  ruleSetVersionId String?           @map("rule_set_version_id")
-  ruleSetVersion   RuleSetVersion?   @relation(fields: [ruleSetVersionId], references: [id], onDelete: Restrict)
+  ruleSetVersionId   String?           @map("rule_set_version_id")
+  ruleSetVersion     RuleSetVersion?   @relation(fields: [ruleSetVersionId], references: [id], onDelete: Restrict)
   /// Motor que lo procesó (`stub`, o el real de PF-26).
-  engine           String?           @db.VarChar(32)
+  engine             String?           @db.VarChar(32)
   /// Resultado del adapter simulado: nunca es un resultado real.
-  isSimulated      Boolean?          @map("is_simulated")
+  isSimulated        Boolean?          @map("is_simulated")
   /// Mensaje para el panel si falló, sin detalles internos del motor.
-  error            String?           @db.VarChar(500)
+  error              String?           @db.VarChar(500)
   /// Quién lo pidió desde el panel. Nulo si se disparó al completar el diagnóstico.
-  requestedById    String?           @map("requested_by_id")
-  requestedBy      User?             @relation(fields: [requestedById], references: [id], onDelete: Restrict)
-  flagAnalysis     FlagAnalysis?
-  flags            Flag[]
-  startedAt        DateTime?         @map("started_at") @db.Timestamptz(3)
-  finishedAt       DateTime?         @map("finished_at") @db.Timestamptz(3)
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  requestedById      String?           @map("requested_by_id")
+  requestedBy        User?             @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  /// Número de la última corrección del revisor que entró en `input` (PF-39);
+  /// 0 si no había ninguna. Así se sabe si el cálculo refleja la última.
+  correctionSequence Int               @default(0) @map("correction_sequence")
+  flagAnalysis       FlagAnalysis?
+  approvals          ReviewApproval[]
+  flags              Flag[]
+  startedAt          DateTime?         @map("started_at") @db.Timestamptz(3)
+  finishedAt         DateTime?         @map("finished_at") @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([diagnosticId, createdAt])
   @@index([ruleSetVersionId])
@@ -636,4 +649,143 @@ model FlagQuestion {
   @@id([flagId, questionId])
   @@index([questionId])
   @@map("flag_questions")
+}
+
+/// Estado de la revisión de un diagnóstico (PF-39). Se guarda junto con lo
+/// que lo determina: `APPROVED` si hay una aprobación vigente; si no,
+/// `IN_REVIEW` si alguien tomó el caso y `PENDING` si nadie.
+enum ReviewStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+
+  @@map("review_status")
+}
+
+/// Por qué dejó de valer una aprobación.
+enum ApprovalVoidCause {
+  /// Un Aprobador la reabrió, con motivo.
+  REOPENED
+  /// Se pidió otro cálculo después de aprobar.
+  RECALCULATED
+
+  @@map("approval_void_cause")
+}
+
+/// Revisión humana de un diagnóstico (el "caso" de la pantalla). Se crea con
+/// su primer cálculo. `version` sube con cada cambio que importa a quien
+/// corrige o aprueba (ETag/If-Match).
+model Review {
+  id           String       @id @default(cuid())
+  diagnosticId String       @unique @map("diagnostic_id")
+  diagnostic   Diagnostic   @relation(fields: [diagnosticId], references: [id], onDelete: Restrict)
+  status       ReviewStatus @default(PENDING)
+  /// Quién tiene tomado el caso. Solo esa persona corrige.
+  assigneeId   String?      @map("assignee_id")
+  assignee     User?        @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+  assignedAt   DateTime?    @map("assigned_at") @db.Timestamptz(3)
+  version      Int          @default(0)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  corrections AnswerCorrection[]
+  approvals   ReviewApproval[]
+  notes       ReviewNote[]
+
+  @@index([assigneeId])
+  @@index([status, createdAt])
+  @@map("reviews")
+}
+
+/// Corrección del revisor a una respuesta del cliente. De solo inserción: la
+/// respuesta original y las correcciones anteriores nunca se pierden. La
+/// respuesta efectiva es la de mayor `sequence` para esa respuesta, o la
+/// original. Mismo formato que `Answer`: texto en `textValue`, opciones en
+/// `AnswerCorrectionSelection`.
+model AnswerCorrection {
+  id            String   @id @default(cuid())
+  reviewId      String   @map("review_id")
+  review        Review   @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  /// Orden dentro de la revisión (1, 2, 3...), asignado con la revisión
+  /// bloqueada: no depende de relojes.
+  sequence      Int
+  answerId      String   @map("answer_id")
+  questionId    String   @map("question_id")
+  /// La FK compuesta garantiza que `questionId` sea el de la respuesta.
+  answer        Answer   @relation(fields: [answerId, questionId], references: [id, questionId], onDelete: Restrict)
+  textValue     String?  @map("text_value") @db.VarChar(5000)
+  reason        String   @db.VarChar(500)
+  correctedById String   @map("corrected_by_id")
+  correctedBy   User     @relation(fields: [correctedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  selections AnswerCorrectionSelection[]
+
+  @@unique([reviewId, sequence])
+  /// Para la FK compuesta de las selecciones.
+  @@unique([id, questionId])
+  @@index([answerId, questionId])
+  @@index([correctedById])
+  @@map("answer_corrections")
+}
+
+/// Opción elegida en una corrección de selección (tabla puente).
+model AnswerCorrectionSelection {
+  correctionId String           @map("correction_id")
+  questionId   String           @map("question_id")
+  optionId     String           @map("option_id")
+  correction   AnswerCorrection @relation(fields: [correctionId, questionId], references: [id, questionId], onDelete: Restrict)
+  option       AnswerOption     @relation(fields: [optionId, questionId], references: [id, questionId], onDelete: Restrict)
+
+  @@id([correctionId, optionId])
+  @@index([correctionId, questionId])
+  @@index([optionId, questionId])
+  @@map("answer_correction_selections")
+}
+
+/// Aprobación de una revisión, atada al cálculo aprobado. A lo sumo una
+/// vigente (`voidedAt` nulo) por revisión: índice único parcial. Solo admite
+/// anularse una vez; nada más cambia (trigger en la migración).
+model ReviewApproval {
+  id                String             @id @default(cuid())
+  reviewId          String             @map("review_id")
+  review            Review             @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  calculationId     String             @map("calculation_id")
+  calculation       Calculation        @relation(fields: [calculationId], references: [id], onDelete: Restrict)
+  approvedById      String             @map("approved_by_id")
+  approvedBy        User               @relation("ReviewApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  /// Motivo para aprobar sin un análisis de IA exitoso. Nulo si no hizo falta.
+  aiExceptionReason String?            @map("ai_exception_reason") @db.VarChar(500)
+  approvedAt        DateTime           @default(now()) @map("approved_at") @db.Timestamptz(3)
+  voidedAt          DateTime?          @map("voided_at") @db.Timestamptz(3)
+  voidCause         ApprovalVoidCause? @map("void_cause")
+  /// Quién la anuló: el que reabrió o el que pidió el cálculo nuevo.
+  voidedById        String?            @map("voided_by_id")
+  voidedBy          User?              @relation("ReviewApprovalVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  /// Motivo de reabrir; obligatorio en `REOPENED` (CHECK en la migración).
+  voidReason        String?            @map("void_reason") @db.VarChar(500)
+
+  @@index([reviewId])
+  @@index([calculationId])
+  @@index([approvedById])
+  @@index([voidedById])
+  @@map("review_approvals")
+}
+
+/// Nota del revisor, general (`dimension` nula) o de una dimensión. La usará
+/// Delivery para redactar el informe.
+model ReviewNote {
+  id        String   @id @default(cuid())
+  reviewId  String   @map("review_id")
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  /// Texto libre mientras las dimensiones D1–D8 no estén confirmadas.
+  dimension String?  @db.VarChar(64)
+  body      String   @db.VarChar(5000)
+  authorId  String   @map("author_id")
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([reviewId, createdAt])
+  @@index([authorId])
+  @@map("review_notes")
 }

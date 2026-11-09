@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AiModule } from './ai/ai.module';
 import { AuditModule } from './audit/audit.module';
 import { FlagsModule } from './flags/flags.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { AuthModule } from './auth/auth.module';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
@@ -31,6 +32,7 @@ import { validateEnv } from './config/validate-env';
     AuditModule,
     AiModule,
     FlagsModule,
+    ReviewsModule,
     RulesModule,
     UsersModule,
     AuthModule,

@@ -2,13 +2,20 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { FlagsModule } from '../flags/flags.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 import { ScoringEngineModule } from '../scoring-engine/scoring-engine.module';
 import { CalculationsController } from './calculations.controller';
 import { CalculationsService } from './calculations.service';
 import { ScoringEngineStatusController } from './scoring-engine-status.controller';
 
 @Module({
-  imports: [AuditModule, AuthModule, ScoringEngineModule, FlagsModule],
+  imports: [
+    AuditModule,
+    AuthModule,
+    ScoringEngineModule,
+    FlagsModule,
+    ReviewsModule,
+  ],
   controllers: [CalculationsController, ScoringEngineStatusController],
   providers: [CalculationsService],
   exports: [CalculationsService],

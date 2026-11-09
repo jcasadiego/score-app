@@ -16,6 +16,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { FlagsService } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import {
   SCORING_ENGINE_PORT,
   type ScoringEnginePort,
@@ -102,6 +103,7 @@ export class CalculationsService implements OnApplicationBootstrap {
     private readonly audit: AuditService,
     @Inject(SCORING_ENGINE_PORT) private readonly engine: ScoringEnginePort,
     private readonly flags: FlagsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   status() {
@@ -114,18 +116,27 @@ export class CalculationsService implements OnApplicationBootstrap {
 
   /**
    * Crea un cálculo pendiente dentro de la transacción de quien lo pide (el
-   * envío del diagnóstico o el panel). Después del commit, `dispatch`.
+   * envío del diagnóstico o el panel). Después del commit, `dispatch`. Primero
+   * avisa a la revisión (PF-39), que se bloquea: el `input` lleva las
+   * respuestas efectivas hasta la última corrección, y una aprobación
+   * vigente se anula.
    */
   async enqueue(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
     requestedById?: string,
   ): Promise<{ id: string }> {
+    const { correctionSequence } = await this.reviews.onCalculationEnqueued(
+      tx,
+      diagnosticId,
+      requestedById,
+    );
     const input = await buildScoringInput(tx, diagnosticId);
     const calculation = await tx.calculation.create({
       data: {
         diagnosticId,
         requestedById,
+        correctionSequence,
         input: input as unknown as Prisma.InputJsonValue,
       },
       select: { id: true },

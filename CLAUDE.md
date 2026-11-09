@@ -389,6 +389,9 @@ revisar la regla correspondiente.
 
 - **Tests con Vitest, no Jest** (NestJS 12 es ESM, #18): `vi.fn()`,
   `vi.mock()`, tipo `Mock` de `vitest`. Detalle en `api/README.md`.
+- Un e2e con base propia la borra con `DROP DATABASE ... WITH (FORCE)`: un
+  trabajo en segundo plano puede seguir conectado tras `app.close()` y la suite
+  fallaba al azar (#58). No se arregla bajando `maxWorkers`.
 - **El entrypoint del build es `dist/src/main`**, no `dist/main` (`tsc`
   incluye `prisma.config.ts` y `generated/`). No mover `rootDir`: rompe
   los imports del cliente de Prisma generado (#14). Si cambia la

@@ -162,7 +162,9 @@ describe('Cálculos del motor (e2e, base propia)', () => {
     vi.spyOn(AppThrottlerGuard.prototype, 'canActivate').mockResolvedValue(
       true,
     );
-    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS ${DATABASE}`);
+    await admin.$executeRawUnsafe(
+      `DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`,
+    );
     await admin.$executeRawUnsafe(`CREATE DATABASE ${DATABASE}`);
     execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
       env: { ...process.env, DATABASE_URL: databaseUrl(DATABASE) },
@@ -240,7 +242,11 @@ describe('Cálculos del motor (e2e, base propia)', () => {
 
   afterAll(async () => {
     await app?.close();
-    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS ${DATABASE}`);
+    // FORCE: un trabajo en segundo plano (cálculo, alertas) puede seguir con
+    // una conexión abierta después de app.close() y bloquear el DROP (55006).
+    await admin.$executeRawUnsafe(
+      `DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`,
+    );
     await admin.$disconnect();
     vi.restoreAllMocks();
   });

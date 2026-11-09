@@ -160,9 +160,15 @@ const HISTORY_COLUMNS: TableColumnsType<CalculationSummary> = [
 export function CalculationSection({
   diagnosticId,
   data,
+  canRecalculate = true,
+  recalculateWarning,
 }: {
   diagnosticId: string;
   data: CalculationData | null;
+  /** La revisión lo oculta al Revisor en un caso aprobado (la API da 409). */
+  canRecalculate?: boolean;
+  /** Se suma a la confirmación, p. ej. que se anula la aprobación vigente. */
+  recalculateWarning?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -230,8 +236,12 @@ export function CalculationSection({
   function confirm() {
     modal.confirm({
       title: current ? "¿Recalcular el resultado?" : "¿Calcular el resultado?",
-      content:
+      content: [
         "Se pide un cálculo nuevo al motor con las respuestas actuales. El resultado anterior se conserva en el historial.",
+        recalculateWarning,
+      ]
+        .filter(Boolean)
+        .join(" "),
       okText: current ? "Recalcular" : "Calcular",
       cancelText: "Cancelar",
       onOk: request,
@@ -245,14 +255,16 @@ export function CalculationSection({
       title="Resultado"
       size="small"
       extra={
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={confirm}
-          loading={requesting}
-          disabled={!engine.enabled || inProgress || requesting}
-        >
-          {retry ? "Reintentar" : current ? "Recalcular" : "Calcular"}
-        </Button>
+        canRecalculate && (
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={confirm}
+            loading={requesting}
+            disabled={!engine.enabled || inProgress || requesting}
+          >
+            {retry ? "Reintentar" : current ? "Recalcular" : "Calcular"}
+          </Button>
+        )
       }
     >
       <Flex vertical gap={16}>

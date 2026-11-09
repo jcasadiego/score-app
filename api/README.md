@@ -334,7 +334,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     Enviar revoca sus enlaces y dispara `notifyDiagnosticCompleted`.
   - **Panel**: `GET /diagnostics` (paginado; `status` incluye `ABANDONED`,
     `family`, `search` por nombre o email del lead) y `GET /diagnostics/:id`,
-    para Revisor y Aprobador, auditados como lecturas. `POST /diagnostics`
+    para Revisor y Aprobador, auditados como lecturas. El detalle trae el
+    `id` de cada respuesta, que el panel usa para corregir (PF-40); la app
+    del cliente no lo recibe. `POST /diagnostics`
     (`{ leadId, reason }`, solo Aprobador: generar sin pago lleva motivo)
     responde 201 con `Location` y el enlace una sola vez; `POST
     /diagnostics/:id/access-links` (Revisor y Aprobador) revoca los vigentes

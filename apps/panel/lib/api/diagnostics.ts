@@ -29,7 +29,13 @@ export interface DiagnosticQuestion {
   required: boolean;
   position: number;
   options: { id: string; text: string; value: string }[];
-  answer: { text: string | null; optionIds: string[]; updatedAt: string } | null;
+  answer: {
+    /** Solo para corregir desde la revisión (PF-40). */
+    id: string;
+    text: string | null;
+    optionIds: string[];
+    updatedAt: string;
+  } | null;
 }
 
 export interface DiagnosticDetail extends DiagnosticSummary {

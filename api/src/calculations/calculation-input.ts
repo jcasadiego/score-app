@@ -6,11 +6,14 @@ import type {
 } from '../scoring-engine/scoring-engine.port';
 
 /**
- * Arma lo que recibe el motor a partir de las respuestas guardadas: cada
- * pregunta por su `code` y cada opción por su `value`, que se mantienen entre
- * versiones. Cuando exista la corrección del revisor (PF-39), aquí entran las
- * respuestas efectivas.
+ * Arma lo que recibe el motor a partir de las respuestas efectivas: la última
+ * corrección del revisor (PF-39) o, si no hay, la original. Cada pregunta va
+ * por su `code` y cada opción por su `value`, que se mantienen entre versiones.
  */
+const OPTION_VALUES = {
+  select: { option: { select: { value: true, position: true } } },
+} as const;
+
 export async function buildScoringInput(
   tx: Prisma.TransactionClient,
   diagnosticId: string,
@@ -23,8 +26,11 @@ export async function buildScoringInput(
         select: {
           textValue: true,
           question: { select: { code: true, type: true, position: true } },
-          selections: {
-            select: { option: { select: { value: true, position: true } } },
+          selections: OPTION_VALUES,
+          corrections: {
+            select: { textValue: true, selections: OPTION_VALUES },
+            orderBy: { sequence: 'desc' },
+            take: 1,
           },
         },
       },
@@ -37,11 +43,12 @@ export async function buildScoringInput(
   );
   for (const answer of ordered) {
     const { code, type } = answer.question;
+    const effective = answer.corrections[0] ?? answer;
     if (type === QuestionType.FREE_TEXT) {
-      answers[code] = answer.textValue ?? '';
+      answers[code] = effective.textValue ?? '';
       continue;
     }
-    const values = answer.selections
+    const values = effective.selections
       .map(({ option }) => option)
       .sort((a, b) => a.position - b.position)
       .map(({ value }) => value);

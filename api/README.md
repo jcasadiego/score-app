@@ -151,6 +151,50 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
       terminó o sigue en curso, 503 con la IA desactivada.
     - `GET /diagnostics` trae en cada fila `openFlagCount`: los flags
       abiertos del cálculo vigente, en una sola consulta para toda la página.
+- `src/reviews/` — revisión humana antes de cualquier entrega (PF-39). "Caso"
+  es el texto de pantalla; la entidad es `Review`, una por diagnóstico, creada
+  con su primer cálculo.
+  - **Bandeja:** `GET /reviews?page&pageSize&assignment=unassigned|mine&status=`.
+    Solo diagnósticos con un cálculo exitoso, paginada en la base, con los flags
+    abiertos del cálculo vigente en una sola consulta. `unassigned` incluye los
+    casos tomados por alguien desactivado.
+  - **Detalle:** `GET /reviews/:id` trae el estado, quién lo tiene, la
+    aprobación vigente, el último intento de cálculo y `approvalBlockers` (lo
+    que falta para aprobar). Responde con `ETag`.
+  - **Tomar y liberar:** `PUT` y `DELETE /reviews/:id/assignment`. Con la fila
+    bloqueada: dos tomas simultáneas dan una 200 y una 409. Si quien lo tiene
+    está desactivado, otro puede tomarlo. Liberar uno ajeno es solo del
+    Aprobador.
+  - **Correcciones:** `POST /reviews/:id/corrections` (`answerId`, `text` u
+    `optionIds`, `reason`), solo quien tiene el caso y sin aprobación vigente.
+    `answer_corrections` es de solo inserción (trigger) y cada corrección lleva
+    un número correlativo en su caso. La respuesta efectiva es la última
+    corrección o, si no hay, la original; el motor recibe siempre las
+    efectivas. `GET` lista cada corrección con el valor original.
+  - **Recalcular:** por `POST /diagnostics/:id/calculations`. Al encolar, el
+    cálculo guarda en `correctionSequence` la última corrección que incluye y
+    anula la aprobación vigente (`RECALCULATED`). Anularla equivale a reabrir,
+    así que en un caso aprobado solo recalcula el Aprobador (409
+    `REVIEW_APPROVED` para el Revisor).
+  - **Notas:** `GET` y `POST /reviews/:id/notes` (`body`, `dimension`
+    opcional, texto libre hasta confirmar D1–D8).
+  - **Aprobar:** `POST /reviews/:id/approval`, solo el Aprobador, haya tomado
+    o no el caso. Exige que el último intento sea exitoso, que incluya la
+    última corrección, que su análisis de IA haya terminado bien (o una
+    excepción con `aiExceptionReason`), que no queden flags abiertos y, con
+    `APP_ENV=production`, que no sea simulado. Si falta algo, 409 con la
+    lista en `errors`. La aprobación queda atada a ese cálculo; a lo sumo una
+    vigente por caso (índice único parcial) y solo se anula una vez (trigger).
+  - **Reabrir:** `POST /reviews/:id/reopenings` con `reason`, solo el
+    Aprobador. Todavía no hay entrega que lo impida (Delivery).
+  - **Concurrencia:** corregir y aprobar exigen `If-Match` con el ETag
+    (`"<version>"`): 428 si falta, 412 si el caso cambió. Tomar, liberar,
+    corregir, aprobar, reabrir y encolar un cálculo suben la versión.
+  - **Bitácora:** tomar, liberar, corregir, notas, aprobar, reabrir y la
+    anulación por recálculo se registran en la misma transacción, sin
+    valores, motivos ni texto de las notas. `REVIEW_APPROVED` lleva
+    `correctedByIds` y `approverCorrected`: quién corrigió y quién aprobó
+    (riesgo aceptado A.5.3, CLAUDE.md 5.3).
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

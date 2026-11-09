@@ -21,7 +21,7 @@ import { CalculationsService } from './calculations.service';
 import { ListCalculationsDto } from './dto/list-calculations.dto';
 
 interface RequestWithUser extends Request {
-  user: { id: string };
+  user: { id: string; role: string };
 }
 
 /**
@@ -46,7 +46,7 @@ export class CalculationsController {
     @Req() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const calculation = await this.calculations.request(id, req.user.id);
+    const calculation = await this.calculations.request(id, req.user);
     res.location(
       `/api/v1/diagnostics/${encodeURIComponent(id)}/calculations/${encodeURIComponent(calculation.id)}`,
     );

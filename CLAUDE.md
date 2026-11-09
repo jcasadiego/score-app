@@ -82,7 +82,9 @@ pendientes:
   `SCORING_ENGINE_DRIVER` en `disabled` o `stub`) y el servicio compartido de IA
   (`src/ai`: Claude o simulado por uso, datos minimizados, salida validada y
   registro de uso sin contenido) y los flags del revisor (`src/flags`: baja
-  confianza y posibles contradicciones con IA, por cálculo). Detalle en
+  confianza y posibles contradicciones con IA, por cálculo) y la revisión
+  (`src/reviews`: bandeja, tomar el caso, correcciones de solo inserción,
+  notas y aprobación del Aprobador atada al cálculo, con `If-Match`). Detalle en
   `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +

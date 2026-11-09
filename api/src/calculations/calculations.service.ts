@@ -16,6 +16,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { FlagsService } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { type Actor, ReviewsService } from '../reviews/reviews.service';
 import {
   SCORING_ENGINE_PORT,
   type ScoringEnginePort,
@@ -102,6 +103,7 @@ export class CalculationsService implements OnApplicationBootstrap {
     private readonly audit: AuditService,
     @Inject(SCORING_ENGINE_PORT) private readonly engine: ScoringEnginePort,
     private readonly flags: FlagsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   status() {
@@ -114,18 +116,28 @@ export class CalculationsService implements OnApplicationBootstrap {
 
   /**
    * Crea un cálculo pendiente dentro de la transacción de quien lo pide (el
-   * envío del diagnóstico o el panel). Después del commit, `dispatch`.
+   * envío del diagnóstico o el panel). Después del commit, `dispatch`. Primero
+   * avisa a la revisión (PF-39), que se bloquea: el `input` lleva las
+   * respuestas efectivas hasta la última corrección, y una aprobación
+   * vigente se anula (solo si lo pide un Aprobador).
    */
   async enqueue(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
-    requestedById?: string,
+    requester?: Actor,
   ): Promise<{ id: string }> {
+    const requestedById = requester?.id;
+    const { correctionSequence } = await this.reviews.onCalculationEnqueued(
+      tx,
+      diagnosticId,
+      requester,
+    );
     const input = await buildScoringInput(tx, diagnosticId);
     const calculation = await tx.calculation.create({
       data: {
         diagnosticId,
         requestedById,
+        correctionSequence,
         input: input as unknown as Prisma.InputJsonValue,
       },
       select: { id: true },
@@ -155,7 +167,7 @@ export class CalculationsService implements OnApplicationBootstrap {
   }
 
   /** Recalcular desde el panel: 202, o 503 con el motor desactivado. */
-  async request(diagnosticId: string, requesterId: string) {
+  async request(diagnosticId: string, requester: Actor) {
     if (!this.engine.enabled) {
       throw new ServiceUnavailableException({
         message:
@@ -176,7 +188,7 @@ export class CalculationsService implements OnApplicationBootstrap {
             code: DIAGNOSTIC_NOT_COMPLETED,
           });
         }
-        return this.enqueue(tx, diagnosticId, requesterId);
+        return this.enqueue(tx, diagnosticId, requester);
       });
     } catch (error) {
       if (isUniqueViolation(error)) {

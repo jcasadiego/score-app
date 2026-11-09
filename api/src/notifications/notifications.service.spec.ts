@@ -35,7 +35,7 @@ describe('NotificationsService', () => {
     );
   });
 
-  it('avisa del lead nuevo a cada usuario activo, con enlace a Leads', async () => {
+  it('avisa del lead nuevo a cada destinatario, con enlace a Leads', async () => {
     service.notifyNewLead(LEAD);
 
     await vi.waitFor(() =>
@@ -52,6 +52,28 @@ describe('NotificationsService', () => {
       { entity: 'Lead', entityId: 'lead-1' },
     );
     expect(mail.sendNewLeadNotice.mock.calls[1][0]).toBe('b@mfp.com');
+  });
+
+  it('el lead nuevo va solo a los Aprobadores', async () => {
+    service.notifyNewLead(LEAD);
+
+    await vi.waitFor(() =>
+      expect(users.findActiveEmails).toHaveBeenCalledOnce(),
+    );
+    expect(users.findActiveEmails).toHaveBeenCalledWith(['ADMIN']);
+  });
+
+  it('el diagnóstico completado va a Revisores y Aprobadores', async () => {
+    service.notifyDiagnosticCompleted({
+      diagnosticId: 'diag-1',
+      leadName: 'Ana Pérez',
+      family: 'B2B',
+    });
+
+    await vi.waitFor(() =>
+      expect(users.findActiveEmails).toHaveBeenCalledOnce(),
+    );
+    expect(users.findActiveEmails).toHaveBeenCalledWith(['ADMIN', 'REVIEWER']);
   });
 
   it('avisa del diagnóstico completado con enlace escapado a su detalle', async () => {
@@ -75,7 +97,7 @@ describe('NotificationsService', () => {
     );
   });
 
-  it('sin usuarios activos no envía nada ni falla', async () => {
+  it('sin destinatarios no envía nada ni falla', async () => {
     users.findActiveEmails.mockResolvedValue([]);
 
     expect(() => service.notifyNewLead(LEAD)).not.toThrow();

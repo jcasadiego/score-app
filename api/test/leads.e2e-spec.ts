@@ -363,6 +363,14 @@ describe('Leads del panel (e2e)', () => {
 describe('Aviso al equipo por lead nuevo (e2e)', () => {
   const ACTIVE_EMAIL = 'aviso-activo.e2e@example.com';
   const INACTIVE_EMAIL = 'aviso-inactivo.e2e@example.com';
+  const REVIEWER_EMAIL = 'aviso-revisor.e2e@example.com';
+  const INACTIVE_REVIEWER_EMAIL = 'aviso-revisor-inactivo.e2e@example.com';
+  const EMAILS = [
+    ACTIVE_EMAIL,
+    INACTIVE_EMAIL,
+    REVIEWER_EMAIL,
+    INACTIVE_REVIEWER_EMAIL,
+  ];
 
   let app: INestApplication;
   let prisma: PrismaService;
@@ -400,14 +408,25 @@ describe('Aviso al equipo por lead nuevo (e2e)', () => {
           role: 'ADMIN',
           active: false,
         },
+        {
+          name: 'Revisor',
+          email: REVIEWER_EMAIL,
+          passwordHash: 'x',
+          role: 'REVIEWER',
+        },
+        {
+          name: 'Revisor inactivo',
+          email: INACTIVE_REVIEWER_EMAIL,
+          passwordHash: 'x',
+          role: 'REVIEWER',
+          active: false,
+        },
       ],
     });
   });
 
   afterEach(async () => {
-    await prisma.user.deleteMany({
-      where: { email: { in: [ACTIVE_EMAIL, INACTIVE_EMAIL] } },
-    });
+    await prisma.user.deleteMany({ where: { email: { in: EMAILS } } });
     if (leadId) {
       await prisma.lead.delete({ where: { id: leadId } });
       leadId = undefined;
@@ -434,7 +453,25 @@ describe('Aviso al equipo por lead nuevo (e2e)', () => {
     return recipients;
   }
 
-  it('avisa a los usuarios activos, no a los desactivados, y queda en la bitácora', async () => {
+  it('cada aviso consulta solo los usuarios activos de sus roles', async () => {
+    const users = app.get(UsersService);
+
+    const approvers = await users.findActiveEmails(['ADMIN']);
+    expect(approvers).toContain(ACTIVE_EMAIL);
+    expect(approvers).not.toContain(REVIEWER_EMAIL);
+    expect(approvers).not.toContain(INACTIVE_EMAIL);
+
+    const team = await users.findActiveEmails(['ADMIN', 'REVIEWER']);
+    expect(team).toEqual(
+      expect.arrayContaining([ACTIVE_EMAIL, REVIEWER_EMAIL]),
+    );
+    expect(team).not.toContain(INACTIVE_EMAIL);
+    expect(team).not.toContain(INACTIVE_REVIEWER_EMAIL);
+
+    expect(await users.findActiveEmails([])).toEqual([]);
+  });
+
+  it('avisa del lead solo a los Aprobadores activos y queda en la bitácora', async () => {
     send.mockResolvedValue({ sent: true, providerId: 'em_1' });
 
     const response = await request(app.getHttpServer())
@@ -448,6 +485,7 @@ describe('Aviso al equipo por lead nuevo (e2e)', () => {
     const recipients = send.mock.calls.map(([message]) => message.to);
     expect(recipients).toContain(ACTIVE_EMAIL);
     expect(recipients).not.toContain(INACTIVE_EMAIL);
+    expect(recipients).not.toContain(REVIEWER_EMAIL);
     const message = send.mock.calls[0][0];
     expect(message.text).toContain('Nombre: Ana Pérez');
     expect(message.text).toContain('Familia: Catálogo');

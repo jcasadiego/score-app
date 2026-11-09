@@ -472,6 +472,8 @@ describe('Diagnósticos (e2e, base propia)', () => {
         (q: { id: string }) => q.id === questions.choice.id,
       );
       expect(choice.answer.optionIds).toEqual([released.id]);
+      // El id de la respuesta es solo para el panel (corregir, PF-40).
+      expect(choice.answer).not.toHaveProperty('id');
 
       await server()
         .delete(`${CURRENT}/answers/${questions.multi.id}`)
@@ -482,6 +484,14 @@ describe('Diagnósticos (e2e, base propia)', () => {
         .set(as(approver.token))
         .expect(200);
       expect(panel.progress).toEqual({ answered: 1, total: 3 });
+      const stored = await prisma.answer.findFirstOrThrow({
+        where: { diagnosticId: id, questionId: questions.choice.id },
+        select: { id: true },
+      });
+      const panelChoice = panel.questions.find(
+        (q: { id: string }) => q.id === questions.choice.id,
+      );
+      expect(panelChoice.answer.id).toBe(stored.id);
     });
 
     it('rechaza respuestas que no corresponden a la pregunta', async () => {

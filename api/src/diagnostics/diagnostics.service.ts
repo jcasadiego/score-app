@@ -174,7 +174,8 @@ export class DiagnosticsService {
             ...VERSION_QUESTIONS_SELECT,
           },
         },
-        answers: { select: ANSWER_SELECT },
+        // Con el id, que el panel necesita para corregir (PF-39/PF-40).
+        answers: { select: { ...ANSWER_SELECT, id: true } },
         externalLinks: {
           select: EXTERNAL_LINK_SELECT,
           orderBy: { platform: 'asc' },
@@ -196,7 +197,16 @@ export class DiagnosticsService {
     if (!diagnostic) throw this.notFound(id);
 
     const { answers, questionnaireVersion: version, ...rest } = diagnostic;
-    const { questions } = questionsWithAnswers(version, answers);
+    const answerIds = new Map(answers.map((a) => [a.questionId, a.id]));
+    const questions = questionsWithAnswers(version, answers).questions.map(
+      (question) =>
+        question.answer
+          ? {
+              ...question,
+              answer: { id: answerIds.get(question.id), ...question.answer },
+            }
+          : question,
+    );
     // `summary` conserva el resto de los campos: motivo, enlaces y quién lo generó.
     return {
       ...summary({ ...rest, questionnaireVersion: version }, new Date()),

@@ -12,6 +12,7 @@ import {
   QuestionnaireVersionStatus,
 } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import { FlagsService } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessLinksService, IssuedLink } from './access-links.service';
 import {
@@ -69,7 +70,8 @@ function summary<T extends SummaryRow>(row: T, now: Date) {
 export type DiagnosticSummary = ReturnType<typeof summary<SummaryRow>>;
 
 export interface DiagnosticsPage {
-  data: DiagnosticSummary[];
+  /** `openFlagCount`: flags abiertos del cálculo vigente (0 si no hay). */
+  data: (DiagnosticSummary & { openFlagCount: number })[];
   total: number;
   page: number;
   pageSize: number;
@@ -109,6 +111,7 @@ export class DiagnosticsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessLinks: AccessLinksService,
+    private readonly flags: FlagsService,
   ) {}
 
   async list({
@@ -143,8 +146,14 @@ export class DiagnosticsService {
       this.prisma.diagnostic.count({ where }),
     ]);
 
+    const openFlags = await this.flags.openCountsByDiagnostic(
+      rows.map((row) => row.id),
+    );
     return {
-      data: rows.map((row) => summary(row, now)),
+      data: rows.map((row) => ({
+        ...summary(row, now),
+        openFlagCount: openFlags.get(row.id) ?? 0,
+      })),
       total,
       page,
       pageSize,

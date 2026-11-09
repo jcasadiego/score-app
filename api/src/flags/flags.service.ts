@@ -512,6 +512,33 @@ export class FlagsService implements OnApplicationBootstrap {
     };
   }
 
+  /**
+   * Flags abiertos del cálculo vigente de cada diagnóstico, en una sola
+   * consulta para toda la página del listado (sin N+1). Los que no tienen
+   * cálculo vigente o no tienen flags abiertos no aparecen en el mapa.
+   */
+  async openCountsByDiagnostic(
+    diagnosticIds: string[],
+  ): Promise<Map<string, number>> {
+    if (diagnosticIds.length === 0) return new Map();
+    const rows = await this.prisma.$queryRaw<
+      { diagnosticId: string; openCount: number }[]
+    >`
+      SELECT current.diagnostic_id AS "diagnosticId",
+             count(f.id)::int AS "openCount"
+      FROM (
+        SELECT DISTINCT ON (c.diagnostic_id) c.id, c.diagnostic_id
+        FROM calculations c
+        WHERE c.diagnostic_id = ANY(${diagnosticIds}::text[])
+          AND c.status = 'SUCCEEDED'
+        ORDER BY c.diagnostic_id, c.created_at DESC, c.id DESC
+      ) current
+      JOIN flags f ON f.calculation_id = current.id AND f.status = 'OPEN'
+      GROUP BY current.diagnostic_id
+    `;
+    return new Map(rows.map((row) => [row.diagnosticId, row.openCount]));
+  }
+
   /** Revisado, descartado (con nota) o reabierto. Quién, de la sesión. */
   async review(
     flagId: string,

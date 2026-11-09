@@ -40,3 +40,12 @@ export const ENGINE_DISABLED_MESSAGE =
 
 /** Filas del historial por página. */
 export const CALCULATIONS_PAGE_SIZE = 10;
+
+/**
+ * Esperas entre consultas mientras algo sigue en curso (un cálculo o su
+ * análisis con IA): rápido al principio y cada vez más espaciado. Después de
+ * la última, se deja de consultar (el usuario puede recargar).
+ */
+export const POLL_DELAYS_MS = [
+  1_500, 3_000, 5_000, 8_000, 13_000, 20_000, 30_000, 30_000, 30_000,
+];

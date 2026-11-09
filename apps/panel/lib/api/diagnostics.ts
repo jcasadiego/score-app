@@ -47,8 +47,13 @@ export interface DiagnosticDetail extends DiagnosticSummary {
   questions: DiagnosticQuestion[];
 }
 
+/** Fila del listado: el resumen más las alertas abiertas del cálculo vigente. */
+export interface DiagnosticListItem extends DiagnosticSummary {
+  openFlagCount: number;
+}
+
 export interface PaginatedDiagnostics {
-  data: DiagnosticSummary[];
+  data: DiagnosticListItem[];
   total: number;
   page: number;
   pageSize: number;

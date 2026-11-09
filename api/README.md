@@ -149,6 +149,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     - `GET` y `POST /calculations/:id/flag-analysis`. El `POST` reintenta un
       fallido o crea el de un cálculo anterior a los flags: 202, 409 si ya
       terminó o sigue en curso, 503 con la IA desactivada.
+    - `GET /diagnostics` trae en cada fila `openFlagCount`: los flags
+      abiertos del cálculo vigente, en una sola consulta para toda la página.
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

@@ -79,7 +79,9 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   de la api en `ApiError`.
 - **Diagnósticos:**
   - `/diagnostics` lista con estado (también "Abandonado", que calcula la
-    api), progreso y última actividad; filtros y página en la URL.
+    api), progreso, alertas abiertas del cálculo vigente y última actividad;
+    filtros y página en la URL. El contador llega en la misma respuesta
+    paginada (`openFlagCount`).
   - `/diagnostics/[id]` es el detalle de solo lectura: respuestas, enlaces
     externos (solo `https`, con `rel="noopener noreferrer"`) y enlaces de
     acceso. Es la ruta que usa el aviso de diagnóstico completado.
@@ -103,6 +105,20 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
     - Con el motor desactivado (`GET /scoring-engine/status`), muestra el
       aviso acordado y el botón queda deshabilitado.
     - Un diagnóstico sin enviar dice que todavía no hay resultado.
+  - **Sección "Alertas"** del detalle (PF-35,
+    `components/diagnostics/flags-section.tsx`):
+    - Los flags del cálculo vigente, por severidad, con su origen (motor o
+      IA) y estado. Los de IA se titulan "Posible contradicción — verificar".
+      Su texto se muestra siempre como texto plano: puede citar al cliente.
+    - Cada flag enlaza a sus preguntas en "Respuestas", que muestran cuántas
+      alertas abiertas las involucran.
+    - Marcar revisada (nota opcional), descartar (nota obligatoria) o
+      reabrir. Sin actualización optimista: si falla, la pantalla no cambia.
+    - Estado del análisis con IA: pendiente, en curso (consulta solo su
+      estado y recarga al terminar), fallido con "Reintentar", o completo.
+      "Sin alertas" solo aparece con el análisis completo y cero flags. Un
+      cálculo anterior a las alertas ofrece "Analizar".
+    - Si fallan solo las alertas, el resto del detalle se muestra igual.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),

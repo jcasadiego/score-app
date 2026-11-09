@@ -195,6 +195,7 @@ export async function requestCalculationAction(
     }
     await requestCalculation(token, diagnosticId);
     revalidatePath(`/diagnostics/${diagnosticId}`);
+    revalidatePath("/reviews", "layout");
     return { ok: true };
   } catch (error) {
     await redirectIfSessionExpired(error);
@@ -262,6 +263,7 @@ export async function reviewFlagAction(
     await reviewFlag(token, flagId, status, cleanNote || undefined);
     revalidatePath(`/diagnostics/${diagnosticId}`);
     revalidatePath("/diagnostics");
+    revalidatePath("/reviews", "layout");
     return { ok: true };
   } catch (error) {
     await redirectIfSessionExpired(error);
@@ -287,6 +289,7 @@ export async function requestFlagAnalysisAction(
     }
     await requestFlagAnalysis(token, calculationId);
     revalidatePath(`/diagnostics/${diagnosticId}`);
+    revalidatePath("/reviews", "layout");
     return { ok: true };
   } catch (error) {
     await redirectIfSessionExpired(error);

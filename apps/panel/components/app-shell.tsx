@@ -34,6 +34,10 @@ function menuItems(role: string) {
       label: <Link href="/diagnostics">Diagnósticos</Link>,
     },
     {
+      key: "/reviews",
+      label: <Link href="/reviews">Bandeja de revisión</Link>,
+    },
+    {
       key: "/questionnaire",
       label: <Link href="/questionnaire">Cuestionario</Link>,
     },

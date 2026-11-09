@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Breadcrumb,
@@ -101,43 +102,75 @@ function ExternalUrl({ url }: { url: string }) {
   );
 }
 
-function AnswerView({ question }: { question: DiagnosticQuestion }) {
-  if (!question.answer) {
-    return <Typography.Text type="secondary">Sin responder</Typography.Text>;
-  }
-  if (question.type === "FREE_TEXT") {
+/**
+ * Un valor de respuesta: texto plano (puede venir del cliente) u opciones.
+ * La usan tanto la respuesta original como una corrección.
+ */
+export function AnswerValue({
+  type,
+  text,
+  options,
+}: {
+  type: DiagnosticQuestion["type"];
+  text: string | null;
+  options: { id: string; text: string }[];
+}) {
+  if (type === "FREE_TEXT") {
     return (
       <Typography.Paragraph
         style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginBottom: 0 }}
       >
-        {question.answer.text}
+        {text}
       </Typography.Paragraph>
     );
   }
-  const chosen = new Set(question.answer.optionIds);
   return (
     <Flex gap={8} wrap>
-      {question.options
-        .filter((option) => chosen.has(option.id))
-        .map((option) => (
-          <Tag key={option.id} style={{ marginInlineEnd: 0 }}>
-            {option.text}
-          </Tag>
-        ))}
+      {options.map((option) => (
+        <Tag key={option.id} style={{ marginInlineEnd: 0, whiteSpace: "normal" }}>
+          {option.text}
+        </Tag>
+      ))}
     </Flex>
   );
 }
 
-/** Solo lectura: corregir respuestas es del módulo de Revisión. */
+export function AnswerView({ question }: { question: DiagnosticQuestion }) {
+  if (!question.answer) {
+    return <Typography.Text type="secondary">Sin responder</Typography.Text>;
+  }
+  const chosen = new Set(question.answer.optionIds);
+  return (
+    <AnswerValue
+      type={question.type}
+      text={question.answer.text}
+      options={question.options.filter((option) => chosen.has(option.id))}
+    />
+  );
+}
+
+/**
+ * Solo lectura. La pantalla de revisión (PF-40) lo reutiliza: agrega su
+ * bloque arriba (`header`), la corrección de cada respuesta (`renderAnswer`)
+ * y sus secciones al final (`children`).
+ */
 export function DiagnosticDetail({
   diagnostic,
   calculations,
   flags,
+  breadcrumb = { href: "/diagnostics", label: "Diagnósticos" },
+  header,
+  renderAnswer,
+  children,
 }: {
   diagnostic: Diagnostic;
   /** Nulo si el diagnóstico todavía no se envió. */
   calculations: CalculationData | null;
   flags: FlagsData | null;
+  breadcrumb?: { href: string; label: string };
+  header?: ReactNode;
+  renderAnswer?: (question: DiagnosticQuestion) => ReactNode;
+  children?: ReactNode;
 }) {
   const completed = diagnostic.status === "COMPLETED";
   // Cuántas alertas abiertas involucran cada pregunta, para resaltarla.
@@ -156,7 +189,7 @@ export function DiagnosticDetail({
     <Flex vertical gap={24}>
       <Breadcrumb
         items={[
-          { title: <Link href="/diagnostics">Diagnósticos</Link> },
+          { title: <Link href={breadcrumb.href}>{breadcrumb.label}</Link> },
           { title: diagnostic.lead.name },
         ]}
       />
@@ -228,6 +261,8 @@ export function DiagnosticDetail({
         </Descriptions.Item>
       </Descriptions>
 
+      {header}
+
       <CalculationSection
         diagnosticId={diagnostic.id}
         data={calculations}
@@ -274,13 +309,19 @@ export function DiagnosticDetail({
                       </Tag>
                     </div>
                   )}
-                  <AnswerView question={question} />
+                  {renderAnswer ? (
+                    renderAnswer(question)
+                  ) : (
+                    <AnswerView question={question} />
+                  )}
                 </Flex>
               </li>
             ))}
           </ol>
         )}
       </Card>
+
+      {children}
 
       <Card title="Enlaces externos" size="small">
         {diagnostic.externalLinks.length === 0 ? (

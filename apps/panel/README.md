@@ -119,6 +119,26 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
       "Sin alertas" solo aparece con el análisis completo y cero flags. Un
       cálculo anterior a las alertas ofrece "Analizar".
     - Si fallan solo las alertas, el resto del detalle se muestra igual.
+- **Bandeja de revisión** (PF-40, `/reviews`, `components/reviews/`):
+  - Casos con lead, familia, estado de revisión, revisor, alertas abiertas y
+    fecha de envío, paginados en la API. Filtros en la URL (`?view=`): sin
+    tomar, mis casos y aprobados. Tomar o liberar desde cada fila; liberar un
+    caso ajeno (solo Aprobador) pide confirmación.
+  - `/reviews/[id]` reutiliza el detalle del diagnóstico
+    (`DiagnosticDetail`, misma carga en `lib/diagnostics/load-detail.ts`) y
+    agrega el bloque "Revisión del caso", la corrección de cada respuesta,
+    el historial de correcciones y las notas.
+  - Corregir: solo quien tiene el caso tomado y sin aprobación vigente. El
+    formulario sigue el tipo de pregunta y pide motivo; la original y la
+    corregida se ven lado a lado. Mientras haya correcciones sin recalcular,
+    un aviso ofrece "Recalcular".
+  - Aprobar y reabrir: solo el Aprobador. Si no se puede, la pantalla lista
+    lo que falta (`approvalBlockers` de la API); si lo único que falta es el
+    análisis con IA, ofrece aprobar con excepción y motivo. El Revisor ve
+    "Pendiente de aprobación" y lo que falta.
+  - Corregir y aprobar envían `If-Match` con la `version` del caso. Un 412
+    avisa que alguien más cambió el caso, recarga los datos y deja el modal
+    abierto con lo escrito.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),
@@ -162,6 +182,6 @@ las acciones de fila llaman a la API real con ids falsos (404).
 
 ## Pendiente a propósito (no construido todavía)
 
-El flujo de revisión/aprobación de casos no se construye todavía. Los roles
-Revisor y Aprobador ya existen (`CLAUDE.md`, sección 5.3): el panel oculta lo que
-el rol no permite, y quien valida el permiso es la API.
+El informe (generar, ver y entregar) es del módulo Delivery. Los roles Revisor y
+Aprobador están en `CLAUDE.md`, sección 5.3: el panel oculta lo que el rol no
+permite, y quien valida el permiso es la API.

@@ -72,6 +72,15 @@ async function buildError(
       errors,
     );
   }
+  // Concurrencia con If-Match (revisión): el mensaje de la API ya es claro.
+  if (response.status === 412 || response.status === 428) {
+    return new ApiError(
+      response.status,
+      body?.detail ??
+        "El caso cambió desde que lo abriste. Vuelve a cargarlo e intenta de nuevo.",
+      body?.code,
+    );
+  }
   if (response.status === 404) {
     return new ApiError(404, messages.notFound, body?.code);
   }

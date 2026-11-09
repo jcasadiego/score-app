@@ -155,13 +155,15 @@ export class ReviewsService {
    * crea la revisión si es el primero, anula la aprobación vigente si la hay y
    * devuelve la última corrección, que el cálculo debe incluir. Bloquea la
    * revisión, así que una corrección simultánea queda antes o después, nunca
-   * a medias.
+   * a medias. Anular una aprobación equivale a reabrirla: si quien recalcula
+   * no es Aprobador, 409 (CLAUDE.md 5.3).
    */
   async onCalculationEnqueued(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
-    requestedById?: string,
+    requester?: Actor,
   ): Promise<{ correctionSequence: number }> {
+    const requestedById = requester?.id;
     const review = await tx.review.upsert({
       where: { diagnosticId },
       create: { diagnosticId },
@@ -169,6 +171,13 @@ export class ReviewsService {
       select: { id: true, status: true, assigneeId: true },
     });
     if (review.status === ReviewStatus.APPROVED) {
+      if (requester && requester.role !== UserRole.ADMIN) {
+        throw new ConflictException({
+          message:
+            'El caso está aprobado. Un Aprobador debe reabrirlo antes de recalcular.',
+          code: REVIEW_APPROVED,
+        });
+      }
       const voided = await tx.reviewApproval.updateMany({
         where: { reviewId: review.id, voidedAt: null },
         data: {
@@ -469,7 +478,8 @@ export class ReviewsService {
       await this.record(tx, actor, 'REVIEW_NOTE_ADDED', id, {
         diagnosticId: review.diagnosticId,
         noteId: note.id,
-        dimension: note.dimension,
+        // Sin la dimensión: es texto libre hasta tener el catálogo D1–D8.
+        general: note.dimension === null,
       });
       return note;
     });

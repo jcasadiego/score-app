@@ -593,6 +593,15 @@ describe('Revisión (e2e, base propia)', () => {
         }),
         expect.objectContaining({ dimension: 'D3' }),
       ]);
+      // La dimensión es texto libre: no entra a la bitácora.
+      const logs = await prisma.auditLog.findMany({
+        where: { action: 'REVIEW_NOTE_ADDED', entityId: reviewId },
+      });
+      expect(logs).toHaveLength(2);
+      for (const log of logs) {
+        expect(log.data).not.toHaveProperty('dimension');
+        expect(JSON.stringify(log.data)).not.toContain('D3');
+      }
     });
   });
 
@@ -726,17 +735,34 @@ describe('Revisión (e2e, base propia)', () => {
       expect(body.aiExceptionReason).toBe('La IA no está disponible');
     });
 
-    it('recalcular después de aprobar anula la aprobación', async () => {
+    it('un Revisor no recalcula un caso aprobado: debe reabrirlo un Aprobador', async () => {
       const { diagnosticId, reviewId } = await ready();
       await take(reviewId).expect(200);
       const { body: approval } = await approve(reviewId, 201);
-      await recalculate(diagnosticId);
+      const { body } = await server()
+        .post(`${DIAGNOSTICS}/${diagnosticId}/calculations`)
+        .set(as(reviewer.token))
+        .expect(409);
+      expect(body.code).toBe('REVIEW_APPROVED');
+      const kept = await prisma.reviewApproval.findUniqueOrThrow({
+        where: { id: approval.id },
+      });
+      expect(kept.voidedAt).toBeNull();
+      const { body: detailBody } = await detail(reviewId);
+      expect(detailBody).toMatchObject({ status: 'APPROVED' });
+    });
+
+    it('recalcular después de aprobar anula la aprobación (Aprobador)', async () => {
+      const { diagnosticId, reviewId } = await ready();
+      await take(reviewId).expect(200);
+      const { body: approval } = await approve(reviewId, 201);
+      await recalculate(diagnosticId, approver.token);
       const voided = await prisma.reviewApproval.findUniqueOrThrow({
         where: { id: approval.id },
       });
       expect(voided).toMatchObject({
         voidCause: 'RECALCULATED',
-        voidedById: reviewer.id,
+        voidedById: approver.id,
       });
       const { body } = await detail(reviewId);
       expect(body).toMatchObject({ status: 'IN_REVIEW', approval: null });

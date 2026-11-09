@@ -173,7 +173,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     efectivas. `GET` lista cada corrección con el valor original.
   - **Recalcular:** por `POST /diagnostics/:id/calculations`. Al encolar, el
     cálculo guarda en `correctionSequence` la última corrección que incluye y
-    anula la aprobación vigente (`RECALCULATED`).
+    anula la aprobación vigente (`RECALCULATED`). Anularla equivale a reabrir,
+    así que en un caso aprobado solo recalcula el Aprobador (409
+    `REVIEW_APPROVED` para el Revisor).
   - **Notas:** `GET` y `POST /reviews/:id/notes` (`body`, `dimension`
     opcional, texto libre hasta confirmar D1–D8).
   - **Aprobar:** `POST /reviews/:id/approval`, solo el Aprobador, haya tomado

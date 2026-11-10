@@ -472,6 +472,52 @@ describe('Flags (e2e, base propia)', () => {
       .expect(404);
   });
 
+  it('en un caso aprobado las alertas no cambian hasta reabrirlo (409), y el detalle lo indica', async () => {
+    engine.confidence = 0.1;
+    const { id } = await flagged();
+    const [flag] = (await flagsOf(id).set(as(reviewer.token))).body.flags;
+    // Se aprueba directo en la base: el flujo completo ya lo prueba reviews.
+    await prisma.review.update({
+      where: { diagnosticId: id },
+      data: { status: 'APPROVED' },
+    });
+
+    const { body: detail } = await server()
+      .get(`${DIAGNOSTICS}/${id}`)
+      .set(as(reviewer.token))
+      .expect(200);
+    expect(detail.review).toMatchObject({ status: 'APPROVED' });
+
+    for (const user of [reviewer, approver]) {
+      for (const body of [
+        { status: 'REVIEWED' },
+        { status: 'DISMISSED', note: 'Aclarado.' },
+      ]) {
+        const { body: conflict } = await server()
+          .patch(`/api/v1/flags/${flag.id}`)
+          .set(as(user.token))
+          .send(body)
+          .expect(409);
+        expect(conflict.code).toBe('REVIEW_APPROVED');
+      }
+    }
+    const stored = await prisma.flag.findUniqueOrThrow({
+      where: { id: flag.id },
+    });
+    expect(stored.status).toBe('OPEN');
+
+    // Reabierto el caso, las alertas vuelven a cambiar.
+    await prisma.review.update({
+      where: { diagnosticId: id },
+      data: { status: 'PENDING' },
+    });
+    await server()
+      .patch(`/api/v1/flags/${flag.id}`)
+      .set(as(reviewer.token))
+      .send({ status: 'REVIEWED' })
+      .expect(200);
+  });
+
   it('el listado de diagnósticos trae los flags abiertos del cálculo vigente', async () => {
     engine.confidence = 0.1;
     const low = await flagged();

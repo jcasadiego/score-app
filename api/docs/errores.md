@@ -52,7 +52,7 @@ Un código publicado no cambia de significado.
 | `REVIEW_ALREADY_TAKEN` | 409 | Otra persona activa ya tomó el caso. |
 | `REVIEW_TAKEN_BY_OTHER` | 403 | El caso es de otra persona: solo ella lo corrige, y solo un Aprobador lo libera. |
 | `REVIEW_NOT_TAKEN` | 409 | Hay que tomar el caso antes de corregirlo. |
-| `REVIEW_APPROVED` | 409 | El caso está aprobado: no admite correcciones, otra aprobación ni (si no lo pide un Aprobador) un recálculo hasta reabrirlo. |
+| `REVIEW_APPROVED` | 409 | El caso está aprobado: no admite correcciones, cambios en sus alertas, otra aprobación ni (si no lo pide un Aprobador) un recálculo hasta reabrirlo. |
 | `REVIEW_NOT_APPROVED` | 409 | Se pidió reabrir un caso sin aprobación vigente. |
 | `APPROVAL_REQUIREMENTS_NOT_MET` | 409 | El caso no se puede aprobar; `errors` trae lo que falta (`NO_CALCULATION`, `LATEST_CALCULATION_NOT_SUCCEEDED`, `CORRECTIONS_NOT_CALCULATED`, `FLAG_ANALYSIS_NOT_SUCCEEDED`, `OPEN_FLAGS`, `SIMULATED_RESULT`). |
 | `REVIEW_VERSION_MISMATCH` | 412 | El caso cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |

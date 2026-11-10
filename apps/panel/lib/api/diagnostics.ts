@@ -1,3 +1,4 @@
+import type { ReviewStatus } from "@/lib/reviews/labels";
 import "server-only";
 import { callApi, type ResourceMessages } from "./client";
 import type { DiagnosticFamily } from "@/lib/leads/labels";
@@ -51,6 +52,8 @@ export interface DiagnosticDetail extends DiagnosticSummary {
     createdAt: string;
   }[];
   questions: DiagnosticQuestion[];
+  /** La revisión del caso; nula hasta el primer cálculo (PF-64). */
+  review: { id: string; status: ReviewStatus } | null;
 }
 
 /** Fila del listado: el resumen más las alertas abiertas del cálculo vigente. */

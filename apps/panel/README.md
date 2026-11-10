@@ -113,7 +113,9 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
     - Cada flag enlaza a sus preguntas en "Respuestas", que muestran cuántas
       alertas abiertas las involucran.
     - Marcar revisada (nota opcional), descartar (nota obligatoria) o
-      reabrir. Sin actualización optimista: si falla, la pantalla no cambia.
+      reabrir. Sin actualización optimista: si falla, la pantalla recarga.
+    - En un caso aprobado (`diagnostic.review.status`), las alertas son de
+      solo lectura y un aviso explica que hay que reabrir el caso (PF-64).
     - Estado del análisis con IA: pendiente, en curso (consulta solo su
       estado y recarga al terminar), fallido con "Reintentar", o completo.
       "Sin alertas" solo aparece con el análisis completo y cero flags. Un
@@ -133,7 +135,8 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
     corregida se ven lado a lado. Mientras haya correcciones sin recalcular,
     un aviso ofrece "Recalcular".
   - En un caso aprobado, recalcular anula la aprobación: el Revisor no ve el
-    botón y al Aprobador la confirmación se lo advierte.
+    botón y al Aprobador la confirmación se lo advierte. Vale también en
+    `/diagnostics/[id]` (`recalculationOptions` en `lib/reviews/labels.ts`).
   - Aprobar y reabrir: solo el Aprobador. Si no se puede, la pantalla lista
     lo que falta (`approvalBlockers` de la API); si lo único que falta es el
     análisis con IA, ofrece aprobar con excepción y motivo. El Revisor ve

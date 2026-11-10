@@ -44,3 +44,17 @@ export const VOID_CAUSE_LABELS: Record<string, string> = {
   RECALCULATED: "anulada por un recálculo",
   REOPENED: "reabierta",
 };
+
+/**
+ * Recalcular un caso aprobado anula la aprobación, y eso es solo del Aprobador
+ * (CLAUDE.md 5.3): al Revisor no se le muestra el botón y al Aprobador se le
+ * avisa. La API valida igual (409 `REVIEW_APPROVED`).
+ */
+export function recalculationOptions(approved: boolean, isApprover: boolean) {
+  return {
+    canRecalculate: !approved || isApprover,
+    recalculateWarning: approved
+      ? "El caso está aprobado: recalcular anula la aprobación y vuelve a revisión."
+      : undefined,
+  };
+}

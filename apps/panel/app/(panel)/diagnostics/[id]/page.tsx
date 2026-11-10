@@ -4,6 +4,7 @@ import { getToken } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/errors";
 import { PageError } from "@/components/page-error";
 import { DiagnosticDetail } from "@/components/diagnostics/diagnostic-detail";
+import { recalculationOptions } from "@/lib/reviews/labels";
 import {
   historyPageFrom,
   loadDiagnosticDetail,
@@ -19,7 +20,7 @@ export default async function DiagnosticPage({
   params,
   searchParams,
 }: PageProps<"/diagnostics/[id]">) {
-  await verifySession();
+  const session = await verifySession();
   const { id } = await params;
   const historyPage = historyPageFrom((await searchParams).calcPage);
 
@@ -44,6 +45,10 @@ export default async function DiagnosticPage({
       diagnostic={data.diagnostic}
       calculations={data.calculations}
       flags={data.flags}
+      calculationOptions={recalculationOptions(
+        data.diagnostic.review?.status === "APPROVED",
+        session.role === "ADMIN",
+      )}
     />
   );
 }

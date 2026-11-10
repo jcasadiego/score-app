@@ -20,7 +20,10 @@ import type {
 } from "@/lib/api/reviews";
 import type { DiagnosticQuestion } from "@/lib/api/diagnostics";
 import type { DiagnosticDetailData } from "@/lib/diagnostics/load-detail";
-import { AI_EXCEPTION_BLOCKER } from "@/lib/reviews/labels";
+import {
+  AI_EXCEPTION_BLOCKER,
+  recalculationOptions,
+} from "@/lib/reviews/labels";
 import { LocalDate } from "@/components/local-date";
 import {
   AnswerValue,
@@ -358,12 +361,7 @@ export function ReviewScreen({
         header={header}
         renderAnswer={renderAnswer}
         // En un caso aprobado, recalcular anula la aprobación: solo el Aprobador.
-        calculationOptions={{
-          canRecalculate: !approved || me.isApprover,
-          recalculateWarning: approved
-            ? "El caso está aprobado: recalcular anula la aprobación y vuelve a revisión."
-            : undefined,
-        }}
+        calculationOptions={recalculationOptions(approved, me.isApprover)}
       >
         <CorrectionsCard corrections={corrections} />
         <NotesCard reviewId={review.id} notes={notes} />

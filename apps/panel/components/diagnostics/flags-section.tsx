@@ -142,11 +142,14 @@ function ReviewModal({
 function FlagItem({
   flag,
   busy,
+  locked,
   onReview,
   onReopen,
 }: {
   flag: Flag;
   busy: boolean;
+  /** Caso aprobado: sin acciones hasta que un Aprobador lo reabra. */
+  locked: boolean;
   onReview: (status: "REVIEWED" | "DISMISSED") => void;
   onReopen: () => void;
 }) {
@@ -163,7 +166,7 @@ function FlagItem({
           </Tag>
         </Space>
         <Space wrap size={8}>
-          {flag.status === "OPEN" ? (
+          {locked ? null : flag.status === "OPEN" ? (
             <>
               <Button
                 size="small"
@@ -327,10 +330,13 @@ function AnalysisStatus({
 export function FlagsSection({
   diagnosticId,
   data,
+  locked = false,
 }: {
   diagnosticId: string;
   /** Nulo si el diagnóstico todavía no se envió. */
   data: FlagsData | null;
+  /** Caso aprobado: las alertas son de solo lectura (PF-64). */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -402,6 +408,8 @@ export function FlagsSection({
         );
       } else {
         message.error(result.error ?? "No pudimos guardar el cambio.");
+        // Si el caso se aprobó mientras tanto, recargar muestra el bloqueo.
+        router.refresh();
       }
     });
   }
@@ -444,6 +452,14 @@ export function FlagsSection({
         <Flex vertical gap={16}>
           <AnalysisStatus list={list} retrying={retrying} onRetry={retry} />
 
+          {locked && flags.length > 0 && (
+            <Alert
+              type="info"
+              showIcon
+              title="El caso está aprobado: sus alertas no se pueden cambiar hasta que un Aprobador lo reabra."
+            />
+          )}
+
           {flags.length === 0 ? (
             analysisSucceeded ? (
               <Empty
@@ -459,6 +475,7 @@ export function FlagsSection({
                   <FlagItem
                     flag={flag}
                     busy={saving}
+                    locked={locked}
                     onReview={(status) => setTarget({ flag, status })}
                     onReopen={() => save(flag, "OPEN", "")}
                   />

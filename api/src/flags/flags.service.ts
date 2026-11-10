@@ -16,6 +16,7 @@ import {
   FlagSeverity,
   FlagSource,
   FlagStatus,
+  ReviewStatus,
 } from '../../generated/prisma/enums';
 import { AiService } from '../ai/ai.service';
 import {
@@ -27,6 +28,7 @@ import { AuditService } from '../audit/audit.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import type { ValidatedEnv } from '../config/validate-env';
 import { PrismaService } from '../prisma/prisma.service';
+import { REVIEW_APPROVED } from '../reviews/review-codes';
 
 /** Códigos propios del módulo (catálogo en `docs/errores.md`). */
 export const FLAG_ANALYSIS_NOT_RETRYABLE = 'FLAG_ANALYSIS_NOT_RETRYABLE';
@@ -568,6 +570,21 @@ export class FlagsService implements OnApplicationBootstrap {
         },
       });
       if (!current) throw new NotFoundException(`Flag ${flagId} no encontrado`);
+      // Un caso aprobado no cambia sus alertas hasta que un Aprobador lo
+      // reabra (PF-64). Se bloquea la revisión antes que el flag, en el mismo
+      // orden que la aprobación, para que no se crucen.
+      const [review] = await tx.$queryRaw<{ status: ReviewStatus }[]>`
+        SELECT status FROM reviews
+        WHERE diagnostic_id = ${current.calculation.diagnosticId}
+        FOR UPDATE
+      `;
+      if (review?.status === ReviewStatus.APPROVED) {
+        throw new ConflictException({
+          message:
+            'El caso está aprobado. Un Aprobador debe reabrirlo antes de cambiar sus alertas.',
+          code: REVIEW_APPROVED,
+        });
+      }
       const reopened = status === FlagStatus.OPEN;
       const flag = await tx.flag.update({
         where: { id: flagId },

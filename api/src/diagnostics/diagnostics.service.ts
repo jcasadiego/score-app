@@ -192,11 +192,18 @@ export class DiagnosticsService {
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         },
+        // Para que el panel sepa si el caso está aprobado (PF-64).
+        review: { select: { id: true, status: true } },
       },
     });
     if (!diagnostic) throw this.notFound(id);
 
-    const { answers, questionnaireVersion: version, ...rest } = diagnostic;
+    const {
+      answers,
+      questionnaireVersion: version,
+      review,
+      ...rest
+    } = diagnostic;
     const answerIds = new Map(answers.map((a) => [a.questionId, a.id]));
     const questions = questionsWithAnswers(version, answers).questions.map(
       (question) =>
@@ -211,6 +218,7 @@ export class DiagnosticsService {
     return {
       ...summary({ ...rest, questionnaireVersion: version }, new Date()),
       questions,
+      review: review ?? null,
     };
   }
 

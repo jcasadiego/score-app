@@ -498,6 +498,9 @@ describe('Diagnósticos (e2e, base propia)', () => {
         (q: { id: string }) => q.id === questions.choice.id,
       );
       expect(panelChoice.answer.id).toBe(stored.id);
+      // Sin cálculo todavía no hay revisión (PF-64); la app del cliente no la ve.
+      expect(panel.review).toBeNull();
+      expect(body).not.toHaveProperty('review');
     });
 
     it('rechaza respuestas que no corresponden a la pregunta', async () => {

@@ -272,7 +272,11 @@ export function DiagnosticDetail({
         {...calculationOptions}
       />
 
-      <FlagsSection diagnosticId={diagnostic.id} data={flags} />
+      <FlagsSection
+        diagnosticId={diagnostic.id}
+        data={flags}
+        locked={diagnostic.review?.status === "APPROVED"}
+      />
 
       <Card title="Respuestas" size="small">
         {diagnostic.questions.length === 0 ? (

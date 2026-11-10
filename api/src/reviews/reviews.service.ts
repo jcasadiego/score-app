@@ -20,6 +20,14 @@ import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import type { ValidatedEnv } from '../config/validate-env';
 import { validateAnswer } from '../diagnostics/answer-rules';
 import { FlagsService } from '../flags/flags.service';
+import {
+  APPROVAL_REQUIREMENTS_NOT_MET,
+  REVIEW_ALREADY_TAKEN,
+  REVIEW_APPROVED,
+  REVIEW_NOT_APPROVED,
+  REVIEW_NOT_TAKEN,
+  REVIEW_TAKEN_BY_OTHER,
+} from './review-codes';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   type ApprovalState,
@@ -32,14 +40,6 @@ import type { CreateCorrectionDto } from './dto/create-correction.dto';
 import type { CreateNoteDto } from './dto/create-note.dto';
 import type { ListReviewsDto } from './dto/list-reviews.dto';
 import { assertVersion } from './etag';
-
-/** Códigos propios del módulo (catálogo en `docs/errores.md`). */
-export const REVIEW_ALREADY_TAKEN = 'REVIEW_ALREADY_TAKEN';
-export const REVIEW_TAKEN_BY_OTHER = 'REVIEW_TAKEN_BY_OTHER';
-export const REVIEW_NOT_TAKEN = 'REVIEW_NOT_TAKEN';
-export const REVIEW_APPROVED = 'REVIEW_APPROVED';
-export const REVIEW_NOT_APPROVED = 'REVIEW_NOT_APPROVED';
-export const APPROVAL_REQUIREMENTS_NOT_MET = 'APPROVAL_REQUIREMENTS_NOT_MET';
 
 /** Quien hace la acción, de la sesión (nunca del cliente). */
 export interface Actor {

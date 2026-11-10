@@ -125,7 +125,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   - **Prueba:** `pnpm ai:test` corre una tarea de prueba con la
     configuración local (con `claude` gasta tokens reales).
 - `src/flags/` — alertas para el revisor (PF-34). Nunca cambian el resultado
-  ni las respuestas.
+  ni las respuestas. En un caso aprobado no se pueden revisar, descartar ni
+  reabrir (409 `REVIEW_APPROVED`) hasta que un Aprobador reabra el caso
+  (PF-64); se bloquea la revisión antes que el flag, como al aprobar.
   - **Al terminar bien un cálculo**, en la misma transacción, se crean:
     - el flag de baja confianza (`ENGINE`), si la Confianza del motor queda
       bajo `FLAG_LOW_CONFIDENCE_THRESHOLD` (0.5);

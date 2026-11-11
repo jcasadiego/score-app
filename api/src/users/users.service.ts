@@ -18,6 +18,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export const MAX_FAILED_LOGINS = 5;
 export const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
+/** Qué falló: la contraseña o un código del segundo factor (o de recuperación). */
+export type FailedLoginKind = 'PASSWORD' | 'MFA_CODE';
+
+/** Lo que hace falta de la cuenta recién bloqueada para avisarle a su dueño. */
+export interface LockedUser {
+  name: string;
+  email: string;
+  active: boolean;
+}
+
 const PUBLIC_SELECT = {
   id: true,
   name: true,
@@ -102,26 +112,69 @@ export class UsersService {
   }
 
   /**
-   * Suma un intento fallido y bloquea al llegar al máximo. Devuelve si bloqueó.
-   * El contador se reinicia para que, al vencer el bloqueo, haya otra tanda de
-   * intentos en vez de un bloqueo permanente que cualquiera podría provocar.
+   * Suma un intento fallido y bloquea al llegar al máximo. Devuelve la cuenta
+   * solo si este intento la bloqueó. El contador se reinicia para que, al vencer
+   * el bloqueo, haya otra tanda de intentos en vez de un bloqueo permanente que
+   * cualquiera podría provocar.
    */
-  async registerFailedLogin(id: string): Promise<boolean> {
+  async registerFailedLogin(
+    id: string,
+    kind: FailedLoginKind,
+  ): Promise<LockedUser | null> {
     const { failedLoginAttempts } = await this.prisma.user.update({
       where: { id },
-      data: { failedLoginAttempts: { increment: 1 } },
+      data: {
+        failedLoginAttempts: { increment: 1 },
+        ...(kind === 'MFA_CODE' ? { lastFailedMfaAt: new Date() } : {}),
+      },
       select: { failedLoginAttempts: true },
     });
-    if (failedLoginAttempts < MAX_FAILED_LOGINS) return false;
+    if (failedLoginAttempts < MAX_FAILED_LOGINS) return null;
 
-    await this.prisma.user.update({
-      where: { id },
+    // Solo si el contador sigue en el máximo: de dos fallos simultáneos bloquea
+    // uno, y así sale un solo aviso por bloqueo.
+    const [locked] = await this.prisma.user.updateManyAndReturn({
+      where: { id, failedLoginAttempts: { gte: MAX_FAILED_LOGINS } },
       data: {
         failedLoginAttempts: 0,
         lockedUntil: new Date(Date.now() + LOGIN_LOCK_MS),
       },
+      select: { name: true, email: true, active: true },
     });
-    return true;
+    return locked ?? null;
+  }
+
+  /**
+   * Al restablecer la contraseña: deja el contador en 0 y levanta el bloqueo,
+   * pero solo si no se rechazó ningún código de MFA durante la duración de un
+   * bloqueo. Así el restablecimiento nunca da más de lo que ya daba esperar a
+   * que el bloqueo venciera, y quien controle el buzón no puede alternar
+   * restablecer y probar códigos (PF-65). Devuelve si levantó un bloqueo vigente.
+   */
+  async unlockAfterPasswordReset(
+    tx: Prisma.TransactionClient,
+    id: string,
+  ): Promise<boolean> {
+    const now = new Date();
+    const noRecentMfaFailure = {
+      OR: [
+        { lastFailedMfaAt: null },
+        { lastFailedMfaAt: { lte: new Date(now.getTime() - LOGIN_LOCK_MS) } },
+      ],
+    } satisfies Prisma.UserWhereInput;
+    const cleared = { failedLoginAttempts: 0, lockedUntil: null };
+
+    const { count } = await tx.user.updateMany({
+      where: { id, lockedUntil: { gt: now }, ...noRecentMfaFailure },
+      data: cleared,
+    });
+    if (count > 0) return true;
+
+    await tx.user.updateMany({
+      where: { id, failedLoginAttempts: { gt: 0 }, ...noRecentMfaFailure },
+      data: cleared,
+    });
+    return false;
   }
 
   async clearFailedLogins(id: string): Promise<void> {

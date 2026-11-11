@@ -94,10 +94,14 @@ model User {
   /// Va en el JWT (`ver`); subirla invalida todas las sesiones abiertas
   /// del usuario. Se sube en cada cambio de contraseña.
   sessionVersion      Int       @default(0) @map("session_version")
-  /// Contraseñas incorrectas seguidas. Se reinicia al entrar o al bloquear.
+  /// Contraseñas o códigos de MFA incorrectos seguidos. Se reinicia al entrar,
+  /// al bloquear o al restablecer la contraseña.
   failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
   /// Hasta cuándo se rechaza el login, aunque la contraseña sea correcta.
   lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(3)
+  /// Último código de MFA rechazado. Restablecer la contraseña solo levanta el
+  /// bloqueo si ya pasó la duración de un bloqueo desde entonces (PF-65).
+  lastFailedMfaAt     DateTime? @map("last_failed_mfa_at") @db.Timestamptz(3)
   /// Secreto TOTP cifrado con `MFA_ENCRYPTION_KEY`. Solo sale en una respuesta
   /// una vez, al configurarlo.
   mfaSecret           String?   @map("mfa_secret")

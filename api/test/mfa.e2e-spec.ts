@@ -9,6 +9,7 @@ import { currentStep, totpAtStep } from './../src/auth/mfa/totp';
 import { configureApp } from './../src/bootstrap';
 import { AppThrottlerGuard } from './../src/common/app-throttler.guard';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { LOGIN_LOCK_MS } from './../src/users/users.service';
 import { hashToken } from './../src/password-reset/password-link.service';
 import { PasswordResetService } from './../src/password-reset/password-reset.service';
 
@@ -233,28 +234,107 @@ describe('Segundo factor del panel (e2e)', () => {
       .expect(401);
   });
 
-  it('recuperar la contraseña no quita el bloqueo por códigos fallidos', async () => {
-    await enroll();
-    const lockedUntil = new Date(Date.now() + 60_000);
-    await prisma.user.update({
-      where: { id: userId },
-      data: { lockedUntil, failedLoginAttempts: 0 },
-    });
-
+  /** Restablece la contraseña como lo haría el dueño con el enlace del correo. */
+  async function resetPassword(password: string) {
+    const token = `token-mfa-e2e-${Math.random()}`;
     await prisma.passwordResetToken.create({
       data: {
         userId,
-        tokenHash: hashToken('token-mfa-e2e'),
+        tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + 60_000),
       },
     });
-    await app
-      .get(PasswordResetService)
-      .confirm('token-mfa-e2e', 'clave-nueva-de-mfa-456');
+    await app.get(PasswordResetService).confirm(token, password);
+  }
+
+  const loginWith = (password: string) =>
+    server().post(`${AUTH}/login`).send({ email: EMAIL, password });
+
+  it('alternar restablecimientos y códigos erróneos no da más intentos de MFA', async () => {
+    await enroll();
+    const since = new Date();
+    const wrong = (await codeFor(5)) === '000000' ? '111111' : '000000';
+    let codesTried = 0;
+
+    // Quien controla el buzón: restablece, entra con la contraseña nueva y
+    // prueba códigos hasta que la API deja de darle retos.
+    for (let round = 0; round < 4; round++) {
+      const password = `clave-del-atacante-${round}-xyz`;
+      await resetPassword(password);
+      for (let i = 0; i < 5; i++) {
+        const response = await loginWith(password);
+        if (response.status !== 200) break;
+        await server()
+          .post(`${AUTH}/mfa/verification`)
+          .send({ mfaToken: response.body.mfaToken, code: wrong })
+          .expect(401);
+        codesTried++;
+      }
+    }
+
+    // Lo mismo que sin restablecer: una tanda de 5 y el bloqueo sigue en pie.
+    expect(codesTried).toBe(5);
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+    expect(await auditCount('ACCOUNT_UNLOCKED', since)).toBe(0);
+    // Cuatro restablecimientos y varios inicios de sesión: mucho argon2.
+  }, 30_000);
+
+  it('cerrar la tanda con una contraseña errónea tampoco deja restablecer el bloqueo', async () => {
+    await enroll();
+    const wrong = (await codeFor(5)) === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 4; i++) {
+      await server()
+        .post(`${AUTH}/mfa/verification`)
+        .send({ mfaToken: await challenge(), code: wrong })
+        .expect(401);
+    }
+    // El quinto fallo es de contraseña: el bloqueo no "parece" de MFA.
+    await loginWith('contraseña-incorrecta').expect(401);
+    await vi.waitFor(async () => {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+      });
+      expect(user.lockedUntil).not.toBeNull();
+    });
+
+    await resetPassword('clave-nueva-de-mfa-456');
+
+    await loginWith('clave-nueva-de-mfa-456').expect(401);
+  });
+
+  it('con códigos rechazados hace poco, restablecer tampoco reinicia el contador', async () => {
+    await enroll();
+    const wrong = (await codeFor(5)) === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 4; i++) {
+      await server()
+        .post(`${AUTH}/mfa/verification`)
+        .send({ mfaToken: await challenge(), code: wrong })
+        .expect(401);
+    }
+
+    await resetPassword('clave-nueva-de-mfa-456');
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    expect(user.lockedUntil).toEqual(lockedUntil);
+    expect(user.failedLoginAttempts).toBe(4);
     expect(user.mfaEnabledAt).not.toBeNull();
+  });
+
+  it('pasada la duración de un bloqueo desde el último código, restablecer sí lo levanta', async () => {
+    await enroll();
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        lockedUntil: new Date(Date.now() + 60_000),
+        lastFailedMfaAt: new Date(Date.now() - LOGIN_LOCK_MS - 1_000),
+      },
+    });
+
+    await resetPassword('clave-nueva-de-mfa-456');
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.lockedUntil).toBeNull();
+    await loginWith('clave-nueva-de-mfa-456').expect(200);
   });
 
   it('un reto en curso muere si la cuenta se desactiva', async () => {

@@ -5,6 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { ValidatedEnv } from '../config/validate-env';
 import { MAIL_PORT, MailPort, SendResult } from './mail.port';
 import {
+  accountLockedEmail,
+  AccountLockedData,
   diagnosticCompletedNoticeEmail,
   DiagnosticCompletedNoticeData,
   diagnosticLinkEmail,
@@ -26,6 +28,7 @@ export type MailType =
   | 'PASSWORD_RESET'
   | 'PASSWORD_SETUP'
   | 'SECURITY_NOTICE'
+  | 'ACCOUNT_LOCKED_NOTICE'
   | 'NEW_LEAD_NOTICE'
   | 'DIAGNOSTIC_COMPLETED_NOTICE';
 
@@ -123,6 +126,19 @@ export class MailService {
       'SECURITY_NOTICE',
       to,
       securityNoticeEmail(data, this.brand()),
+      context,
+    );
+  }
+
+  sendAccountLocked(
+    to: string,
+    data: AccountLockedData,
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'ACCOUNT_LOCKED_NOTICE',
+      to,
+      accountLockedEmail(data, this.brand()),
       context,
     );
   }

@@ -410,6 +410,11 @@ revisar la regla correspondiente.
   acción, del JWT (`req.user.id`), nunca del cliente.
 - Listados paginados y filtrados en la base (página + conteo en una
   transacción, orden estable), nunca en memoria (#13).
+- **Bloqueo y restablecimiento (PF-65):** restablecer la contraseña solo levanta
+  el bloqueo si no hubo un código de MFA rechazado en los últimos 15 minutos
+  (`UsersService.unlockAfterPasswordReset`). No relajar esa condición: quien
+  controle el buzón podría alternar restablecer y probar códigos sin límite. El
+  aviso de bloqueo por correo tampoco se espera.
 - **Login:** contar un intento fallido de contraseña nunca se espera (`await`):
   el tiempo de respuesta delataría qué emails existen. La contraseña correcta no
   limpia el contador, solo `completeLogin`; si no, se podrían probar códigos MFA

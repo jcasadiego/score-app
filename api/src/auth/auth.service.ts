@@ -5,11 +5,19 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuditActorType } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
-import { UsersService } from '../users/users.service';
+import { panelLink } from '../config/panel-url';
+import { ValidatedEnv } from '../config/validate-env';
+import { MailService } from '../mail/mail.service';
+import {
+  FailedLoginKind,
+  LOGIN_LOCK_MS,
+  UsersService,
+} from '../users/users.service';
 import type { SessionUser } from './jwt.strategy';
 import { MfaService } from './mfa.service';
 import { SessionsService } from './sessions.service';
@@ -51,6 +59,8 @@ export class AuthService {
     private readonly sessions: SessionsService,
     private readonly audit: AuditService,
     @Inject(forwardRef(() => MfaService)) private readonly mfa: MfaService,
+    private readonly mail: MailService,
+    private readonly config: ConfigService<ValidatedEnv, true>,
   ) {}
 
   async login(email: string, password: string) {
@@ -80,7 +90,7 @@ export class AuthService {
       if (user && !isPasswordValid && !isLocked) {
         // Sin esperar: si la respuesta tardara más cuando el email existe, el
         // tiempo delataría qué cuentas hay.
-        this.recordFailedAttempt(user.id).catch((error: unknown) =>
+        this.recordFailedAttempt(user.id, 'PASSWORD').catch((error: unknown) =>
           this.logger.error(
             'No se pudo registrar el intento de inicio de sesión fallido',
             error instanceof Error ? error.stack : undefined,
@@ -136,16 +146,42 @@ export class AuthService {
   }
 
   /** Contraseña o código incorrecto: cuenta para el bloqueo de la cuenta. */
-  async recordFailedAttempt(userId: string): Promise<void> {
-    const locked = await this.users.registerFailedLogin(userId);
-    if (locked) {
-      await this.audit.record({
-        actorType: AuditActorType.SYSTEM,
-        action: 'ACCOUNT_LOCKED',
-        entity: 'User',
-        entityId: userId,
-      });
+  async recordFailedAttempt(
+    userId: string,
+    kind: FailedLoginKind,
+  ): Promise<void> {
+    const locked = await this.users.registerFailedLogin(userId, kind);
+    if (!locked) return;
+
+    // Una cuenta desactivada no puede entrar ni restablecer: no se le avisa.
+    if (locked.active) {
+      // Sin esperar: quien llama desde el MFA sí espera este método, y el envío
+      // alargaría justo la respuesta del intento que bloquea. `MailService` no
+      // lanza y deja el resultado en la bitácora.
+      void this.mail
+        .sendAccountLocked(
+          locked.email,
+          {
+            name: locked.name,
+            lockMinutes: LOGIN_LOCK_MS / 60_000,
+            link: panelLink(this.config, '/forgot-password').href,
+          },
+          { entity: 'User', entityId: userId },
+        )
+        .catch((error: unknown) =>
+          this.logger.error(
+            'No se pudo enviar el aviso de cuenta bloqueada',
+            error instanceof Error ? error.stack : undefined,
+          ),
+        );
     }
+
+    await this.audit.record({
+      actorType: AuditActorType.SYSTEM,
+      action: 'ACCOUNT_LOCKED',
+      entity: 'User',
+      entityId: userId,
+    });
   }
 
   /**

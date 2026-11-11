@@ -322,7 +322,7 @@ export class MfaService {
 
   /** Cada código incorrecto cuenta para el mismo bloqueo que la contraseña. */
   private async rejectCode(userId: string): Promise<never> {
-    await this.auth.recordFailedAttempt(userId);
+    await this.auth.recordFailedAttempt(userId, 'MFA_CODE');
     throw new UnauthorizedException(INVALID_CODE);
   }
 

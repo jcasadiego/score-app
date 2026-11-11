@@ -12,7 +12,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Contraseñas con argon2id, sin revelar qué cuentas existen | A.5.17, A.8.5 | CC6.1 | Implementado | `api/src/auth/auth.service.ts` |
 | Política de contraseñas: 12 a 128 caracteres, también en el seed | A.5.17 | CC6.1 | Implementado | `api/src/users/dto/limits.ts`, `dtos.spec.ts`. Falta rechazar contraseñas filtradas (PF-60) |
-| Bloqueo: 5 intentos fallidos, 15 minutos, auditado | A.8.5 | CC6.1 | Implementado | `test/login-lockout.e2e-spec.ts` |
+| Bloqueo: 5 intentos fallidos (contraseña o código MFA), 15 minutos, auditado, con aviso por correo al dueño de la cuenta | A.5.15, A.8.5, A.8.15 | CC6.1, CC7.2 | Implementado | `test/login-lockout.e2e-spec.ts`. Restablecer la contraseña lo levanta (`ACCOUNT_UNLOCKED`) solo si no se rechazó un código de MFA en los últimos 15 minutos, para no dar más intentos de MFA por ventana: `test/mfa.e2e-spec.ts`, `test/password-reset.e2e-spec.ts` (PF-65) |
 | Límite de peticiones en login y rutas públicas | A.8.5, A.8.6 | CC6.6 | Parcial | `app-throttler.guard.ts`. Contadores en memoria: con varias instancias hace falta un almacén compartido (PF-60) |
 | Sesión revocable, única y con límite absoluto | A.8.5 | CC6.1 | Implementado | `sessions.service.ts`, `test/auth-refresh.e2e-spec.ts` |
 | Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Lo configura solo quien definió la contraseña con el enlace de su correo: restablecerlo también invalida la contraseña (PF-59) |

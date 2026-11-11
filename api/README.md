@@ -50,7 +50,20 @@ Obligatorio para todos los usuarios de `apps/panel` (TOTP, RFC 6238):
 3. Si es `CHALLENGE_REQUIRED`: `POST /auth/mfa/verification` con el código o
    `POST /auth/mfa/recovery` con uno de recuperación abren la sesión.
 
-Cada código incorrecto cuenta para el bloqueo de 5 intentos. Quien pierda el
+Cada código incorrecto cuenta para el bloqueo de 5 intentos (15 minutos), el
+mismo de la contraseña. Al bloquearse, el dueño de la cuenta recibe un correo
+(`ACCOUNT_LOCKED_NOTICE`) con el enlace a "¿Olvidaste tu contraseña?"; el login
+responde igual que cualquier otro fallo y no espera ese envío. Una cuenta
+desactivada no recibe el aviso.
+
+Restablecer la contraseña deja el contador en 0 y levanta el bloqueo
+(`ACCOUNT_UNLOCKED` en la bitácora), **salvo** que se haya rechazado un código de
+MFA en los últimos 15 minutos (`users.last_failed_mfa_at`). Con esa regla el
+restablecimiento nunca da más que esperar a que el bloqueo venza: quien controle
+el buzón no puede alternar restablecer y probar códigos. En ese caso la
+contraseña cambia igual y el bloqueo vence solo.
+
+Quien pierda el
 autenticador y los códigos necesita que **otro** ADMIN use
 `PATCH /users/:id/reset-mfa`. Si el único ADMIN queda fuera, se restablece en la
 base con acceso de operación, y se deja constancia del motivo.
@@ -306,7 +319,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   (`PasswordResetToken`). `POST /auth/password-reset/confirm`
   (`{ token, password }`, 5/min por IP) responde 204, o 400 con un único
   mensaje para enlace inválido, usado o vencido. La misma confirmación activa
-  una cuenta nueva o restablecida por un Aprobador (`passwordSetAt`). La bitácora guarda la
+  una cuenta nueva o restablecida por un Aprobador (`passwordSetAt`), y levanta
+  el bloqueo por intentos fallidos si no hubo códigos de MFA rechazados hace
+  poco (ver "Segundo factor del panel"). La bitácora guarda la
   solicitud y el cambio sin token ni email en claro.
 - `src/diagnostics/` — diagnósticos del cliente final (PF-16). Un
   `Diagnostic` por lead, que apunta a la última versión publicada de su

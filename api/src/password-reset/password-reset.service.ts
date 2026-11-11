@@ -142,9 +142,7 @@ export class PasswordResetService {
         });
       }
 
-      // Sube `sessionVersion` para cerrar las sesiones abiertas. No toca el
-      // bloqueo por intentos: si no, recuperar la contraseña permitiría seguir
-      // probando códigos de MFA sin límite. Vence solo, en 15 minutos.
+      // Sube `sessionVersion` para cerrar las sesiones abiertas.
       await tx.user.update({
         where: { id: resetToken.userId },
         data: {
@@ -156,6 +154,25 @@ export class PasswordResetService {
       await tx.passwordResetToken.deleteMany({
         where: { userId: resetToken.userId, usedAt: null },
       });
+
+      // Levanta el bloqueo por intentos, salvo que haya códigos de MFA
+      // rechazados hace poco: si no, recuperar la contraseña permitiría seguir
+      // probando códigos sin límite. Ese bloqueo vence solo, en 15 minutos.
+      const unlocked = await this.users.unlockAfterPasswordReset(
+        tx,
+        resetToken.userId,
+      );
+      if (unlocked) {
+        await this.audit.record(
+          {
+            actorType: AuditActorType.SYSTEM,
+            action: 'ACCOUNT_UNLOCKED',
+            entity: 'User',
+            entityId: resetToken.userId,
+          },
+          tx,
+        );
+      }
     });
 
     await this.audit

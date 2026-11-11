@@ -33,7 +33,7 @@ describe('PasswordResetService', () => {
     };
     user: { update: Mock };
   };
-  let users: { findByEmail: Mock };
+  let users: { findByEmail: Mock; unlockAfterPasswordReset: Mock };
   let mail: { sendPasswordReset: Mock };
   let audit: { record: Mock };
   let service: PasswordResetService;
@@ -54,7 +54,10 @@ describe('PasswordResetService', () => {
     prisma.$transaction.mockImplementation((arg: unknown) =>
       typeof arg === 'function' ? arg(prisma) : Promise.all(arg as unknown[]),
     );
-    users = { findByEmail: vi.fn() };
+    users = {
+      findByEmail: vi.fn(),
+      unlockAfterPasswordReset: vi.fn().mockResolvedValue(false),
+    };
     mail = {
       sendPasswordReset: vi
         .fn()
@@ -160,6 +163,28 @@ describe('PasswordResetService', () => {
           entityId: 'u1',
         }),
       );
+      expect(users.unlockAfterPasswordReset).toHaveBeenCalledWith(prisma, 'u1');
+      expect(audit.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ACCOUNT_UNLOCKED' }),
+        expect.anything(),
+      );
+    });
+
+    it('si levantó un bloqueo, lo deja en la bitácora dentro de la transacción', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(validToken);
+      users.unlockAfterPasswordReset.mockResolvedValue(true);
+
+      await service.confirm('token-ok', 'nueva-clave');
+
+      expect(audit.record).toHaveBeenCalledWith(
+        {
+          actorType: 'SYSTEM',
+          action: 'ACCOUNT_UNLOCKED',
+          entity: 'User',
+          entityId: 'u1',
+        },
+        prisma,
+      );
     });
 
     it.each([
@@ -174,6 +199,7 @@ describe('PasswordResetService', () => {
         BadRequestException,
       );
       expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(users.unlockAfterPasswordReset).not.toHaveBeenCalled();
     });
 
     it('si otra request ya usó el enlace, no cambia la contraseña', async () => {

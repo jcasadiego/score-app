@@ -175,6 +175,33 @@ export function securityNoticeEmail(
   );
 }
 
+export interface AccountLockedData {
+  name: string;
+  lockMinutes: number;
+  /** Pantalla "¿Olvidaste tu contraseña?" del panel. */
+  link: string;
+}
+
+/** Sin IP, dispositivo ni nada de quien lo intentó: solo el hecho (PF-65). */
+export function accountLockedEmail(
+  data: AccountLockedData,
+  brand?: BrandOptions,
+): RenderedEmail {
+  return renderBaseTemplate(
+    {
+      subject: 'Tu cuenta del panel SCORE quedó bloqueada temporalmente',
+      title: `Hola, ${data.name}`,
+      paragraphs: [
+        `Por varios intentos fallidos de inicio de sesión, tu cuenta del panel SCORE quedó bloqueada durante ${data.lockMinutes} minutos. Pasado ese tiempo puedes volver a entrar como siempre.`,
+        'Si no fuiste tú, o no recuerdas tu contraseña, restablécela con el botón de abajo.',
+      ],
+      button: { text: 'Restablecer contraseña', url: data.link },
+      footerReason: TEAM_NOTICE_FOOTER,
+    },
+    brand,
+  );
+}
+
 export function newLeadNoticeEmail(
   data: NewLeadNoticeData,
   brand?: BrandOptions,

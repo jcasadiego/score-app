@@ -2,7 +2,10 @@ import type { Mock } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
+import { ValidatedEnv } from '../config/validate-env';
+import { MailService } from '../mail/mail.service';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { UsersService } from '../users/users.service';
@@ -20,6 +23,7 @@ describe('AuthService', () => {
   let audit: { record: Mock };
   let mfa: { issueChallenge: Mock };
   let sessions: { start: Mock; end: Mock };
+  let mail: { sendAccountLocked: Mock };
   let service: AuthService;
 
   beforeEach(() => {
@@ -28,7 +32,7 @@ describe('AuthService', () => {
     process.env.JWT_MAX_SESSION_SECONDS = '604800';
     users = {
       findByEmail: vi.fn(),
-      registerFailedLogin: vi.fn().mockResolvedValue(false),
+      registerFailedLogin: vi.fn().mockResolvedValue(null),
       clearFailedLogins: vi.fn().mockResolvedValue(undefined),
     };
     audit = { record: vi.fn().mockResolvedValue({}) };
@@ -42,6 +46,14 @@ describe('AuthService', () => {
       start: vi.fn().mockResolvedValue('s1'),
       end: vi.fn().mockResolvedValue(undefined),
     };
+    mail = {
+      sendAccountLocked: vi
+        .fn()
+        .mockResolvedValue({ sent: true, providerId: 'em_1' }),
+    };
+    const config = {
+      get: vi.fn().mockReturnValue('https://panel.example.com'),
+    };
     argon2VerifyMock.mockReset();
     service = new AuthService(
       users as unknown as UsersService,
@@ -49,6 +61,8 @@ describe('AuthService', () => {
       sessions as unknown as SessionsService,
       audit as unknown as AuditService,
       mfa as unknown as MfaService,
+      mail as unknown as MailService,
+      config as unknown as ConfigService<ValidatedEnv, true>,
     );
   });
 
@@ -249,12 +263,15 @@ describe('AuthService', () => {
         'Credenciales inválidas',
       );
 
-      expect(users.registerFailedLogin).toHaveBeenCalledWith('u1');
+      expect(users.registerFailedLogin).toHaveBeenCalledWith('u1', 'PASSWORD');
+      expect(mail.sendAccountLocked).not.toHaveBeenCalled();
     });
 
-    it('audita el bloqueo cuando se llega al máximo', async () => {
+    const lockedUser = { name: 'Ana', email: 'ana@test.local', active: true };
+
+    it('al bloquear audita y avisa al dueño con el enlace para restablecer', async () => {
       users.findByEmail.mockResolvedValue(user);
-      users.registerFailedLogin.mockResolvedValue(true);
+      users.registerFailedLogin.mockResolvedValue(lockedUser);
       argon2VerifyMock.mockResolvedValue(false);
 
       await expect(service.login(user.email, 'mala')).rejects.toThrow();
@@ -266,6 +283,55 @@ describe('AuthService', () => {
             entityId: 'u1',
           }),
         ),
+      );
+      expect(mail.sendAccountLocked).toHaveBeenCalledTimes(1);
+      expect(mail.sendAccountLocked).toHaveBeenCalledWith(
+        'ana@test.local',
+        {
+          name: 'Ana',
+          lockMinutes: 15,
+          link: 'https://panel.example.com/forgot-password',
+        },
+        { entity: 'User', entityId: 'u1' },
+      );
+    });
+
+    it('no espera el correo: un envío colgado no frena el registro del bloqueo', async () => {
+      users.registerFailedLogin.mockResolvedValue(lockedUser);
+      mail.sendAccountLocked.mockReturnValue(new Promise(() => undefined));
+
+      await service.recordFailedAttempt('u1', 'MFA_CODE');
+
+      expect(users.registerFailedLogin).toHaveBeenCalledWith('u1', 'MFA_CODE');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ACCOUNT_LOCKED' }),
+      );
+    });
+
+    it('si el correo falla, el bloqueo queda auditado igual', async () => {
+      users.registerFailedLogin.mockResolvedValue(lockedUser);
+      mail.sendAccountLocked.mockRejectedValue(new Error('proveedor caído'));
+
+      await expect(
+        service.recordFailedAttempt('u1', 'PASSWORD'),
+      ).resolves.toBeUndefined();
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ACCOUNT_LOCKED' }),
+      );
+    });
+
+    it('una cuenta desactivada no recibe el aviso de bloqueo', async () => {
+      users.registerFailedLogin.mockResolvedValue({
+        ...lockedUser,
+        active: false,
+      });
+
+      await service.recordFailedAttempt('u1', 'PASSWORD');
+
+      expect(mail.sendAccountLocked).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ACCOUNT_LOCKED' }),
       );
     });
 

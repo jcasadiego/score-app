@@ -132,6 +132,83 @@ describe('Recuperación de contraseña (e2e)', () => {
     expect(JSON.stringify(auditEntries)).not.toContain('clave-nueva-456');
   });
 
+  it('restablecer levanta el bloqueo por contraseñas fallidas y queda auditado', async () => {
+    const since = new Date();
+    const { id } = await prisma.user.update({
+      where: { email: EMAIL },
+      data: {
+        lockedUntil: new Date(Date.now() + 10 * 60_000),
+        failedLoginAttempts: 0,
+      },
+    });
+    await login('clave-vieja-123').expect(401);
+
+    const token = await requestLink();
+    await request(app.getHttpServer())
+      .post(`${BASE}/confirm`)
+      .send({ token, password: 'clave-nueva-456' })
+      .expect(204);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id } });
+    expect(user.lockedUntil).toBeNull();
+    expect(user.failedLoginAttempts).toBe(0);
+    const unlocked = await prisma.auditLog.findMany({
+      where: {
+        action: 'ACCOUNT_UNLOCKED',
+        entityId: id,
+        createdAt: { gte: since },
+      },
+    });
+    expect(unlocked).toHaveLength(1);
+    expect(unlocked[0].actorType).toBe('SYSTEM');
+    expect(unlocked[0].data).toBeNull();
+    await login('clave-nueva-456').expect(200);
+  });
+
+  it('restablecer sin bloqueo deja el contador en 0 y no registra desbloqueo', async () => {
+    const since = new Date();
+    const { id } = await prisma.user.update({
+      where: { email: EMAIL },
+      data: { failedLoginAttempts: 3 },
+    });
+
+    const token = await requestLink();
+    await request(app.getHttpServer())
+      .post(`${BASE}/confirm`)
+      .send({ token, password: 'clave-nueva-456' })
+      .expect(204);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id } });
+    expect(user.failedLoginAttempts).toBe(0);
+    expect(
+      await prisma.auditLog.count({
+        where: {
+          action: 'ACCOUNT_UNLOCKED',
+          entityId: id,
+          createdAt: { gte: since },
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('un enlace inválido no toca el bloqueo', async () => {
+    const lockedUntil = new Date(Date.now() + 10 * 60_000);
+    const { id } = await prisma.user.update({
+      where: { email: EMAIL },
+      data: { lockedUntil, failedLoginAttempts: 2 },
+    });
+
+    const response = await request(app.getHttpServer())
+      .post(`${BASE}/confirm`)
+      .send({ token: 'token-que-no-existe', password: 'clave-nueva-456' })
+      .expect(400);
+    expect(response.body.code).toBe('INVALID_RESET_LINK');
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id } });
+    expect(user.lockedUntil).toEqual(lockedUntil);
+    expect(user.failedLoginAttempts).toBe(2);
+  });
+
   it('pedir un enlace nuevo invalida el anterior', async () => {
     const first = await requestLink();
     const second = await requestLink();

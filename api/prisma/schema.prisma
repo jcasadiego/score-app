@@ -116,17 +116,20 @@ model User {
   sessions            UserSession[]
   recoveryCodes       UserRecoveryCode[]
 
-  createdQuestionnaireVersions   QuestionnaireVersion[] @relation("QuestionnaireVersionCreatedBy")
-  publishedQuestionnaireVersions QuestionnaireVersion[] @relation("QuestionnaireVersionPublishedBy")
+  createdQuestionnaireVersions   QuestionnaireVersion[]  @relation("QuestionnaireVersionCreatedBy")
+  publishedQuestionnaireVersions QuestionnaireVersion[]  @relation("QuestionnaireVersionPublishedBy")
   createdDiagnostics             Diagnostic[]
   issuedAccessLinks              AccessLink[]
   requestedCalculations          Calculation[]
   reviewedFlags                  Flag[]
   assignedReviews                Review[]
   answerCorrections              AnswerCorrection[]
-  approvals                      ReviewApproval[]       @relation("ReviewApprovalApprovedBy")
-  voidedApprovals                ReviewApproval[]       @relation("ReviewApprovalVoidedBy")
+  approvals                      ReviewApproval[]        @relation("ReviewApprovalApprovedBy")
+  voidedApprovals                ReviewApproval[]        @relation("ReviewApprovalVoidedBy")
   reviewNotes                    ReviewNote[]
+  reportRevisions                ReportSectionRevision[]
+  reportApprovals                ReportApproval[]        @relation("ReportApprovalApprovedBy")
+  voidedReportApprovals          ReportApproval[]        @relation("ReportApprovalVoidedBy")
 
   @@map("users")
 }
@@ -549,6 +552,8 @@ model AiCallLog {
   entityId         String?       @map("entity_id") @db.VarChar(64)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  reportRevisions ReportSectionRevision[]
+
   @@index([createdAt])
   @@index([entity, entityId])
   @@map("ai_call_logs")
@@ -695,6 +700,7 @@ model Review {
   corrections AnswerCorrection[]
   approvals   ReviewApproval[]
   notes       ReviewNote[]
+  report      Report?
 
   @@index([assigneeId])
   @@index([status, createdAt])
@@ -769,6 +775,9 @@ model ReviewApproval {
   /// Motivo de reabrir; obligatorio en `REOPENED` (CHECK en la migración).
   voidReason        String?            @map("void_reason") @db.VarChar(500)
 
+  reports Report[]
+
+  @@unique([id, reviewId])
   @@index([reviewId])
   @@index([calculationId])
   @@index([approvedById])
@@ -792,4 +801,144 @@ model ReviewNote {
   @@index([reviewId, createdAt])
   @@index([authorId])
   @@map("review_notes")
+}
+
+/// Estado del informe (PF-42). La entrega (`DELIVERED`) llega con el PR de
+/// la entrega.
+enum ReportStatus {
+  DRAFT
+  APPROVED
+
+  @@map("report_status")
+}
+
+/// Parte de una sección del informe, por dimensión. Se ordena así.
+enum ReportPart {
+  FINDING
+  IMPLICATION
+  RECOMMENDATION
+  NEXT_STEP
+
+  @@map("report_part")
+}
+
+/// Quién escribió una versión de una sección.
+enum ReportRevisionSource {
+  /// La IA, a pedido de `authorId`; `aiCallLogId` es la llamada.
+  AI
+  /// Una persona (`authorId`) la editó.
+  HUMAN
+
+  @@map("report_revision_source")
+}
+
+/// Informe del diagnóstico (PF-42): uno por revisión. La IA redacta el
+/// borrador a partir de una aprobación de la revisión (`reviewApprovalId`);
+/// una persona lo edita y un Aprobador lo aprueba. `version` sube con cada
+/// cambio (ETag/If-Match).
+model Report {
+  id               String         @id @default(cuid())
+  reviewId         String         @unique @map("review_id")
+  review           Review         @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  status           ReportStatus   @default(DRAFT)
+  /// La aprobación de la revisión con cuyo resultado se redactó el borrador.
+  /// Si ya no es la vigente, el informe está desactualizado y no se aprueba.
+  reviewApprovalId String         @map("review_approval_id")
+  /// La FK compuesta garantiza que sea una aprobación de esta misma revisión.
+  reviewApproval   ReviewApproval @relation(fields: [reviewApprovalId, reviewId], references: [id, reviewId], onDelete: Restrict)
+  version          Int            @default(0)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sections  ReportSection[]
+  approvals ReportApproval[]
+
+  @@index([reviewApprovalId, reviewId])
+  @@index([status, updatedAt])
+  @@map("reports")
+}
+
+/// Una parte de una dimensión del informe. El texto vive en sus versiones
+/// (`ReportSectionRevision`): el vigente es el de mayor `sequence`.
+model ReportSection {
+  id        String     @id @default(cuid())
+  reportId  String     @map("report_id")
+  report    Report     @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  /// Código de la dimensión tal como lo devuelve el cálculo (`D1`). Pasa a un
+  /// catálogo con FK cuando se confirmen D1–D8.
+  dimension String     @db.VarChar(64)
+  /// Orden de la dimensión en el resultado del cálculo.
+  position  Int
+  part      ReportPart
+
+  revisions ReportSectionRevision[]
+
+  @@unique([reportId, dimension, part])
+  @@index([reportId, position])
+  @@map("report_sections")
+}
+
+/// Historial de una sección, de solo inserción: cada cambio de la IA o de una
+/// persona agrega una fila, nunca la sobrescribe.
+model ReportSectionRevision {
+  id          String               @id @default(cuid())
+  sectionId   String               @map("section_id")
+  section     ReportSection        @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  /// Orden dentro de la sección (1, 2, 3...), asignado con el informe bloqueado.
+  sequence    Int
+  body        String               @db.VarChar(4000)
+  source      ReportRevisionSource
+  /// La llamada a la IA que lo redactó. Solo y siempre con `source = AI`.
+  aiCallLogId String?              @map("ai_call_log_id")
+  aiCallLog   AiCallLog?           @relation(fields: [aiCallLogId], references: [id], onDelete: Restrict)
+  /// Quién lo editó, o quién pidió la redacción a la IA.
+  authorId    String               @map("author_id")
+  author      User                 @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  approvals ReportApprovalRevision[]
+
+  @@unique([sectionId, sequence])
+  @@index([aiCallLogId])
+  @@index([authorId])
+  @@map("report_section_revisions")
+}
+
+/// Aprobación del informe, separada de la de la revisión y atada a las
+/// versiones exactas de cada sección (`ReportApprovalRevision`). Se anula si
+/// se anula la aprobación de la revisión, con la misma causa.
+model ReportApproval {
+  id            String             @id @default(cuid())
+  reportId      String             @map("report_id")
+  report        Report             @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  /// `Report.version` al aprobar.
+  reportVersion Int                @map("report_version")
+  approvedById  String             @map("approved_by_id")
+  approvedBy    User               @relation("ReportApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  approvedAt    DateTime           @default(now()) @map("approved_at") @db.Timestamptz(3)
+  voidedAt      DateTime?          @map("voided_at") @db.Timestamptz(3)
+  /// Por qué se anuló la aprobación de la revisión que arrastró esta.
+  voidCause     ApprovalVoidCause? @map("void_cause")
+  /// Quién anuló la de la revisión. Nulo si fue el sistema.
+  voidedById    String?            @map("voided_by_id")
+  voidedBy      User?              @relation("ReportApprovalVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  revisions ReportApprovalRevision[]
+
+  @@index([reportId])
+  @@index([approvedById])
+  @@index([voidedById])
+  @@map("report_approvals")
+}
+
+/// Qué versión de cada sección se aprobó. De solo inserción.
+model ReportApprovalRevision {
+  approvalId String                @map("approval_id")
+  approval   ReportApproval        @relation(fields: [approvalId], references: [id], onDelete: Restrict)
+  revisionId String                @map("revision_id")
+  revision   ReportSectionRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@id([approvalId, revisionId])
+  @@index([revisionId])
+  @@map("report_approval_revisions")
 }

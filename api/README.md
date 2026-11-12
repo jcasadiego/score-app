@@ -201,7 +201,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     lista en `errors`. La aprobación queda atada a ese cálculo; a lo sumo una
     vigente por caso (índice único parcial) y solo se anula una vez (trigger).
   - **Reabrir:** `POST /reviews/:id/reopenings` con `reason`, solo el
-    Aprobador. Todavía no hay entrega que lo impida (Delivery).
+    Aprobador. Si el caso tenía el informe aprobado, vuelve a borrador
+    (`src/reports`). Todavía no hay entrega que lo impida (Delivery, PR B).
   - **Concurrencia:** corregir y aprobar exigen `If-Match` con el ETag
     (`"<version>"`): 428 si falta, 412 si el caso cambió. Tomar, liberar,
     corregir, aprobar, reabrir y encolar un cálculo suben la versión.
@@ -210,6 +211,39 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     valores, motivos ni texto de las notas. `REVIEW_APPROVED` lleva
     `correctedByIds` y `approverCorrected`: quién corrigió y quién aprobó
     (riesgo aceptado A.5.3, CLAUDE.md 5.3).
+- `src/reports/` — informe del diagnóstico (PF-42): la IA redacta el
+  borrador, una persona lo edita y un Aprobador lo aprueba. La IA nunca calcula
+  ni cambia el puntaje. Rutas bajo `/reviews/:reviewId/report`; la entrega y el
+  PDF llegan en el PR siguiente.
+  - **Generar:** `POST /reviews/:id/report`, ambos roles, solo con la revisión
+    aprobada (409 `REVIEW_NOT_APPROVED`) y una vez por caso (409
+    `REPORT_ALREADY_EXISTS`). La IA (`AI_REPORT_*`, prompt `report.draft`)
+    redacta Hallazgo, Implicación, Recomendación y Próximo paso por cada
+    dimensión del cálculo aprobado, con las respuestas de ese cálculo y las
+    notas del revisor. Nunca recibe nombre, correo ni teléfono del lead: su
+    nombre se tacha si aparece en un texto libre o en una nota. La respuesta
+    debe traer exactamente esas dimensiones; si no, o si la IA falla, 503
+    `AI_TASK_FAILED` sin guardar nada (queda en `ai_call_logs`).
+  - **Ver:** `GET /reviews/:id/report` con el texto vigente de cada sección y
+    el ETag. `outdated: true` si la aprobación del caso con que se redactó ya
+    no es la vigente.
+  - **Editar y regenerar:** `PUT .../sections/:sectionId` con `body` (hasta
+    4000), `POST .../sections/:sectionId/regenerations` (rehace una parte con
+    las otras como contexto) y `POST .../regenerations` (todo el borrador con
+    la aprobación vigente: así se pone al día uno desactualizado). Ambos roles,
+    con `If-Match` (428/412 `REPORT_VERSION_MISMATCH`) y solo en borrador (409
+    `REPORT_APPROVED`).
+  - **Historial:** `GET .../sections/:sectionId/revisions`. Cada cambio es una
+    fila de `report_section_revisions` (solo inserción, trigger) con su origen:
+    `AI` con la llamada de `ai_call_logs`, o `HUMAN`; siempre con autor (quien
+    editó o pidió la redacción) y fecha.
+  - **Aprobar:** `POST /reviews/:id/report/approval`, solo el Aprobador, con
+    `If-Match`. Exige que el caso siga aprobado con la misma aprobación del
+    borrador (409 `REPORT_OUTDATED` si no). Guarda qué versión de cada sección
+    se aprobó (`report_approval_revisions`). Reabrir o recalcular el caso anula
+    la aprobación del informe con la misma causa y lo devuelve a borrador.
+  - **Bitácora:** generar, regenerar, editar, aprobar y la anulación, en la
+    misma transacción y sin texto del informe.
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

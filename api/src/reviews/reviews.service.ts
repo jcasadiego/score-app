@@ -29,6 +29,7 @@ import {
   REVIEW_TAKEN_BY_OTHER,
 } from './review-codes';
 import { PrismaService } from '../prisma/prisma.service';
+import { voidReportApproval } from '../reports/report-invalidation';
 import {
   type ApprovalState,
   approvalBlockers,
@@ -205,6 +206,14 @@ export class ReviewsService {
           tx,
         );
       }
+      // El informe aprobado sobre ese resultado vuelve a borrador (PF-42).
+      await voidReportApproval(
+        tx,
+        this.audit,
+        review.id,
+        ApprovalVoidCause.RECALCULATED,
+        requestedById,
+      );
     }
     return { correctionSequence: await this.lastSequence(tx, review.id) };
   }
@@ -599,6 +608,13 @@ export class ReviewsService {
         approvalId: approval.id,
         calculationId: approval.calculationId,
       });
+      await voidReportApproval(
+        tx,
+        this.audit,
+        id,
+        ApprovalVoidCause.REOPENED,
+        actor.id,
+      );
       return approval;
     });
   }

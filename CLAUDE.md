@@ -48,95 +48,12 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
 
 ## 3.1. Estado actual del código
 
-Las tres piezas ya están inicializadas como scaffold — sin la lógica de
-negocio que depende de los pendientes de la sección 3. Gestor de paquetes:
-`pnpm` en las tres, cada una con su propio lockfile (sin workspaces).
-
-Lo que ya existe, además del scaffold, es todo lo que no depende de esos
-pendientes:
-
-- **`api`:** seguridad HTTP (helmet, CORS con allowlist por entorno,
-  validación global, rate limiting, también en login), versionado de
-  rutas (`/api/v1`, Swagger autogenerado en `/docs` fuera de
-  producción), bitácora de auditoría con actor tipado
-  (`PANEL_USER`/`END_CLIENT`/`SYSTEM`) vía `AuditInterceptor`,
-  versión de reglas en `jsonb`, auth JWT + `RolesGuard`/`@Roles()` (matriz en la sección 5.3), CRUD
-  de usuarios internos (`/users`, solo Aprobador; `active: false` revoca
-  el acceso sin borrar historial; un usuario no puede desactivarse a sí
-  mismo; cambiar la contraseña cierra sus sesiones), renovación de sesión
-  (`POST /auth/refresh`: 1 día sin uso, 7 días como máximo), cierre de sesión
-  que revoca el token (`POST /auth/logout`), una sola sesión por usuario (un
-  login nuevo cierra la anterior), recuperación de
-  contraseña del panel por correo, política de contraseñas (12 a 128) y
-  bloqueo tras 5 intentos, segundo factor TOTP obligatorio con códigos de
-  recuperación (`POST /auth/login` ya no abre sesión; ver `api/README.md`),
-  seed del primer ADMIN, versiones del cuestionario
-  (`src/questionnaire`: borrador por familia, versión publicada inmutable, con
-  un cuestionario de prueba que el seed carga fuera de producción), los
-  diagnósticos (`src/diagnostics`: enlace sin contraseña guardado como hash y
-  revocable, sesión del cliente, respuestas, enlaces externos, recuperación
-  del enlace y abandono calculado) y el servicio de correo transaccional
-  (`src/mail`, Resend detrás de `MailPort`; en local `MAIL_DRIVER=log`
-  no envía nada) y los cálculos del motor (`src/calculations`: un cálculo
-  por envío y por recálculo, nunca sobrescrito, con
-  `SCORING_ENGINE_DRIVER` en `disabled` o `stub`) y el servicio compartido de IA
-  (`src/ai`: Claude o simulado por uso, datos minimizados, salida validada y
-  registro de uso sin contenido) y los flags del revisor (`src/flags`: baja
-  confianza y posibles contradicciones con IA, por cálculo) y la revisión
-  (`src/reviews`: bandeja, tomar el caso, correcciones de solo inserción,
-  notas y aprobación del Aprobador atada al cálculo, con `If-Match`). Detalle en
-  `api/README.md`.
-- **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
-  Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +
-  `app/(panel)/layout.tsx`, verificación en `lib/auth/dal.ts`) y la
-  pantalla de Usuarios (`app/(panel)/users/`), Leads, Diagnósticos
-  (`app/(panel)/diagnostics/`, con el resultado del motor y las alertas), la
-  Bandeja de revisión (`app/(panel)/reviews/`: tomar, corregir, notas,
-  aprobar y reabrir), Cuestionario (`app/(panel)/questionnaire/`) y la recuperación de contraseña (`/forgot-password`,
-  `/reset-password`). Detalle en
-  `apps/panel/README.md`.
-- **`apps/diagnostico`:** el flujo del cliente final (PF-17): bienvenida que
-  canjea el enlace al pulsar "Comenzar", sesión en cookie `httpOnly`, preguntas
-  una por una con guardado automático, enlaces externos, revisión y envío, y
-  "¿Perdiste tu enlace?". Muestra el cuestionario publicado que le toque, así
-  que funciona con el de prueba hasta tener la especificación real. CSP con
-  nonce en `proxy.ts`. Detalle en `apps/diagnostico/README.md`.
-
-**`api`** — NestJS 12 + TypeScript + Prisma 7 sobre PostgreSQL:
-
-```bash
-pnpm install
-docker compose up -d       # Postgres local
-pnpm prisma migrate dev
-pnpm prisma db seed         # primer usuario ADMIN (ADMIN_* en .env)
-pnpm start:dev              # http://localhost:3000
-pnpm build
-pnpm lint
-pnpm test:e2e
-```
-
-**`apps/diagnostico`** y **`apps/panel`** — Next.js 16 (App Router) +
-TypeScript + Tailwind (`panel` usa además Ant Design):
-
-```bash
-pnpm install
-pnpm dev     # diagnostico: :3001 · panel: :3002 (3000 lo usa la api)
-pnpm build
-pnpm lint
-```
-
-Detalle de cada pieza en su propio README.
+Las tres piezas usan `pnpm`, cada una con su lockfile (sin workspaces).
+Puertos locales: api :3000, diagnostico :3001, panel :3002. Qué está
+construido y cómo correr cada pieza: su README (`api/README.md`,
+`apps/panel/README.md`, `apps/diagnostico/README.md`).
 
 ## 4. Cómo se organiza el repo
-
-```
-score-app/
-  apps/
-    diagnostico/   # P2 + P3 — Next.js
-    panel/         # P5 — Next.js
-  api/             # P4 — NestJS + Prisma + PostgreSQL
-  CLAUDE.md
-```
 
 Cada pieza se despliega por separado. No se usan herramientas de monorepo
 (Turborepo, pnpm workspaces) por ahora — con un MVP y tres despliegues
@@ -385,65 +302,5 @@ revisar la regla correspondiente.
 - No marcar un PR como listo con la prueba manual sin hacer (#10): probar
   contra la api local o en el navegador y anotarlo en el test plan.
 
-**`api`**
-
-- **Tests con Vitest, no Jest** (NestJS 12 es ESM, #18): `vi.fn()`,
-  `vi.mock()`, tipo `Mock` de `vitest`. Detalle en `api/README.md`.
-- Un e2e con base propia la borra con `DROP DATABASE ... WITH (FORCE)`: un
-  trabajo en segundo plano puede seguir conectado tras `app.close()` y la suite
-  fallaba al azar (#58). No se arregla bajando `maxWorkers`.
-- **El entrypoint del build es `dist/src/main`**, no `dist/main` (`tsc`
-  incluye `prisma.config.ts` y `generated/`). No mover `rootDir`: rompe
-  los imports del cliente de Prisma generado (#14). Si cambia la
-  estructura del build, comprobar `pnpm build && pnpm start:prod`.
-- **Bitácora de auditoría:** toda ruta que cambia datos declara
-  `@AuditRoute()`, y solo se guardan los campos declarados, también pasados
-  por `redactSensitiveData()` — el login quedó guardando passwords en claro
-  (#4). `audit_logs` es de solo inserción: los tests no pueden limpiarla. Un
-  evento crítico pasa su `tx` a `AuditService.record` (PF-47). El actor sale de `request.user` (panel) o
-  `request.accessLink` (cliente final), nunca de un campo que ningún guard
-  setea (#5).
-- **Auth:** desactivar un usuario debe cortar los JWT ya emitidos — el
-  chequeo de `active` vive en `JwtStrategy.validate`, no solo en el login
-  (#7). El login verifica siempre contra un hash (real o de relleno) para
-  no filtrar por tiempo qué emails existen (#4). Ids de quien hace la
-  acción, del JWT (`req.user.id`), nunca del cliente.
-- Listados paginados y filtrados en la base (página + conteo en una
-  transacción, orden estable), nunca en memoria (#13).
-- **Bloqueo y restablecimiento (PF-65):** restablecer la contraseña solo levanta
-  el bloqueo si no hubo un código de MFA rechazado en los últimos 15 minutos
-  (`UsersService.unlockAfterPasswordReset`). No relajar esa condición: quien
-  controle el buzón podría alternar restablecer y probar códigos sin límite. El
-  aviso de bloqueo por correo tampoco se espera.
-- **Login:** contar un intento fallido de contraseña nunca se espera (`await`):
-  el tiempo de respuesta delataría qué emails existen. La contraseña correcta no
-  limpia el contador, solo `completeLogin`; si no, se podrían probar códigos MFA
-  sin fin. Solo `AuthService.completeLogin` abre sesión, tras el segundo factor.
-- **Migraciones de renombre:** Prisma resuelve un rename como DROP +
-  CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
-  de aplicarlo (#26).
-- **Migraciones con varios pasos:** Prisma no las envuelve en una transacción;
-  un fallo deja aplicado lo anterior. Escribir `BEGIN`/`COMMIT` en el SQL y
-  probarlo con un fallo forzado sobre una base aparte (PF-46).
-
-**`apps/panel`**
-
-- **Escapar con `encodeURIComponent`** todo id que se interpole en una
-  ruta de la api desde una Server Action (`../` apuntaba a otro endpoint
-  con el mismo token, #10).
-- **Modales con `Form` de Ant Design:** no compartir `Form.useForm` entre
-  aperturas ni confiar en que `destroyOnHidden` desmonte a tiempo: un selector
-  mostró el rol de la apertura anterior, y guardar habría degradado a otra
-  persona (PF-48). Cada apertura monta un `Form` nuevo con `key`, y el botón lo
-  envía con `form={id}`. Los valores van en `initialValues`. Descartados:
-  `forceRender` (error de hidratación) y `clearOnDestroy` (con StrictMode borra
-  los `initialValues`) (#16).
-- No copiar datos del servidor a `useState`: la Server Action +
-  `revalidatePath` ya devuelve el RSC actualizado (#13). Colores solo
-  desde `lib/theme.ts`, sin hex sueltos.
-- **CSP con nonce (`proxy.ts`):** las páginas deben ser dinámicas (por eso
-  `force-dynamic` en el layout raíz): una estática queda sin scripts. Los estilos
-  no llevan nonce, porque anularía el `'unsafe-inline'` que Ant Design necesita.
-  Probar con `pnpm build && next start -p 3002`: sin `-p`, toma el puerto de la api.
-- Revisar la consola del navegador (avisos de Ant Design, hidratación)
-  antes de dar por buena una pantalla — así se detectó #16.
+Las lecciones propias de cada pieza viven junto a su código y se cargan al
+trabajar en ella: `api/CLAUDE.md` y `apps/panel/CLAUDE.md`.

@@ -99,7 +99,7 @@ export class AiService {
         error instanceof AiProviderError ? error.reason : 'provider_error';
     }
 
-    await this.record(task, {
+    const callLogId = await this.record(task, {
       provider: adapter.name,
       model,
       response,
@@ -111,9 +111,9 @@ export class AiService {
       this.logger.warn(
         `La IA no respondió para ${task.prompt.id}@${task.prompt.version}: ${failure}`,
       );
-      return { ok: false, reason: failure ?? 'invalid_output' };
+      return { ok: false, reason: failure ?? 'invalid_output', callLogId };
     }
-    return { ok: true, value, simulated: adapter.simulated };
+    return { ok: true, value, simulated: adapter.simulated, callLogId };
   }
 
   /** JSON que cumple el esquema, o `undefined`: nunca un dato a medias. */
@@ -143,7 +143,7 @@ export class AiService {
 
   /**
    * Registro de uso y bitácora, solo con metadatos. Un fallo al registrar no
-   * cambia el resultado de la tarea.
+   * cambia el resultado de la tarea. Devuelve el id del registro, si quedó.
    */
   private async record<T>(
     task: AiTask<T>,
@@ -154,7 +154,7 @@ export class AiService {
       failure?: AiFailureReason;
       durationMs: number;
     },
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const { response, failure } = call;
     const servedModel = response?.servedModel ?? null;
     const cost = response
@@ -164,6 +164,7 @@ export class AiService {
           response.outputTokens,
         )
       : null;
+    let logId: string | undefined;
     try {
       const log = await this.prisma.aiCallLog.create({
         data: {
@@ -184,6 +185,7 @@ export class AiService {
         },
         select: { id: true },
       });
+      logId = log.id;
       // Datos del cliente que salen a un tercero: queda en la bitácora.
       await this.audit.record({
         actorType: AuditActorType.SYSTEM,
@@ -204,5 +206,6 @@ export class AiService {
         `No se pudo registrar la llamada a la IA: ${error instanceof Error ? error.name : 'desconocido'}`,
       );
     }
+    return logId;
   }
 }

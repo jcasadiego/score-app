@@ -138,6 +138,20 @@ describe('validateEnv · enlace del cliente final', () => {
   });
 });
 
+describe('validateEnv · enlace de descarga del informe', () => {
+  it('vence en 30 días si no se configura', () => {
+    expect(validateEnv(BASE).REPORT_LINK_TTL_DAYS).toBe(30);
+  });
+
+  it('rechaza vigencias fuera de 1 a 90 días', () => {
+    for (const REPORT_LINK_TTL_DAYS of ['0', '91', '1.5']) {
+      expect(() => validateEnv({ ...BASE, REPORT_LINK_TTL_DAYS })).toThrow(
+        /REPORT_LINK_TTL_DAYS/,
+      );
+    }
+  });
+});
+
 describe('validateEnv · PANEL_API_SECRET', () => {
   it('es opcional en desarrollo', () => {
     expect(validateEnv(BASE).PANEL_API_SECRET).toBeUndefined();

@@ -43,6 +43,8 @@ const EnvSchema = z
       .min(32, 'debe tener al menos 32 caracteres'),
     // Vigencia del enlace que recibe el cliente por correo.
     ACCESS_LINK_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+    // Vigencia del enlace de descarga del informe (PF-42).
+    REPORT_LINK_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
     // Cifra los secretos TOTP. Perderla obliga a reconfigurar el MFA de todos.
     MFA_ENCRYPTION_KEY: z
       .base64()

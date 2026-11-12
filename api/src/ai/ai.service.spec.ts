@@ -49,6 +49,7 @@ describe('AiService', () => {
       ok: true,
       value: { answered: 0, summary: 'Respuesta simulada' },
       simulated: true,
+      callLogId: 'log-1',
     });
   });
 
@@ -84,6 +85,7 @@ describe('AiService', () => {
     expect(await service.run(TASK)).toEqual({
       ok: false,
       reason: 'invalid_output',
+      callLogId: 'log-1',
     });
     expect(create.mock.calls[0][0].data).toMatchObject({
       outcome: 'FAILED',
@@ -95,7 +97,11 @@ describe('AiService', () => {
     vi.spyOn(SimulatedAiAdapter.prototype, 'complete').mockRejectedValue(
       new AiProviderError('timeout'),
     );
-    expect(await service.run(TASK)).toEqual({ ok: false, reason: 'timeout' });
+    expect(await service.run(TASK)).toEqual({
+      ok: false,
+      reason: 'timeout',
+      callLogId: 'log-1',
+    });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -141,8 +147,15 @@ describe('AiService', () => {
     expect(logged).not.toContain('Respuesta simulada');
   });
 
-  it('un fallo al registrar no cambia el resultado', async () => {
+  it('un fallo al registrar no cambia el resultado, pero no hay id del registro', async () => {
     create.mockRejectedValue(new Error('base caída'));
-    expect((await service.run(TASK)).ok).toBe(true);
+    const result = await service.run(TASK);
+    expect(result.ok).toBe(true);
+    expect(result.callLogId).toBeUndefined();
+  });
+
+  it('si falla solo la bitácora, el id del registro de uso sigue llegando', async () => {
+    auditRecord.mockRejectedValue(new Error('bitácora caída'));
+    expect((await service.run(TASK)).callLogId).toBe('log-1');
   });
 });

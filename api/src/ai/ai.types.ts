@@ -53,6 +53,11 @@ export type AiFailureReason =
   | 'refused'
   | 'invalid_output';
 
+/**
+ * `callLogId` es el registro de la llamada en `ai_call_logs`, para quien deba
+ * guardar de dónde salió un texto. Falta si no hubo llamada (IA desactivada)
+ * o si no se pudo registrar.
+ */
 export type AiResult<T> =
-  | { ok: true; value: T; simulated: boolean }
-  | { ok: false; reason: AiFailureReason };
+  | { ok: true; value: T; simulated: boolean; callLogId?: string }
+  | { ok: false; reason: AiFailureReason; callLogId?: string };

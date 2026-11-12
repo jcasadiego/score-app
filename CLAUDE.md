@@ -84,7 +84,9 @@ pendientes:
   registro de uso sin contenido) y los flags del revisor (`src/flags`: baja
   confianza y posibles contradicciones con IA, por cálculo) y la revisión
   (`src/reviews`: bandeja, tomar el caso, correcciones de solo inserción,
-  notas y aprobación del Aprobador atada al cálculo, con `If-Match`). Detalle en
+  notas y aprobación del Aprobador atada al cálculo, con `If-Match`) y el
+  informe (`src/reports`: borrador con IA, edición con historial y aprobación
+  atada al contenido; la entrega y el PDF, pendientes). Detalle en
   `api/README.md`.
 - **`apps/panel`:** UI con Ant Design, login contra `api` vía Server
   Action con cookie `httpOnly`, rutas protegidas (`proxy.ts` +

@@ -6,6 +6,7 @@ import { AiModule } from './ai/ai.module';
 import { AuditModule } from './audit/audit.module';
 import { FlagsModule } from './flags/flags.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { ReportsModule } from './reports/reports.module';
 import { AuthModule } from './auth/auth.module';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
@@ -33,6 +34,7 @@ import { validateEnv } from './config/validate-env';
     AiModule,
     FlagsModule,
     ReviewsModule,
+    ReportsModule,
     RulesModule,
     UsersModule,
     AuthModule,

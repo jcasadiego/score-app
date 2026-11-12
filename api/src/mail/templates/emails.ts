@@ -25,7 +25,7 @@ export interface DiagnosticCompletedNoticeData {
   link: string;
 }
 
-const FAMILY_LABEL: Record<DiagnosticFamily, string> = {
+export const FAMILY_LABEL: Record<DiagnosticFamily, string> = {
   PROJECT: 'Proyecto',
   B2B: 'B2B',
   PROFESSIONAL: 'Profesional',

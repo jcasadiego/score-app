@@ -2,9 +2,16 @@ import { Prisma } from '../../generated/prisma/client';
 import {
   ApprovalVoidCause,
   AuditActorType,
+  ReportApprovalVoidCause,
   ReportStatus,
 } from '../../generated/prisma/enums';
 import type { AuditService } from '../audit/audit.service';
+
+/** La causa en la aprobación del informe, según qué pasó con la revisión. */
+const REPORT_CAUSE: Record<ApprovalVoidCause, ReportApprovalVoidCause> = {
+  REOPENED: ReportApprovalVoidCause.REVIEW_REOPENED,
+  RECALCULATED: ReportApprovalVoidCause.REVIEW_RECALCULATED,
+};
 
 /**
  * En la transacción que anula la aprobación de una revisión (reabrir o
@@ -29,7 +36,7 @@ export async function voidReportApproval(
     where: { reportId: report.id, voidedAt: null },
     data: {
       voidedAt: new Date(),
-      voidCause: cause,
+      voidCause: REPORT_CAUSE[cause],
       voidedById: actorId ?? null,
     },
   });

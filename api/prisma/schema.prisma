@@ -130,6 +130,7 @@ model User {
   reportRevisions                ReportSectionRevision[]
   reportApprovals                ReportApproval[]        @relation("ReportApprovalApprovedBy")
   voidedReportApprovals          ReportApproval[]        @relation("ReportApprovalVoidedBy")
+  reportDeliveries               ReportDelivery[]
 
   @@map("users")
 }
@@ -803,13 +804,26 @@ model ReviewNote {
   @@map("review_notes")
 }
 
-/// Estado del informe (PF-42). La entrega (`DELIVERED`) llega con el PR de
-/// la entrega.
+/// Estado del informe (PF-42): borrador → aprobado → entregado. Un informe
+/// entregado ya no cambia.
 enum ReportStatus {
   DRAFT
   APPROVED
+  DELIVERED
 
   @@map("report_status")
+}
+
+/// Por qué dejó de valer la aprobación de un informe.
+enum ReportApprovalVoidCause {
+  /// Se reabrió la revisión del caso.
+  REVIEW_REOPENED
+  /// Se pidió otro cálculo después de aprobar el caso.
+  REVIEW_RECALCULATED
+  /// Un Aprobador reabrió solo el informe, con motivo, antes de entregarlo.
+  REPORT_REOPENED
+
+  @@map("report_approval_void_cause")
 }
 
 /// Parte de una sección del informe, por dimensión. Se ordena así.
@@ -850,8 +864,10 @@ model Report {
   createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sections  ReportSection[]
-  approvals ReportApproval[]
+  sections      ReportSection[]
+  approvals     ReportApproval[]
+  deliveries    ReportDelivery[]
+  downloadLinks ReportDownloadLink[]
 
   @@index([reviewApprovalId, reviewId])
   @@index([status, updatedAt])
@@ -905,26 +921,31 @@ model ReportSectionRevision {
 }
 
 /// Aprobación del informe, separada de la de la revisión y atada a las
-/// versiones exactas de cada sección (`ReportApprovalRevision`). Se anula si
-/// se anula la aprobación de la revisión, con la misma causa.
+/// versiones exactas de cada sección (`ReportApprovalRevision`). A lo sumo una
+/// vigente por informe (índice único parcial). Se anula si se anula la
+/// aprobación de la revisión o si un Aprobador reabre el informe.
 model ReportApproval {
-  id            String             @id @default(cuid())
-  reportId      String             @map("report_id")
-  report        Report             @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  id            String                   @id @default(cuid())
+  reportId      String                   @map("report_id")
+  report        Report                   @relation(fields: [reportId], references: [id], onDelete: Restrict)
   /// `Report.version` al aprobar.
-  reportVersion Int                @map("report_version")
-  approvedById  String             @map("approved_by_id")
-  approvedBy    User               @relation("ReportApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  approvedAt    DateTime           @default(now()) @map("approved_at") @db.Timestamptz(3)
-  voidedAt      DateTime?          @map("voided_at") @db.Timestamptz(3)
-  /// Por qué se anuló la aprobación de la revisión que arrastró esta.
-  voidCause     ApprovalVoidCause? @map("void_cause")
-  /// Quién anuló la de la revisión. Nulo si fue el sistema.
-  voidedById    String?            @map("voided_by_id")
-  voidedBy      User?              @relation("ReportApprovalVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  reportVersion Int                      @map("report_version")
+  approvedById  String                   @map("approved_by_id")
+  approvedBy    User                     @relation("ReportApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  approvedAt    DateTime                 @default(now()) @map("approved_at") @db.Timestamptz(3)
+  voidedAt      DateTime?                @map("voided_at") @db.Timestamptz(3)
+  voidCause     ReportApprovalVoidCause? @map("void_cause")
+  /// Quién la anuló. Nulo si fue el sistema.
+  voidedById    String?                  @map("voided_by_id")
+  voidedBy      User?                    @relation("ReportApprovalVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  /// Motivo de reabrir el informe; obligatorio y exclusivo de `REPORT_REOPENED`
+  /// (CHECK en la migración).
+  voidReason    String?                  @map("void_reason") @db.VarChar(500)
 
-  revisions ReportApprovalRevision[]
+  revisions  ReportApprovalRevision[]
+  deliveries ReportDelivery[]
 
+  @@unique([id, reportId])
   @@index([reportId])
   @@index([approvedById])
   @@index([voidedById])
@@ -941,4 +962,71 @@ model ReportApprovalRevision {
   @@id([approvalId, revisionId])
   @@index([revisionId])
   @@map("report_approval_revisions")
+}
+
+/// Cada envío del informe al cliente (el primero y cada reenvío), de solo
+/// inserción. Guarda una copia del nombre y del correo de destino: es la
+/// evidencia de a quién se envió y con qué nombre salió el PDF, aunque el lead
+/// cambie después. El PDF no se guarda: se genera a pedido desde la aprobación
+/// (`reportApprovalId`) con la plantilla `templateVersion`, y debe dar la misma
+/// huella (`pdfSha256`).
+model ReportDelivery {
+  id               String         @id @default(cuid())
+  reportId         String         @map("report_id")
+  report           Report         @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  reportApprovalId String         @map("report_approval_id")
+  /// La FK compuesta garantiza que sea una aprobación de este mismo informe.
+  reportApproval   ReportApproval @relation(fields: [reportApprovalId, reportId], references: [id, reportId], onDelete: Restrict)
+  recipientName    String         @map("recipient_name") @db.VarChar(200)
+  recipientEmail   String         @map("recipient_email") @db.VarChar(320)
+  /// SHA-256 del PDF entregado, en hexadecimal.
+  pdfSha256        String         @map("pdf_sha256") @db.Char(64)
+  templateVersion  Int            @map("template_version")
+  deliveredById    String         @map("delivered_by_id")
+  deliveredBy      User           @relation(fields: [deliveredById], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  downloadLink ReportDownloadLink?
+
+  @@unique([id, reportId])
+  @@index([reportId, createdAt])
+  @@index([reportApprovalId, reportId])
+  @@index([deliveredById])
+  @@map("report_deliveries")
+}
+
+/// Enlace de descarga que salió en el correo de una entrega. Solo se guarda el
+/// SHA-256 del token. A lo sumo uno sin revocar por informe (índice único
+/// parcial): reenviar revoca el anterior. Lo único que cambia es `revokedAt`.
+model ReportDownloadLink {
+  id         String         @id @default(cuid())
+  deliveryId String         @map("delivery_id")
+  reportId   String         @map("report_id")
+  /// La FK compuesta garantiza que la entrega sea de este mismo informe; como
+  /// la entrega fija el informe, el único compuesto equivale a un enlace por
+  /// entrega.
+  delivery   ReportDelivery @relation(fields: [deliveryId, reportId], references: [id, reportId], onDelete: Restrict)
+  report     Report         @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  tokenHash  String         @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime       @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  downloads ReportDownload[]
+
+  @@unique([deliveryId, reportId])
+  @@index([reportId])
+  @@map("report_download_links")
+}
+
+/// Cada descarga del PDF con un enlace, de solo inserción. Sin IP ni
+/// dispositivo: solo el hecho y el momento.
+model ReportDownload {
+  id        String             @id @default(cuid())
+  linkId    String             @map("link_id")
+  link      ReportDownloadLink @relation(fields: [linkId], references: [id], onDelete: Restrict)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([linkId, createdAt])
+  @@map("report_downloads")
 }

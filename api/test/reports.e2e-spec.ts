@@ -612,7 +612,7 @@ describe('Informe (e2e, base propia)', () => {
         await prisma.reportApproval.findFirstOrThrow({
           where: { reportId: report.id },
         }),
-      ).toMatchObject({ voidCause: 'RECALCULATED' });
+      ).toMatchObject({ voidCause: 'REVIEW_RECALCULATED' });
     });
   });
 

@@ -53,12 +53,18 @@ Un código publicado no cambia de significado.
 | `REVIEW_TAKEN_BY_OTHER` | 403 | El caso es de otra persona: solo ella lo corrige, y solo un Aprobador lo libera. |
 | `REVIEW_NOT_TAKEN` | 409 | Hay que tomar el caso antes de corregirlo. |
 | `REVIEW_APPROVED` | 409 | El caso está aprobado: no admite correcciones, cambios en sus alertas, otra aprobación ni (si no lo pide un Aprobador) un recálculo hasta reabrirlo. |
-| `REVIEW_NOT_APPROVED` | 409 | El caso no tiene una aprobación vigente: se pidió reabrirlo, o redactar o aprobar su informe. |
+| `REVIEW_NOT_APPROVED` | 409 | El caso no tiene una aprobación vigente: se pidió reabrirlo, o redactar, aprobar, entregar o reenviar su informe. |
 | `APPROVAL_REQUIREMENTS_NOT_MET` | 409 | El caso no se puede aprobar; `errors` trae lo que falta (`NO_CALCULATION`, `LATEST_CALCULATION_NOT_SUCCEEDED`, `CORRECTIONS_NOT_CALCULATED`, `FLAG_ANALYSIS_NOT_SUCCEEDED`, `OPEN_FLAGS`, `SIMULATED_RESULT`). |
 | `REVIEW_VERSION_MISMATCH` | 412 | El caso cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |
 | `IF_MATCH_REQUIRED` | 428 | Falta `If-Match` con el ETag del caso (`GET /reviews/:id`) o del informe (`GET /reviews/:id/report`). No se acepta `*` ni un ETag débil. |
 | `REPORT_ALREADY_EXISTS` | 409 | El caso ya tiene un informe: para redactarlo de nuevo, `POST /reviews/:id/report/regenerations`. |
-| `REPORT_APPROVED` | 409 | El informe está aprobado: no admite ediciones, regeneraciones ni otra aprobación. |
+| `REPORT_APPROVED` | 409 | El informe está aprobado: no admite ediciones, regeneraciones ni otra aprobación hasta que un Aprobador lo reabra. |
+| `REPORT_NOT_APPROVED` | 409 | El informe está en borrador: se pidió reabrirlo o entregarlo. |
+| `REPORT_DELIVERED` | 409 | El informe ya se entregó al cliente: no admite cambios ni se reabre. |
+| `REPORT_DELIVERY_BLOCKED` | 409 | El caso tiene pendientes y el informe no se puede enviar; `errors` trae cuáles (los mismos de `APPROVAL_REQUIREMENTS_NOT_MET`). |
+| `REPORT_EMAIL_FAILED` | 503 | El correo con el informe no salió: no quedó entregado y se puede reintentar. |
+| `INVALID_REPORT_LINK` | 401 | Enlace de descarga del informe inválido, vencido o revocado. |
+| `REPORT_PDF_INTEGRITY_FAILED` | 500 | El PDF generado no coincide con la huella anotada al entregarlo: no se entrega. |
 | `REPORT_OUTDATED` | 409 | El borrador se redactó con una aprobación del caso que ya no es la vigente: hay que regenerarlo completo. |
 | `REPORT_DIMENSIONS_MISSING` | 409 | El resultado aprobado no trae dimensiones con que redactar el informe. |
 | `REPORT_VERSION_MISMATCH` | 412 | El informe cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |

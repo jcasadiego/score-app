@@ -477,7 +477,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   intento queda en la bitácora (`EMAIL_SENT`/`EMAIL_FAILED`) con el
   tipo y el id o motivo — nunca el destinatario (ni enmascarado), el
   enlace ni el contenido; del motivo del proveedor se quitan las direcciones
-  de correo. Tampoco el log lleva la dirección. Sin colas ni reintentos (fuera de alcance del MVP).
+  de correo. Tampoco el log de `MailService` lleva la dirección (el driver
+  `log`, solo para local, sí imprime destinatario y contenido). Sin colas ni reintentos (fuera de alcance del MVP).
   Prueba manual: `pnpm mail:test tu@email.com` (necesita Postgres);
   con `MAIL_DRIVER=resend` y remitente `onboarding@resend.dev` llega de
   verdad, pero solo al email dueño de la cuenta de Resend.

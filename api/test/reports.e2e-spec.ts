@@ -1023,6 +1023,13 @@ describe('Informe (e2e, base propia)', () => {
       await deliver(reviewId, etag).expect(201);
       const oldToken = mailedToken();
 
+      // Un Revisor no recalcula un caso aprobado: no puede deshacer la entrega.
+      await server()
+        .post(`${DIAGNOSTICS}/${diagnosticId}/calculations`)
+        .set(as(reviewer.token))
+        .expect(409);
+      expect((await read(reviewId)).body.status).toBe('DELIVERED');
+
       await server()
         .post(`${DIAGNOSTICS}/${diagnosticId}/calculations`)
         .set(as(approver.token))

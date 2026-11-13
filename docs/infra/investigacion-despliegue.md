@@ -1,7 +1,7 @@
 # Investigación de despliegue de SCORE (QA y PROD)
 
 - **Fecha de verificación de precios y límites:** 2026-11-13. Todo dato de
-  proveedor sale de su página oficial (sección 8). Los precios están en USD,
+  proveedor sale de su página oficial (sección 12). Los precios están en USD,
   sin impuestos.
 - **Alcance:** solo investigación. No se creó ninguna cuenta, no se desplegó
   nada y no se tocó código. Alimenta PF-30 (hosting sin definir) y PF-56
@@ -227,9 +227,11 @@ José y se anota en el inventario (CLAUDE.md 5.2).
 
 ## 3. Pipeline de GitHub Actions (diseño, sin workflows todavía)
 
-Principio: **GitHub Actions dirige el despliegue**; el despliegue automático
-de Render queda apagado. Así el orden (respaldo → migración → código) y la
-aprobación viven en un solo lugar, y QA ensaya exactamente lo de PROD.
+Principio: **GitHub Actions decide cuándo se despliega; Render ejecuta la
+migración y el despliegue.** El despliegue automático de Render queda apagado.
+Así la aprobación vive en GitHub, la migración corre dentro de la red privada
+de Render y **ninguna credencial de la base sale de Render** (sección 11.2).
+QA ensaya exactamente lo de PROD.
 
 **En cada PR (ya existe, se amplía):**
 
@@ -239,10 +241,11 @@ aprobación viven en un solo lugar, y QA ensaya exactamente lo de PROD.
 **Al fusionar en `develop` → QA (automático):**
 
 1. Job `changes` (el mismo filtro actual) decide qué piezas desplegar.
-2. Si cambió `api`: ambiente `qa` de GitHub → `prisma migrate deploy` contra
-   la base de QA con la credencial de migraciones (secreto del ambiente).
-3. Disparar el despliegue de cada pieza cambiada con su *deploy hook* de
-   Render (una URL secreta por servicio).
+2. Ambiente `qa` de GitHub → disparar el despliegue de cada pieza cambiada
+   con su *deploy hook* de Render (una URL secreta por servicio).
+3. En la API, Render corre `prisma migrate deploy` como *pre-deploy command*:
+   después del build y antes de publicar. Si falla, el despliegue se cancela
+   y sigue la versión anterior.
 4. Esperar a que `GET /health` responda 200 y hacer una petición de humo al
    panel y al diagnóstico. Si falla, el workflow falla y Render conserva la
    versión anterior (no pasa tráfico a una instancia que no está sana).
@@ -251,17 +254,17 @@ aprobación viven en un solo lugar, y QA ensaya exactamente lo de PROD.
 
 1. Mismo flujo, con el ambiente `production` de GitHub: **revisor requerido**
    (hasta 6; basta uno), restringido a la rama `main`.
-2. Antes de migrar: anotar la hora exacta (punto de restauración del PITR) en
-   el resumen del workflow.
-3. Migrar, desplegar, verificar.
+2. Antes de disparar el despliegue: anotar la hora exacta (punto de
+   restauración del PITR) en el resumen del workflow.
+3. Disparar el despliegue (Render migra y publica) y verificar.
 4. `concurrency` por ambiente, sin cancelar corridas en curso: nunca dos
    despliegues ni dos migraciones a la vez.
 
 **Detalles:**
 
-- **Secretos.** En GitHub, por ambiente (`qa`, `production`): los deploy
-  hooks y la URL de migraciones. Los secretos de ejecución (JWT, MFA, Resend,
-  Anthropic) viven solo en Render, nunca en GitHub. Las actions siguen fijadas
+- **Secretos.** En GitHub, por ambiente (`qa`, `production`): solo los deploy
+  hooks. Las credenciales de la base y los secretos de ejecución (JWT, MFA,
+  Resend, Anthropic) viven solo en Render, nunca en GitHub. Las actions siguen fijadas
   por SHA.
 - **Protección de ambientes.** Los revisores requeridos solo existen gratis en
   repos **públicos**. Este repo lo es hoy; si pasa a privado, se pierden salvo
@@ -273,11 +276,14 @@ aprobación viven en un solo lugar, y QA ensaya exactamente lo de PROD.
   panel ~63 s y el del diagnóstico ~40 s. El build y arranque en Render no se
   midió (no se desplegó nada); estimación: 3 a 6 minutos por servicio, total
   de 5 a 10 minutos de la fusión al aire. Se mide en el primer despliegue.
-- **Alternativa más simple:** dejar que Render despliegue solo "After CI
-  Checks Pass" y migre con su *pre-deploy command* (si falla, el despliegue se
-  cancela y sigue la versión anterior). Ahorra el workflow, pero la credencial
-  con permisos de DDL quedaría en el entorno de la API, contra PF-58, y PROD
-  no tendría puerta de aprobación.
+- **Costo de este diseño frente a PF-58.** El *pre-deploy command* usa las
+  variables del propio servicio, así que la credencial del rol de migraciones
+  queda en el entorno de la API. Los dos roles siguen separados, pero quien
+  comprometa el proceso de la API podría leerla. La alternativa (migrar desde
+  GitHub Actions) obliga a abrir la base de PROD a internet, que es peor
+  (sección 11.2). Queda como decisión de José (pregunta 5).
+- **Alternativa más simple todavía:** que Render despliegue solo "After CI
+  Checks Pass", sin workflow. PROD se quedaría sin puerta de aprobación.
 
 ## 4. Migraciones y respaldos
 
@@ -287,7 +293,8 @@ aprobación viven en un solo lugar, y QA ensaya exactamente lo de PROD.
   nuevo**, nunca al arrancar la API. Es lo que recomienda Prisma ("as part of
   your CI/CD pipeline").
 - Corre con un **rol dueño del esquema** distinto del rol de la API, que no
-  tiene DDL (PF-58).
+  tiene DDL (PF-58). Con el diseño de la sección 3, las dos credenciales viven
+  en el mismo servicio (ver sección 11.2).
 - `migrate deploy` no usa base sombra, no detecta desvíos y **no avisa de
   cambios destructivos**: aplica lo que haya. La protección va antes.
 
@@ -514,8 +521,7 @@ se "transfiere" QA: PROD nace aparte.
      `MAIL_DRIVER`, `RESEND_API_KEY`, `MAIL_FROM`, `SCORING_ENGINE_DRIVER`,
      `AI_PROVIDER`. En cada app: `NEXT_PUBLIC_API_URL` y su secreto compartido.
    - Notificaciones de fallo por correo o Slack.
-2. **GitHub:** ambiente `qa` con los tres deploy hooks y la URL de
-   migraciones como secretos.
+2. **GitHub:** ambiente `qa` con los tres deploy hooks como secretos.
 3. **Resend:** key de solo envío para QA; dominio verificado (pregunta 3).
 4. **UptimeRobot:** tres monitores.
 5. **Sentry** (si José lo aprueba): un proyecto por pieza.
@@ -552,6 +558,7 @@ se "transfiere" QA: PROD nace aparte.
 | Una sola instancia: si cae, la API no responde hasta que reinicia | Aceptado en PF-30; monitor de caídas y alertas |
 | La ley aplicable puede exigir otra región | La región no se cambia después: confirmar PF-49 y PF-62 antes de crear PROD |
 | Si el repo pasa a privado, se pierde la aprobación manual de PROD | Decidirlo antes; alternativa: disparo manual del workflow |
+| El repo es público: cualquiera lee los workflows y el diseño de infraestructura | Los secretos no llegan a PR de forks; reglas de la sección 11.4. Reconsiderar pasarlo a privado antes de PROD |
 | Dependencia de un solo proveedor | Plan de salida de la sección 6; Dockerfile desde el inicio |
 
 **Preguntas abiertas para José**
@@ -564,8 +571,10 @@ se "transfiere" QA: PROD nace aparte.
    pide ya al cliente un registro DNS en `musicfinance.pro`?
 4. ¿Se aprueba Sentry como proveedor nuevo? Si no, quedan solo los logs y las
    notificaciones de Render.
-5. ¿La migración corre desde GitHub Actions (recomendado, sección 3) o con el
-   comando previo al despliegue de Render?
+5. Migraciones: ¿se acepta que la credencial del rol de migraciones viva en
+   el entorno de la API (recomendado, base cerrada a internet), o se prefiere
+   migrar desde GitHub Actions con la base abierta a cualquier IP?
+   (sección 11.2)
 6. ¿Vistas previas por PR? Exigen Render Pro también en QA (+$25/mes) y una
    base por vista previa.
 7. RTO y RPO que espera el cliente (PF-56): ¿bastan 7 días de PITR, o se
@@ -582,7 +591,177 @@ documentación da dos cifras); la ventana de PITR del Postgres de Fly y de
 Railway; si los términos completos de Railway restringen el uso comercial en
 Hobby.
 
-## 11. Fuentes
+## 11. Seguridad del despliegue
+
+Esta sección cubre la seguridad **de la infraestructura y del pipeline**. La
+de la aplicación (auth, MFA, sesiones, bitácora) ya está en el código y en
+PF-53. Nada de esto equivale a una certificación (CLAUDE.md 5.2).
+
+### 11.1. Acceso a las cuentas
+
+Quien entra al panel del hosting ve los secretos y la base: es la cuenta más
+sensible del sistema.
+
+| Cuenta | Lo verificado | Qué hacer |
+|---|---|---|
+| **Render** | Permite **exigir 2FA a todos los miembros** desde el workspace (plan requerido no indicado). Roles Admin y Developer en todos los planes; Contributor y Viewer, que no ven secretos ni cadenas de conexión, solo en Scale. **Hobby admite un solo miembro**; invitar exige Pro. Bitácora de accesos exportable desde Pro, con al menos 90 días: registra quién vio variables, quién vio la conexión de la base, quién descargó un respaldo y quién abrió una consola. SSO solo en Scale | 2FA exigido en ambos workspaces. En PROD: el cliente como Admin, nosotros con el rol mínimo que alcance, y el ambiente marcado como protegido. En QA (Hobby) la cuenta es de una sola persona: no compartir la contraseña; si hacen falta dos personas, QA sube a Pro |
+| **GitHub** | 2FA obligatorio para quien contribuye código. Métodos: app TOTP, llaves de seguridad, passkeys. En un repo personal, solo el dueño configura ambientes y sus secretos. "Any user with write access to your repository has read access to all secrets" del repositorio | No dar permiso de escritura a nadie que no deba desplegar. Secretos siempre por ambiente, nunca a nivel de repo |
+| **Resend** | Las keys pueden ser de **solo envío** y limitarse a **un dominio**. El MFA es por persona: "There is no setting to require MFA for the whole team". Revoca solo las keys que detecta expuestas en código público | Key de solo envío y de un dominio por ambiente (ya lo pide `.env.example`). MFA activado en cada cuenta, revisado en la columna de estado |
+| **Anthropic, Sentry, UptimeRobot** | No revisado en esta investigación | MFA en cada cuenta; key de Anthropic distinta por ambiente |
+
+Regla general: cuentas nominales (una por persona), sin usuarios compartidos,
+y un registro de quién tiene acceso a qué, revisado al salir alguien del
+equipo.
+
+### 11.2. Exposición de la base de datos
+
+- En Render, las conexiones externas a la base se limitan por rango de IP, y
+  **el valor por defecto es `0.0.0.0/0`: abierta a cualquier IP**. Se puede
+  cerrar del todo; los servicios de la misma región y workspace siguen
+  conectando por la URL interna. Disponible en todos los planes.
+- Las conexiones externas siempre van con TLS. Las internas lo admiten con
+  certificado autofirmado: `sslmode=require` funciona; `verify-full` no. La
+  API ya exige `sslmode=require` o más estricto al arrancar, así que usar la
+  URL interna con `require` es compatible.
+- **No se puede dar acceso solo a GitHub Actions.** GitHub dice de las IP de
+  sus runners: "we do not recommend that you use these as allowlists"; son
+  muchos rangos, cambian cada semana y las IP fijas exigen un plan de
+  organización.
+
+**Recomendación: acceso externo a la base cerrado del todo, en QA y en PROD.**
+Por eso la migración corre dentro de Render (sección 3) y no desde GitHub.
+
+| | Migrar dentro de Render (recomendado) | Migrar desde GitHub Actions |
+|---|---|---|
+| Base expuesta a internet | No | Sí, a cualquier IP, protegida solo por TLS y contraseña |
+| Credencial de la base en GitHub | No | Sí |
+| Credencial de migraciones en el entorno de la API | Sí (debilita PF-58) | No |
+
+Una tercera vía dejaría las dos cosas bien: un servicio aparte en Render que
+solo migre, con su propia credencial, disparado desde el pipeline. No se
+verificó si Render lo permite de forma simple; se revisa al escribir los
+workflows.
+
+Para trabajo manual sobre la base (una restauración, una consulta de soporte):
+abrir temporalmente la IP de quien lo hace, dejar constancia y volver a
+cerrar. Con plan Pro, el cambio de la lista queda en la bitácora de Render.
+
+### 11.3. Protección de lo que queda público
+
+Quedan públicos el panel, el diagnóstico y la API (el sitio llama a
+`POST /leads/prequalification` desde el navegador).
+
+- **Denegación de servicio:** Render incluye protección en todos los planes,
+  sobre la infraestructura de Cloudflare.
+- **WAF y límite de peticiones en el borde:** Render **no documenta ninguno**.
+  Las reglas de IP de entrada para servicios web solo existen en el plan
+  Scale. La única defensa por petición es la de la propia API
+  (`@nestjs/throttler`, por IP y en memoria).
+- **Consecuencia:** el riesgo de PF-36 (spam al formulario desde muchas IP que
+  agota la cuota de correo) no lo resuelve el hosting; hay que resolverlo en
+  la API antes de PROD, como ya está previsto.
+- **Si hiciera falta más:** con los subdominios de `musicfinance.pro` se puede
+  poner Cloudflare delante. Su plan gratuito incluye protección contra
+  denegación de servicio, WAF con un conjunto de reglas gestionado y **una**
+  regla de límite de peticiones (por IP, ventanas de 10 segundos). Agrega un
+  proxy más (cambia `TRUST_PROXY_HOPS`) y un proveedor que ve todo el tráfico:
+  se decide con José. No aplica con las URLs por defecto de QA.
+- **Red privada:** los servicios de Render de la misma región se hablan por
+  una red privada. El panel y el diagnóstico pueden llamar a la API por su
+  dirección interna en vez de la pública: menos exposición y menos latencia.
+  Cambia qué IP ve la API, así que se prueba junto con `TRUST_PROXY_HOPS`. La
+  API no puede ser un servicio privado mientras el sitio la llame desde el
+  navegador.
+- **TLS:** certificados automáticos y redirección de HTTP a HTTPS. Versión
+  mínima de TLS: no confirmada.
+- **QA es pública.** Cualquiera con la URL llega al login. Solo datos de
+  prueba, contraseñas reales (no "admin123") y MFA igual que en PROD.
+
+### 11.4. Pipeline y repositorio público
+
+El repo es público: cualquiera puede leer los workflows y abrir un PR desde un
+fork.
+
+- **Los secretos no llegan a los PR de forks:** "secrets are not passed to the
+  runner when a workflow is triggered from a forked repository".
+- **Nunca usar `pull_request_target`** en este repo: corre con el contexto de
+  la rama base y puede acceder a secretos; es la vía conocida para robarlos.
+  Los workflows de CI siguen con `pull_request`; los de despliegue, solo con
+  `push` a `develop` y `main`.
+- **Ambientes limitados por rama:** `qa` solo desde `develop`, `production`
+  solo desde `main`, con revisor requerido en `production`. Los secretos de
+  un ambiente no se entregan hasta que el revisor aprueba.
+- **Aprobación de workflows de forks:** subir el ajuste a "Require approval
+  for all external contributors". El valor por defecto solo cubre a quien
+  contribuye por primera vez.
+- **Deploy hooks:** quien tenga la URL puede disparar un despliegue (no leer
+  datos). Se guardan como secreto de ambiente y se regeneran en Render si se
+  filtran; la URL vieja deja de servir.
+- **Las API keys de Render son de usuario, no de workspace** (las acotadas
+  están en acceso anticipado). El pipeline usa deploy hooks para no guardar
+  una key con acceso a todo.
+- **El enmascarado de secretos en los logs no está garantizado.** No imprimir
+  secretos ni pasarlos por línea de comandos; si uno aparece en un log, se
+  borra el log y se rota.
+- Ya en uso y se mantiene: actions fijadas por SHA, permisos mínimos del
+  `GITHUB_TOKEN`, gitleaks, CodeQL y Dependabot. Conviene agregar `CODEOWNERS`
+  sobre `.github/workflows/`.
+- No confirmado: si las reglas de rama (rulesets) pueden restringir quién
+  edita los workflows en un repo público de cuenta personal.
+
+### 11.5. Secretos y rotación (PF-57)
+
+- **Dónde viven:** variables de entorno de cada servicio en Render. Que Render
+  las cifre en reposo: no confirmado en su documentación.
+- **Distintos por ambiente**, generados con `openssl rand`, nunca reutilizados
+  entre QA y PROD.
+- **Cómo se rota cada uno:**
+
+| Secreto | Cómo se rota | Efecto |
+|---|---|---|
+| Contraseña de la base | Render no rota sola. Crear un usuario nuevo, cambiar la variable, redesplegar y borrar el viejo | Sin corte si se hace en ese orden |
+| `JWT_SECRET`, `ACCESS_LINK_JWT_SECRET` | Cambiar la variable y redesplegar | Cierra todas las sesiones del panel o del cliente |
+| `PANEL_API_SECRET`, `DIAGNOSTIC_API_SECRET` | Cambiar en la API y en su app a la vez | Entre un despliegue y otro, el límite de intentos cuenta por la IP de la plataforma |
+| `MFA_ENCRYPTION_KEY` | **Hoy no se puede rotar** sin reconfigurar el MFA de todos (`api/README.md`) | Respaldarla fuera de Render; su rotación necesita desarrollo |
+| `RESEND_API_KEY`, `ANTHROPIC_API_KEY` | Crear la nueva, cambiar la variable, revocar la vieja | Sin corte |
+| Deploy hooks | "Regenerate Hook" en Render y actualizar el secreto en GitHub | El pipeline falla hasta actualizarlo |
+
+- En Render, guardar una variable puede redesplegar el servicio o no ("Save
+  only"): al rotar, elegir "Save and deploy".
+- Frecuencia propuesta: al salir alguien del equipo, ante cualquier sospecha,
+  y una vez al año. La frecuencia definitiva se fija en PF-57.
+
+### 11.6. Qué plan hace falta para cada control
+
+| Control | Hobby (QA) | Pro (PROD) | Solo en Scale |
+|---|---|---|---|
+| Base cerrada a internet, cifrado en reposo, PITR | Sí | Sí | — |
+| Exigir 2FA | Sí (plan no indicado) | Sí | — |
+| Más de un miembro | No | Sí | — |
+| Bitácora de accesos | No | Sí, 90 días | — |
+| Informe SOC 2 e ISO del proveedor | No | Sí, con acuerdo de confidencialidad | — |
+| Roles sin acceso a secretos, SSO, reglas de IP para servicios web | No | No | Sí |
+
+PROD en Pro cubre lo esencial. Si el cliente exigiera SSO o que nuestro equipo
+no pueda ver secretos, haría falta Scale (precio no confirmado).
+
+### 11.7. Tareas de seguridad antes de abrir PROD
+
+1. 2FA exigido en Render; MFA activo en GitHub, Resend, Anthropic y Sentry.
+2. Acceso externo a la base cerrado en QA y en PROD.
+3. Ambientes `qa` y `production` limitados por rama, con revisor en PROD.
+4. Aprobación de workflows para todo colaborador externo.
+5. `TRUST_PROXY_HOPS` medido y probado: cinco contraseñas erradas bloquean esa
+   conexión y no a las demás (criterio de PF-30).
+6. PF-36 resuelto (cuota de correo ante spam).
+7. Restauración de un respaldo probada y cronometrada (PF-56).
+8. Procedimiento de rotación escrito (PF-57) y `MFA_ENCRYPTION_KEY` respaldada.
+9. DPA de cada proveedor firmado (PF-63) e inventario y matriz de controles
+   actualizados.
+10. Auditoría completa con `security-audit` y decisión sobre el pentest
+    dinámico (PF-61), como pide CLAUDE.md 5.1.
+
+## 12. Fuentes
 
 Todas consultadas el 2026-11-13.
 
@@ -680,6 +859,26 @@ https://developers.cloudflare.com/containers/pricing/
 https://coolify.io/pricing · https://coolify.io/docs/databases/postgresql ·
 https://www.koyeb.com/pricing · https://www.koyeb.com/docs/reference/instances ·
 https://northflank.com/pricing
+
+**Seguridad (Render)** — https://render.com/docs/inbound-ip-rules ·
+https://render.com/docs/private-network · https://render.com/docs/ddos-protection ·
+https://render.com/docs/login-settings · https://render.com/docs/team-members ·
+https://render.com/docs/audit-logs ·
+https://render.com/docs/configure-environment-variables ·
+https://render.com/docs/postgresql-credentials · https://render.com/docs/api ·
+https://render.com/docs/static-outbound-ip-addresses · https://render.com/docs/tls
+
+**Seguridad (GitHub, Resend, Cloudflare)** —
+https://docs.github.com/en/actions/reference/security/secure-use ·
+https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets ·
+https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository ·
+https://docs.github.com/en/actions/reference/runners/github-hosted-runners ·
+https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-two-factor-authentication ·
+https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets ·
+https://resend.com/docs/api-reference/api-keys/create-api-key ·
+https://resend.com/docs/dashboard/settings/team · https://resend.com/security ·
+https://resend.com/legal/dpa · https://developers.cloudflare.com/waf/rate-limiting-rules/ ·
+https://www.cloudflare.com/plans/
 
 **Observabilidad y correo** — https://sentry.io/pricing/ ·
 https://uptimerobot.com/pricing/ · https://betterstack.com/pricing ·

@@ -195,6 +195,10 @@ export class ReportsService {
     return {
       ...rest,
       deliveredAt: deliveries[0]?.createdAt ?? null,
+      // Se entregó antes y el caso cambió después: falta entregar la versión
+      // actualizada (al reabrir o recalcular, el informe vuelve a borrador).
+      redeliveryPending:
+        rest.status !== ReportStatus.DELIVERED && deliveries.length > 0,
       // La aprobación de la revisión con que se redactó ya no es la vigente.
       outdated: reviewApproval.voidedAt !== null,
       approval: approvals[0] ?? null,

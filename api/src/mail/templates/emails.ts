@@ -76,15 +76,19 @@ export function linkRecoveryEmail(
 }
 
 export function reportLinkEmail(
-  data: LinkMailData & { ttlDays: number },
+  data: LinkMailData & { ttlDays: number; updated?: boolean },
   brand?: BrandOptions,
 ): RenderedEmail {
   return renderBaseTemplate(
     {
-      subject: 'Tu informe SCORE está listo',
+      subject: data.updated
+        ? 'Actualizamos tu informe SCORE'
+        : 'Tu informe SCORE está listo',
       title: `Hola, ${data.name}`,
       paragraphs: [
-        'Tu informe de diagnóstico SCORE ya está listo. Descárgalo en PDF con el botón de abajo: no necesitas crear usuario ni contraseña.',
+        data.updated
+          ? 'Revisamos de nuevo tu diagnóstico y actualizamos tu informe SCORE. Descarga la versión nueva en PDF con el botón de abajo: el enlace que te enviamos antes ya no funciona.'
+          : 'Tu informe de diagnóstico SCORE ya está listo. Descárgalo en PDF con el botón de abajo: no necesitas crear usuario ni contraseña.',
         `El enlace vence en ${data.ttlDays} días. Si vence, escríbenos y te enviamos uno nuevo.`,
       ],
       button: { text: 'Descargar mi informe', url: data.link },

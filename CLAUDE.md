@@ -97,9 +97,10 @@ El repo maneja auth, datos de clientes y (más adelante) pagos, así que la
 revisión de seguridad es parte del flujo, en tres niveles según el riesgo:
 
 1. **Cada PR hacia `develop`:** correr `/security-review` (incluido en
-   Claude Code) sobre la rama antes de mergear. Los hallazgos HIGH/MEDIUM
-   se corrigen en el mismo PR, o se deja anotado en el PR por qué no
-   aplican.
+   Claude Code) y el subagente `compliance-reviewer`
+   (`.claude/agents/`, reglas propias de SCORE) sobre la rama antes de
+   mergear. Los hallazgos HIGH/MEDIUM (o ALTA/MEDIA) se corrigen en el
+   mismo PR, o se deja anotado en el PR por qué no aplican.
 2. **PR que toca una frontera de confianza** — auth/JWT, sesión y cookies
    de `apps/panel`, token de enlace de `apps/diagnostico`, usuarios y
    permisos, bitácora de auditoría, pagos, CRM o el endpoint que consume

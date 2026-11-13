@@ -88,8 +88,10 @@ sesión tiene Jira conectado, con:
 
 - **`protect-files.sh`** (antes de editar): bloquea `.env` y `.env.*` (salvo
   `.env.example`), los `pnpm-lock.yaml` y las migraciones de Prisma que ya
-  están en `origin/develop`. No cubre lo que se haga por Bash: es una red de
-  seguridad, no un control.
+  están en `origin/develop` (el local: sin un `git fetch` reciente, una
+  migración recién mergeada no se detecta). Normaliza la ruta antes de
+  comparar y, si falta `jq`, bloquea en vez de dejar pasar. No cubre lo que
+  se haga por Bash: es una red de seguridad, no un control.
 - **`format-lint.sh`** (después de editar): sobre el archivo editado corre
   Prettier + `eslint --fix` en `api` (`src/` y `test/`) y `eslint --fix` en
   `apps/panel` y `apps/diagnostico`. Si quedan errores, se los muestra a

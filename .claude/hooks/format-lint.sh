@@ -11,7 +11,10 @@ input="$(cat)"
 file="$(jq -r '.tool_input.file_path // empty' <<<"$input")"
 [[ -z "$file" || ! -f "$file" ]] && exit 0
 
+# Normaliza las dos rutas (.., ./ y symlinks) antes de decidir la pieza
 project="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+project="$(realpath -m -- "$project" 2>/dev/null || printf '%s' "$project")"
+file="$(realpath -m -- "$file" 2>/dev/null || printf '%s' "$file")"
 rel="${file#"$project"/}"
 
 case "$rel" in

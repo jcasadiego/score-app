@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailPort } from './mail.port';
-import { MailService, maskEmail } from './mail.service';
+import { MailService, stripEmails } from './mail.service';
 
 const LINK = 'https://diagnostico.example.com/e/token-secreto-123';
 
@@ -41,7 +41,7 @@ describe('MailService', () => {
     expect(message.text).toContain(LINK);
   });
 
-  it('registra el envío en la bitácora sin el enlace ni el email completo', async () => {
+  it('registra el envío en la bitácora sin el enlace ni el correo', async () => {
     provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
 
     await service.sendLinkRecovery(
@@ -57,12 +57,35 @@ describe('MailService', () => {
       entityId: 'diagnostic-1',
       data: {
         type: 'LINK_RECOVERY',
-        recipient: 'a***@example.com',
         providerId: 'em_1',
       },
     });
     expect(JSON.stringify(audit.record.mock.calls)).not.toContain(
       'token-secreto',
+    );
+    expect(JSON.stringify(audit.record.mock.calls)).not.toContain(
+      'example.com',
+    );
+  });
+
+  it('el motivo de un fallo no lleva la dirección del destinatario', async () => {
+    provider.send.mockResolvedValue({
+      sent: false,
+      reason: 'Invalid `to` field: ana@example.com is not allowed',
+    });
+
+    const result = await service.sendDiagnosticLink({
+      to: 'ana@example.com',
+      name: 'Ana',
+      link: LINK,
+    });
+
+    expect(result).toEqual({
+      sent: false,
+      reason: 'Invalid `to` field: [correo] is not allowed',
+    });
+    expect(JSON.stringify(audit.record.mock.calls)).not.toContain(
+      'example.com',
     );
   });
 
@@ -185,9 +208,11 @@ describe('MailService', () => {
   });
 });
 
-describe('maskEmail', () => {
-  it('deja solo la primera letra y el dominio', () => {
-    expect(maskEmail('ana.perez@dominio.com')).toBe('a***@dominio.com');
-    expect(maskEmail('sin-arroba')).toBe('***');
+describe('stripEmails', () => {
+  it('reemplaza cada dirección y deja el resto del texto', () => {
+    expect(stripEmails('a <ana.perez@dominio.com>, b@x.co: rechazado')).toBe(
+      'a <[correo]>, [correo]: rechazado',
+    );
+    expect(stripEmails('sin direcciones')).toBe('sin direcciones');
   });
 });

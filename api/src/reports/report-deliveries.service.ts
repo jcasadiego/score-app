@@ -132,6 +132,12 @@ export class ReportDeliveriesService {
           });
         }
         const resend = report.status === ReportStatus.DELIVERED;
+        // Ya se había entregado y el caso cambió después (reabierto o
+        // recalculado): el cliente recibe la versión actualizada.
+        const updatedReport =
+          !resend &&
+          (await tx.reportDelivery.count({ where: { reportId: report.id } })) >
+            0;
 
         const reviewApproval = await tx.reviewApproval.findFirst({
           where: { reviewId, voidedAt: null },
@@ -213,7 +219,11 @@ export class ReportDeliveriesService {
           {
             actorType: AuditActorType.PANEL_USER,
             actorId: actor.id,
-            action: resend ? 'REPORT_LINK_RESENT' : 'REPORT_DELIVERED',
+            action: resend
+              ? 'REPORT_LINK_RESENT'
+              : updatedReport
+                ? 'REPORT_REDELIVERED'
+                : 'REPORT_DELIVERED',
             entity: 'Report',
             entityId: report.id,
             data: {
@@ -230,7 +240,12 @@ export class ReportDeliveriesService {
         );
 
         const sent = await this.sendLink(
-          { to: lead.email, name: lead.name, link: this.linkUrl(token) },
+          {
+            to: lead.email,
+            name: lead.name,
+            link: this.linkUrl(token),
+            updated: updatedReport,
+          },
           ttlDays,
           report.id,
           actor,
@@ -245,6 +260,7 @@ export class ReportDeliveriesService {
         return {
           id: delivery.id,
           resend,
+          updated: updatedReport,
           deliveredAt: delivery.createdAt,
           linkExpiresAt: link.expiresAt,
           reportVersion: updated.version,
@@ -493,7 +509,7 @@ export class ReportDeliveriesService {
 
   /** `MailService` nunca lanza; aquí además se corta si el proveedor no responde. */
   private async sendLink(
-    recipient: { to: string; name: string; link: string },
+    recipient: { to: string; name: string; link: string; updated: boolean },
     ttlDays: number,
     reportId: string,
     actor: Actor,

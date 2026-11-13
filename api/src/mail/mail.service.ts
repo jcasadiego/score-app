@@ -46,10 +46,16 @@ export interface LinkMailRecipient extends LinkMailData {
   to: string;
 }
 
-/** `ana.perez@dominio.com` → `a***@dominio.com`, para la bitácora. */
-export function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  return domain ? `${local.slice(0, 1)}***@${domain}` : '***';
+const EMAIL_PATTERN = /[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+/g;
+
+/**
+ * Quita las direcciones de correo de un texto (el motivo que devuelve el
+ * proveedor puede citar al destinatario): ni el log ni la bitácora llevan la
+ * dirección, ni siquiera enmascarada (decisión de José, 2026-11-13). Quién
+ * recibió qué se reconstruye por la entidad (`entityId`).
+ */
+export function stripEmails(text: string): string {
+  return text.replace(EMAIL_PATTERN, '[correo]');
 }
 
 /**
@@ -94,7 +100,7 @@ export class MailService {
 
   /** El enlace de descarga del informe entregado (PF-42). */
   sendReportLink(
-    recipient: LinkMailRecipient & { ttlDays: number },
+    recipient: LinkMailRecipient & { ttlDays: number; updated?: boolean },
     context?: MailContext,
   ): Promise<SendResult> {
     return this.send(
@@ -203,22 +209,21 @@ export class MailService {
         reason: error instanceof Error ? error.message : 'error desconocido',
       };
     }
+    if ('reason' in result)
+      result = { ...result, reason: stripEmails(result.reason) };
 
     // `in` y no `!result.sent`: sin strictNullChecks, TS no estrecha la
     // unión por el literal booleano.
     if ('reason' in result) {
-      this.logger.warn(
-        `No se pudo enviar ${type} a ${maskEmail(to)}: ${result.reason}`,
-      );
+      this.logger.warn(`No se pudo enviar ${type}: ${result.reason}`);
     }
 
-    await this.recordAudit(type, to, result, context);
+    await this.recordAudit(type, result, context);
     return result;
   }
 
   private async recordAudit(
     type: MailType,
-    to: string,
     result: SendResult,
     context: MailContext,
   ) {
@@ -231,7 +236,6 @@ export class MailService {
         entityId: context.entityId,
         data: {
           type,
-          recipient: maskEmail(to),
           ...('reason' in result
             ? { reason: result.reason }
             : { providerId: result.providerId }),

@@ -936,19 +936,109 @@ describe('Informe (e2e, base propia)', () => {
           reviewedAt: new Date(),
         },
       });
-      const delivered = await deliver(reviewId, etag).expect(201);
+      await deliver(reviewId, etag).expect(201);
 
       await server()
         .post(`${REVIEWS}/${reviewId}/reopenings`)
         .set(as(approver.token))
         .send({ reason: 'Se detectó un error después de entregar' })
         .expect(201);
-      const resent = await deliver(
-        reviewId,
-        delivered.headers.etag as string,
-      ).expect(409);
-      expect(resent.body.code).toBe('REVIEW_NOT_APPROVED');
+      // Reabrir devolvió el informe a borrador: no hay nada que reenviar.
+      const { headers } = await read(reviewId);
+      const resent = await deliver(reviewId, headers.etag as string).expect(
+        409,
+      );
+      expect(resent.body.code).toBe('REPORT_NOT_APPROVED');
       expect(mailbox).toHaveLength(1);
+    });
+
+    it('reabrir un caso entregado deja el informe pendiente, revoca el enlace y la nueva entrega avisa la actualización', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+      await deliver(reviewId, etag).expect(201);
+      const oldToken = mailedToken();
+
+      await server()
+        .post(`${REVIEWS}/${reviewId}/reopenings`)
+        .set(as(approver.token))
+        .send({ reason: 'Se detectó un error después de entregar' })
+        .expect(201);
+
+      const { body: pending } = await read(reviewId);
+      expect(pending).toMatchObject({
+        status: 'DRAFT',
+        approval: null,
+        outdated: true,
+        redeliveryPending: true,
+      });
+      expect(pending.deliveredAt).toBeTruthy();
+      expect(
+        await prisma.reportApproval.findFirstOrThrow({
+          where: { reportId: report.id },
+        }),
+      ).toMatchObject({ voidCause: 'REVIEW_REOPENED' });
+      // El PDF que tenía el cliente ya no refleja el caso.
+      await download(oldToken).expect(401);
+      expect(
+        await prisma.auditLog.findFirstOrThrow({
+          where: { action: 'REPORT_APPROVAL_VOIDED', entityId: report.id },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ).toMatchObject({
+        data: expect.objectContaining({ wasDelivered: true, revokedLinks: 1 }),
+      });
+
+      // Se pone al día, se aprueba y se entrega de nuevo.
+      await approveReview(reviewId);
+      const { headers } = await read(reviewId);
+      await server()
+        .post(`${reportUrl(reviewId)}/regenerations`)
+        .set(as(reviewer.token))
+        .set('If-Match', headers.etag as string)
+        .expect(200);
+      const approved = await approveReport(reviewId);
+      expect(approved.status).toBe(201);
+      const redelivered = await deliver(
+        reviewId,
+        approved.headers.etag as string,
+      ).expect(201);
+      expect(redelivered.body).toMatchObject({ resend: false, updated: true });
+      expect(mailbox).toHaveLength(2);
+      expect(mailbox[1].subject).toBe('Actualizamos tu informe SCORE');
+      await download(mailedToken()).expect(200);
+
+      const { body: after } = await read(reviewId);
+      expect(after).toMatchObject({
+        status: 'DELIVERED',
+        redeliveryPending: false,
+      });
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'REPORT_REDELIVERED', entityId: report.id },
+        }),
+      ).toBe(1);
+    });
+
+    it('recalcular un caso entregado también lo deja pendiente de entregar', async () => {
+      const { reviewId, diagnosticId, etag } = await approvedCase();
+      await deliver(reviewId, etag).expect(201);
+      const oldToken = mailedToken();
+
+      // Un Revisor no recalcula un caso aprobado: no puede deshacer la entrega.
+      await server()
+        .post(`${DIAGNOSTICS}/${diagnosticId}/calculations`)
+        .set(as(reviewer.token))
+        .expect(409);
+      expect((await read(reviewId)).body.status).toBe('DELIVERED');
+
+      await server()
+        .post(`${DIAGNOSTICS}/${diagnosticId}/calculations`)
+        .set(as(approver.token))
+        .expect(202);
+      await settled(diagnosticId);
+
+      const { body } = await read(reviewId);
+      expect(body).toMatchObject({ status: 'DRAFT', redeliveryPending: true });
+      await download(oldToken).expect(401);
     });
 
     it('entregas y descargas no se alteran desde la base; del enlace solo cambia la revocación', async () => {
@@ -1007,6 +1097,7 @@ describe('Informe (e2e, base propia)', () => {
       expect(logs).toContain('REPORT_DELIVERED');
       expect(logs).toContain('REPORT_DOWNLOADED');
       expect(logs).not.toContain(lead.email);
+      expect(logs).not.toContain(`@${lead.email.split('@')[1]}`);
       expect(logs).not.toContain(token);
     });
   });

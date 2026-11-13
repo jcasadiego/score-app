@@ -201,9 +201,11 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     lista en `errors`. La aprobación queda atada a ese cálculo; a lo sumo una
     vigente por caso (índice único parcial) y solo se anula una vez (trigger).
   - **Reabrir:** `POST /reviews/:id/reopenings` con `reason`, solo el
-    Aprobador. Si el caso tenía el informe aprobado, vuelve a borrador
-    (`src/reports`). Si el informe ya se entregó, queda como entregado y
-    desactualizado, y su enlace no se puede reenviar.
+    Aprobador. Si el caso tenía el informe aprobado o entregado, vuelve a
+    borrador (`src/reports`). Si ya se había entregado, además se revocan los
+    enlaces de descarga del cliente y el informe queda pendiente de entregar
+    (`redeliveryPending` en `GET .../report`) hasta que se ponga al día, se
+    apruebe y se entregue de nuevo. Recalcular hace lo mismo.
   - **Concurrencia:** corregir y aprobar exigen `If-Match` con el ETag
     (`"<version>"`): 428 si falta, 412 si el caso cambió. Tomar, liberar,
     corregir, aprobar, reabrir y encolar un cálculo suben la versión.
@@ -267,7 +269,10 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     correo con el enlace de descarga, que vence en `REPORT_LINK_TTL_DAYS` (30),
     y deja el informe en `DELIVERED`. Llamarla de nuevo reenvía: enlace nuevo
     y el anterior revocado en la misma transacción (a lo sumo uno sin revocar
-    por informe, índice único parcial). Si el correo no sale, 503
+    por informe, índice único parcial). Si el informe ya se había entregado y
+    volvió a borrador porque el caso cambió, la entrega nueva lleva un correo
+    de "informe actualizado" y queda como `REPORT_REDELIVERED` (`updated: true`
+    en la respuesta). Si el correo no sale, 503
     `REPORT_EMAIL_FAILED` y no queda nada marcado. Cada envío es una fila de
     `report_deliveries` (solo inserción): a qué nombre y correo, quién, cuándo,
     la plantilla y el SHA-256 del PDF. `GET .../deliveries` las lista con el
@@ -470,8 +475,10 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   escapado; logo por `MAIL_LOGO_URL`, textos provisionales). Un fallo
   del proveedor no lanza: vuelve `{ sent: false, reason }`. Cada
   intento queda en la bitácora (`EMAIL_SENT`/`EMAIL_FAILED`) con el
-  tipo, el destinatario enmascarado y el id o motivo — nunca el enlace ni
-  el contenido. Sin colas ni reintentos (fuera de alcance del MVP).
+  tipo y el id o motivo — nunca el destinatario (ni enmascarado), el
+  enlace ni el contenido; del motivo del proveedor se quitan las direcciones
+  de correo. Tampoco el log de `MailService` lleva la dirección (el driver
+  `log`, solo para local, sí imprime destinatario y contenido). Sin colas ni reintentos (fuera de alcance del MVP).
   Prueba manual: `pnpm mail:test tu@email.com` (necesita Postgres);
   con `MAIL_DRIVER=resend` y remitente `onboarding@resend.dev` llega de
   verdad, pero solo al email dueño de la cuenta de Resend.

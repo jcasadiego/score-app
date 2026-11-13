@@ -67,8 +67,9 @@ como diferencia.
 | **Total estimado** | **~$27/mes** | **~$67/mes** (con la API en Starter) |
 
 Aparte del hosting, en ambos ambientes: Resend (gratis hasta 3.000
-correos/mes; Pro $20), Sentry (gratis para 1 usuario; Team $29) y un monitor
-de caídas (UptimeRobot, gratis). La API de Anthropic se paga por uso.
+correos/mes; Pro $20), Sentry (gratis para 1 usuario; Team $29; pendiente de
+que José lo apruebe, pregunta 4) y un monitor de caídas (UptimeRobot,
+gratis). La API de Anthropic se paga por uso.
 
 **Por qué esta opción:**
 
@@ -380,8 +381,9 @@ expand/contract.
 ## 5. Observabilidad
 
 - **Logs.** Render: 7 días (Hobby) o 14 (Pro), con búsqueda en el panel y
-  reenvío por syslog o HTTPS si se quiere retenerlos más. Para un equipo
-  pequeño, el panel alcanza al inicio.
+  reenvío por syslog o HTTPS si se quiere retenerlos más (el destino sería
+  otro proveedor nuevo: se avisa a José y se anota en el inventario). Para un
+  equipo pequeño, el panel alcanza al inicio.
 - **Alertas de errores.** Sentry en las tres piezas. Plan gratuito: 1 usuario,
   5.000 errores al mes, alertas por correo. Team: $29/mes, usuarios
   ilimitados. **Sentry sería un proveedor nuevo que recibe datos:** hay que
@@ -391,7 +393,9 @@ expand/contract.
 - **Caídas.** Render avisa por correo o Slack cuando un despliegue falla o un
   servicio deja de estar sano. Además, un monitor externo sobre `GET /health`
   y las dos apps: UptimeRobot gratis (50 monitores, cada 5 minutos, permite
-  uso comercial).
+  uso comercial). Solo recibe las URLs públicas y el correo de alerta del
+  equipo, sin datos de clientes; aun así es un servicio externo nuevo y se le
+  avisa a José antes de crearlo.
 - **Encontrar la causa.** La API ya pone un identificador por petición
   (`requestContext`, y `request_id` en la bitácora). Con Sentry y los logs de
   Render se puede seguir un error de punta a punta. Fly y Railway no traen
@@ -530,7 +534,7 @@ se "transfiere" QA: PROD nace aparte.
    diagnóstico y API (registros CNAME hacia Render), más los registros de
    Resend (SPF, DKIM).
 4. **Resend** (cuenta y dominio del cliente), **Anthropic** (cuenta de Music
-   Finance Pro), **Sentry** y monitor de caídas.
+   Finance Pro), **Sentry** (si José lo aprueba) y monitor de caídas.
 5. **Contratos:** DPA de cada proveedor firmado o excepción aprobada (PF-63).
 6. Restauración de prueba documentada (PF-56) y auditoría de seguridad del
    release (CLAUDE.md 5.1) antes de abrir a clientes reales.

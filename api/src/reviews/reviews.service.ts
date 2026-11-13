@@ -12,6 +12,7 @@ import {
   AuditActorType,
   CalculationStatus,
   FlagStatus,
+  ReportStatus,
   ReviewStatus,
   UserRole,
 } from '../../generated/prisma/enums';
@@ -96,6 +97,23 @@ const NOTE_SELECT = {
   author: USER_SELECT,
   createdAt: true,
 } satisfies Prisma.ReviewNoteSelect;
+
+/** El estado del informe del caso, para la bandeja y la pantalla de revisión. */
+const REPORT_SUMMARY_SELECT = {
+  select: { status: true, _count: { select: { deliveries: true } } },
+} as const;
+
+function reportSummary(
+  report: { status: ReportStatus; _count: { deliveries: number } } | null,
+) {
+  if (!report) return null;
+  return {
+    status: report.status,
+    // Se entregó antes y el caso cambió después: falta la versión actualizada.
+    redeliveryPending:
+      report.status !== ReportStatus.DELIVERED && report._count.deliveries > 0,
+  };
+}
 
 const APPROVAL_SELECT = {
   id: true,
@@ -248,6 +266,7 @@ export class ReviewsService {
               questionnaireVersion: { select: { family: true } },
             },
           },
+          report: REPORT_SUMMARY_SELECT,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         skip: (page - 1) * pageSize,
@@ -258,8 +277,9 @@ export class ReviewsService {
     const openFlags = await this.flags.openCountsByDiagnostic(
       rows.map(({ diagnostic }) => diagnostic.id),
     );
-    const data = rows.map(({ diagnostic, ...review }) => ({
+    const data = rows.map(({ diagnostic, report, ...review }) => ({
       ...review,
+      report: reportSummary(report),
       diagnostic: {
         id: diagnostic.id,
         completedAt: diagnostic.completedAt,
@@ -295,13 +315,15 @@ export class ReviewsService {
           where: { voidedAt: null },
           select: APPROVAL_SELECT,
         },
+        report: REPORT_SUMMARY_SELECT,
       },
     });
     if (!review) throw this.notFound(id);
     const state = await this.approvalState(this.prisma, review);
-    const { diagnostic, approvals, ...rest } = review;
+    const { diagnostic, approvals, report, ...rest } = review;
     return {
       ...rest,
+      report: reportSummary(report),
       diagnostic: {
         id: diagnostic.id,
         completedAt: diagnostic.completedAt,

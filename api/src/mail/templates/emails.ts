@@ -25,7 +25,7 @@ export interface DiagnosticCompletedNoticeData {
   link: string;
 }
 
-const FAMILY_LABEL: Record<DiagnosticFamily, string> = {
+export const FAMILY_LABEL: Record<DiagnosticFamily, string> = {
   PROJECT: 'Proyecto',
   B2B: 'B2B',
   PROFESSIONAL: 'Profesional',
@@ -70,6 +70,25 @@ export function linkRecoveryEmail(
       ],
       button: { text: 'Continuar mi diagnóstico', url: data.link },
       note: 'Si no pediste este correo, puedes ignorarlo: tu diagnóstico sigue igual.',
+    },
+    brand,
+  );
+}
+
+export function reportLinkEmail(
+  data: LinkMailData & { ttlDays: number },
+  brand?: BrandOptions,
+): RenderedEmail {
+  return renderBaseTemplate(
+    {
+      subject: 'Tu informe SCORE está listo',
+      title: `Hola, ${data.name}`,
+      paragraphs: [
+        'Tu informe de diagnóstico SCORE ya está listo. Descárgalo en PDF con el botón de abajo: no necesitas crear usuario ni contraseña.',
+        `El enlace vence en ${data.ttlDays} días. Si vence, escríbenos y te enviamos uno nuevo.`,
+      ],
+      button: { text: 'Descargar mi informe', url: data.link },
+      note: 'Este enlace es personal: no lo reenvíes.',
     },
     brand,
   );

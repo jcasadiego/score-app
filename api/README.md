@@ -202,7 +202,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     vigente por caso (índice único parcial) y solo se anula una vez (trigger).
   - **Reabrir:** `POST /reviews/:id/reopenings` con `reason`, solo el
     Aprobador. Si el caso tenía el informe aprobado, vuelve a borrador
-    (`src/reports`). Todavía no hay entrega que lo impida (Delivery, PR B).
+    (`src/reports`). Si el informe ya se entregó, queda como entregado y
+    desactualizado, y su enlace no se puede reenviar.
   - **Concurrencia:** corregir y aprobar exigen `If-Match` con el ETag
     (`"<version>"`): 428 si falta, 412 si el caso cambió. Tomar, liberar,
     corregir, aprobar, reabrir y encolar un cálculo suben la versión.
@@ -213,8 +214,9 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     (riesgo aceptado A.5.3, CLAUDE.md 5.3).
 - `src/reports/` — informe del diagnóstico (PF-42): la IA redacta el
   borrador, una persona lo edita y un Aprobador lo aprueba. La IA nunca calcula
-  ni cambia el puntaje. Rutas bajo `/reviews/:reviewId/report`; la entrega y el
-  PDF llegan en el PR siguiente.
+  ni cambia el puntaje. Después se entrega por correo con un enlace de descarga
+  del PDF. Estados: `DRAFT` → `APPROVED` → `DELIVERED`. Rutas del panel bajo
+  `/reviews/:reviewId/report`; la descarga del cliente, `POST /report-downloads`.
   - **Generar:** `POST /reviews/:id/report`, ambos roles, solo con la revisión
     aprobada (409 `REVIEW_NOT_APPROVED`) y una vez por caso (409
     `REPORT_ALREADY_EXISTS`). La IA (`AI_REPORT_*`, prompt `report.draft`)
@@ -232,7 +234,7 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     las otras como contexto) y `POST .../regenerations` (todo el borrador con
     la aprobación vigente: así se pone al día uno desactualizado). Ambos roles,
     con `If-Match` (428/412 `REPORT_VERSION_MISMATCH`) y solo en borrador (409
-    `REPORT_APPROVED`).
+    `REPORT_APPROVED`, o `REPORT_DELIVERED` si ya se entregó).
   - **Historial:** `GET .../sections/:sectionId/revisions`. Cada cambio es una
     fila de `report_section_revisions` (solo inserción, trigger) con su origen:
     `AI` con la llamada de `ai_call_logs`, o `HUMAN`; siempre con autor (quien
@@ -242,8 +244,46 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
     borrador (409 `REPORT_OUTDATED` si no). Guarda qué versión de cada sección
     se aprobó (`report_approval_revisions`). Reabrir o recalcular el caso anula
     la aprobación del informe con la misma causa y lo devuelve a borrador.
-  - **Bitácora:** generar, regenerar, editar, aprobar y la anulación, en la
-    misma transacción y sin texto del informe.
+  - **Reabrir el informe:** `POST .../reopenings` con `reason`, solo el
+    Aprobador, con `If-Match`. Devuelve a borrador un informe aprobado que
+    todavía no se entregó, sin tocar la aprobación del caso: se corrige y se
+    vuelve a aprobar sin regenerarlo. 409 `REPORT_NOT_APPROVED` en borrador y
+    `REPORT_DELIVERED` si ya se entregó (un informe entregado no cambia).
+  - **PDF** (`src/reports/pdf`): PDFKit con Noto Sans (OFL, en
+    `assets/fonts`; el despliegue debe incluir esa carpeta). No se guarda el
+    archivo: se genera a pedido y es determinista (fechas internas = la de la
+    aprobación), así que la misma versión aprobada da siempre los mismos bytes.
+    La plantilla 1 es provisional, solo texto y sin puntajes. Para cambiarla
+    se agrega una versión nueva en `TEMPLATES` y se sube
+    `CURRENT_TEMPLATE_VERSION`, dejando las anteriores mientras tengan enlaces
+    vigentes. `GET .../pdf` (ambos roles) muestra el PDF tal como está hoy.
+    Noto Sans no cubre escrituras como la china o la árabe: esos caracteres
+    salen como recuadros.
+  - **Entregar y reenviar:** `POST .../deliveries`, solo el Aprobador, con
+    `If-Match`. Exige el informe aprobado (409 `REPORT_NOT_APPROVED`), el caso
+    aprobado con la misma aprobación (409 `REVIEW_NOT_APPROVED` /
+    `REPORT_OUTDATED`) y sin nada que hoy impediría aprobarlo (409
+    `REPORT_DELIVERY_BLOCKED` con la lista en `errors`). Envía al lead un
+    correo con el enlace de descarga, que vence en `REPORT_LINK_TTL_DAYS` (30),
+    y deja el informe en `DELIVERED`. Llamarla de nuevo reenvía: enlace nuevo
+    y el anterior revocado en la misma transacción (a lo sumo uno sin revocar
+    por informe, índice único parcial). Si el correo no sale, 503
+    `REPORT_EMAIL_FAILED` y no queda nada marcado. Cada envío es una fila de
+    `report_deliveries` (solo inserción): a qué nombre y correo, quién, cuándo,
+    la plantilla y el SHA-256 del PDF. `GET .../deliveries` las lista con el
+    estado del enlace y sus descargas.
+  - **Descarga del cliente:** `POST /report-downloads` con `{ token }` en el
+    cuerpo (nunca en la URL), pública y con límite de 10 por minuto. Del token
+    solo se guarda el SHA-256. Responde el PDF con `Cache-Control: no-store` y
+    `Content-Disposition: attachment`; 401 `INVALID_REPORT_LINK` con el mismo
+    mensaje si el enlace es inválido, venció o fue revocado. El PDF se vuelve a
+    generar desde la versión aprobada y solo se entrega si da la huella de la
+    entrega (500 `REPORT_PDF_INTEGRITY_FAILED` si no). Cada descarga queda en
+    `report_downloads` y en la bitácora con actor `END_CLIENT`. El enlace del
+    correo apunta a `DIAGNOSTIC_URL/report#token=...`, pantalla de PF-44.
+  - **Bitácora:** generar, regenerar, editar, aprobar, reabrir, entregar,
+    reenviar, descargar y la anulación, en la misma transacción y sin texto
+    del informe, motivo, correo del cliente ni token.
 - `src/calculations/` — cálculos del motor (PF-24).
   - **Cuándo se calcula:** al enviar el diagnóstico, el `Calculation` pendiente
     se crea en la misma transacción y se procesa en segundo plano; el cliente

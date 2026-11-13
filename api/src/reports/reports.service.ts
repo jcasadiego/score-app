@@ -7,6 +7,7 @@ import {
 import { Prisma } from '../../generated/prisma/client';
 import {
   AuditActorType,
+  ReportApprovalVoidCause,
   ReportPart,
   ReportRevisionSource,
   ReportStatus,
@@ -30,9 +31,11 @@ import {
   AI_TASK_FAILED,
   REPORT_ALREADY_EXISTS,
   REPORT_APPROVED,
+  REPORT_DELIVERED,
   REPORT_DIMENSIONS_MISSING,
+  REPORT_NOT_APPROVED,
   REPORT_OUTDATED,
-  REPORT_VERSION_MISMATCH,
+  REPORT_VERSION_MISMATCH_ERROR as VERSION_MISMATCH,
 } from './report-codes';
 import {
   dimensionsOf,
@@ -41,19 +44,12 @@ import {
   resultForAi,
 } from './report-dimensions';
 
-/** La fila del informe bloqueada con `FOR UPDATE` al cambiarlo. */
-interface LockedReport {
-  id: string;
-  status: ReportStatus;
-  version: number;
-  reviewApprovalId: string;
-}
-
-const VERSION_MISMATCH = {
-  code: REPORT_VERSION_MISMATCH,
-  message:
-    'El informe cambió desde que lo abriste. Vuelve a cargarlo y revisa los cambios.',
-};
+import {
+  type LockedReport,
+  lockReport,
+  lockReview,
+  reportNotFound,
+} from './report-locks';
 
 const USER_SELECT = { select: { id: true, name: true } } as const;
 
@@ -126,8 +122,7 @@ interface DraftContext {
  * revisión aprobada, una persona lo edita y un Aprobador lo aprueba. La IA
  * nunca calcula ni cambia el puntaje y nunca recibe nombre, correo ni teléfono
  * del lead. Cada cambio queda en el historial de su sección (solo inserción).
- * Orden de bloqueo: la revisión antes que el informe, igual que al anular la
- * aprobación de la revisión (`voidReportApproval`).
+ * Orden de bloqueo: la revisión antes que el informe (`report-locks.ts`).
  */
 @Injectable()
 export class ReportsService {
@@ -153,6 +148,12 @@ export class ReportsService {
           select: { voidedAt: true, calculation: { select: { output: true } } },
         },
         approvals: { where: { voidedAt: null }, select: APPROVAL_SELECT },
+        // La primera entrega: cuándo recibió el cliente su informe.
+        deliveries: {
+          select: { createdAt: true },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 1,
+        },
         sections: {
           select: {
             id: true,
@@ -190,9 +191,10 @@ export class ReportsService {
         author: current.author,
         revisedAt: current.createdAt,
       }));
-    const { reviewApproval, approvals, ...rest } = report;
+    const { reviewApproval, approvals, deliveries, ...rest } = report;
     return {
       ...rest,
+      deliveredAt: deliveries[0]?.createdAt ?? null,
       // La aprobación de la revisión con que se redactó ya no es la vigente.
       outdated: reviewApproval.voidedAt !== null,
       approval: approvals[0] ?? null,
@@ -446,6 +448,55 @@ export class ReportsService {
     return this.findOne(reviewId);
   }
 
+  /**
+   * Reabre un informe aprobado que todavía no se entregó: vuelve a borrador y
+   * su aprobación queda anulada con el motivo. La aprobación del caso no se
+   * toca. Solo el Aprobador (lo decide el controlador).
+   */
+  async reopen(
+    reviewId: string,
+    reason: string,
+    expectedVersion: number,
+    actor: Actor,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockReview(tx, reviewId);
+      const report = await this.lockReport(tx, reviewId);
+      assertVersion(report.version, expectedVersion, VERSION_MISMATCH);
+      if (report.status === ReportStatus.DRAFT) {
+        throw new ConflictException({
+          message: 'El informe no está aprobado: no hay nada que reabrir.',
+          code: REPORT_NOT_APPROVED,
+        });
+      }
+      if (report.status === ReportStatus.DELIVERED) throw this.delivered();
+
+      const active = await tx.reportApproval.findFirstOrThrow({
+        where: { reportId: report.id, voidedAt: null },
+        select: { id: true },
+      });
+      await tx.reportApproval.update({
+        where: { id: active.id },
+        data: {
+          voidedAt: new Date(),
+          voidCause: ReportApprovalVoidCause.REPORT_REOPENED,
+          voidedById: actor.id,
+          voidReason: reason,
+        },
+      });
+      await tx.report.update({
+        where: { id: report.id },
+        data: { status: ReportStatus.DRAFT, version: { increment: 1 } },
+      });
+      // Sin el motivo: texto libre que puede citar al cliente.
+      await this.record(tx, actor, 'REPORT_REOPENED', report.id, {
+        reviewId,
+        approvalId: active.id,
+      });
+    });
+    return this.findOne(reviewId);
+  }
+
   /** La versión actual, para el ETag. */
   async version(reviewId: string): Promise<number> {
     return (await this.reportOrThrow(reviewId)).version;
@@ -629,33 +680,22 @@ export class ReportsService {
   }
 
   private assertDraft(status: ReportStatus): void {
+    if (status === ReportStatus.DELIVERED) throw this.delivered();
     if (status !== ReportStatus.DRAFT) {
       throw new ConflictException({
-        message: 'El informe ya está aprobado: no admite cambios.',
+        message:
+          'El informe ya está aprobado: no admite cambios. Un Aprobador puede reabrirlo.',
         code: REPORT_APPROVED,
       });
     }
   }
 
-  private async lockReview(tx: Prisma.TransactionClient, reviewId: string) {
-    const [review] = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM reviews WHERE id = ${reviewId} FOR UPDATE
-    `;
-    if (!review) {
-      throw new NotFoundException(`Revisión ${reviewId} no encontrada`);
-    }
+  private lockReview(tx: Prisma.TransactionClient, reviewId: string) {
+    return lockReview(tx, reviewId);
   }
 
-  private async lockReport(
-    tx: Prisma.TransactionClient,
-    reviewId: string,
-  ): Promise<LockedReport> {
-    const [report] = await tx.$queryRaw<LockedReport[]>`
-      SELECT id, status, version, review_approval_id AS "reviewApprovalId"
-      FROM reports WHERE review_id = ${reviewId} FOR UPDATE
-    `;
-    if (!report) throw this.notFound(reviewId);
-    return report;
+  private lockReport(tx: Prisma.TransactionClient, reviewId: string) {
+    return lockReport(tx, reviewId);
   }
 
   private async reportOrThrow(reviewId: string): Promise<LockedReport> {
@@ -717,9 +757,14 @@ export class ReportsService {
     });
   }
 
+  private delivered() {
+    return new ConflictException({
+      message: 'El informe ya se entregó al cliente: no admite cambios.',
+      code: REPORT_DELIVERED,
+    });
+  }
+
   private notFound(reviewId: string) {
-    return new NotFoundException(
-      `La revisión ${reviewId} no tiene un informe todavía`,
-    );
+    return reportNotFound(reviewId);
   }
 }

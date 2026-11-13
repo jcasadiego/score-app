@@ -16,7 +16,10 @@ import {
   UserRole,
 } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
-import { VALIDATION_FAILED_CODE } from '../common/problem-details';
+import {
+  type ProblemError,
+  VALIDATION_FAILED_CODE,
+} from '../common/problem-details';
 import type { ValidatedEnv } from '../config/validate-env';
 import { validateAnswer } from '../diagnostics/answer-rules';
 import { FlagsService } from '../flags/flags.service';
@@ -617,6 +620,27 @@ export class ReviewsService {
       );
       return approval;
     });
+  }
+
+  /**
+   * Lo que hoy impediría aprobar un caso que ya tiene una aprobación vigente,
+   * con la excepción de IA con que se aprobó. Vacío = sigue en regla. Lo usa
+   * la entrega del informe, en su transacción y con la revisión ya bloqueada.
+   */
+  async blockersOfApproved(
+    tx: Prisma.TransactionClient,
+    reviewId: string,
+    aiExceptionReason: string | null,
+  ): Promise<ProblemError[]> {
+    const review = await tx.review.findUniqueOrThrow({
+      where: { id: reviewId },
+      select: { id: true, diagnosticId: true },
+    });
+    const state = await this.approvalState(tx, review, {
+      lockFlags: true,
+      aiExceptionReason: aiExceptionReason ?? undefined,
+    });
+    return approvalBlockers(state);
   }
 
   /** La versión actual, para el ETag de las respuestas que cambian el caso. */

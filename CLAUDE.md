@@ -170,7 +170,8 @@ matriz. Un rol nuevo o un permiso por caso se confirma antes con José.
 | Revisión: tomar, liberar el propio, corregir, notas | ✅ | ✅ |
 | Revisión: aprobar, reabrir, registrar excepción de IA, liberar un caso tomado por otro | — | ✅ |
 | Informe: generar y editar borrador, regenerar sección | ✅ | ✅ |
-| Informe: aprobar, entregar, reenviar enlace del informe | — | ✅ |
+| Informe: ver el PDF y las entregas | ✅ | ✅ |
+| Informe: aprobar, reabrir (con motivo, antes de entregar), entregar, reenviar enlace del informe | — | ✅ |
 | Pagos: todo | — | ✅ |
 
 - La API valida el rol en cada petición, leído de la base. El panel solo oculta lo

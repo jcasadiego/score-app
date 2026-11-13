@@ -16,6 +16,7 @@ import {
   NewLeadNoticeData,
   passwordResetEmail,
   passwordSetupEmail,
+  reportLinkEmail,
   PasswordSetupReason,
   SecurityNoticeData,
   securityNoticeEmail,
@@ -25,6 +26,7 @@ import { RenderedEmail } from './templates/base-template';
 export type MailType =
   | 'DIAGNOSTIC_LINK'
   | 'LINK_RECOVERY'
+  | 'REPORT_LINK'
   | 'PASSWORD_RESET'
   | 'PASSWORD_SETUP'
   | 'SECURITY_NOTICE'
@@ -86,6 +88,19 @@ export class MailService {
       'LINK_RECOVERY',
       recipient.to,
       linkRecoveryEmail(recipient, this.brand()),
+      context,
+    );
+  }
+
+  /** El enlace de descarga del informe entregado (PF-42). */
+  sendReportLink(
+    recipient: LinkMailRecipient & { ttlDays: number },
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'REPORT_LINK',
+      recipient.to,
+      reportLinkEmail(recipient, this.brand()),
       context,
     );
   }

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -15,7 +16,7 @@ import {
   type AiProviderRequest,
 } from './../src/ai/ai-provider.port';
 import { AppThrottlerGuard } from './../src/common/app-throttler.guard';
-import { MAIL_PORT } from './../src/mail/mail.port';
+import { MAIL_PORT, type MailMessage } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
 import {
   SCORING_ENGINE_PORT,
@@ -23,8 +24,9 @@ import {
 } from './../src/scoring-engine/scoring-engine.port';
 
 /**
- * Informe (PF-42): borrador con IA simulada, edición, historial y aprobación,
- * con un motor falso que devuelve dos dimensiones. Base propia.
+ * Informe (PF-42): borrador con IA simulada, edición, historial, aprobación,
+ * reapertura, entrega por correo y descarga pública, con un motor falso que
+ * devuelve dos dimensiones. Base propia.
  */
 if (existsSync('.env')) process.loadEnvFile('.env');
 
@@ -32,6 +34,7 @@ const DATABASE = `score_reports_${process.pid}`;
 const DIAGNOSTICS = '/api/v1/diagnostics';
 const SESSIONS = '/api/v1/diagnostic-sessions';
 const REVIEWS = '/api/v1/reviews';
+const DOWNLOADS = '/api/v1/report-downloads';
 const LEAD_NAME = 'Valentina Quiroga';
 
 function databaseUrl(name: string): string {
@@ -70,6 +73,8 @@ describe('Informe (e2e, base propia)', () => {
   let leadCount = 0;
   let aiError: Error | null = null;
   const aiRequests: AiProviderRequest[] = [];
+  let mailFails = false;
+  const mailbox: MailMessage[] = [];
 
   const server = () => request(app.getHttpServer());
   const as = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -210,6 +215,45 @@ describe('Informe (e2e, base propia)', () => {
       .set('If-Match', headers.etag as string);
   }
 
+  /** Caso con el informe ya aprobado. */
+  async function approvedCase() {
+    const kase = await draftedCase();
+    const approved = await approveReport(kase.reviewId);
+    expect(approved.status).toBe(201);
+    return { ...kase, etag: approved.headers.etag as string };
+  }
+
+  function deliver(reviewId: string, etag: string, token = approver.token) {
+    return server()
+      .post(`${reportUrl(reviewId)}/deliveries`)
+      .set(as(token))
+      .set('If-Match', etag);
+  }
+
+  function reopenReport(
+    reviewId: string,
+    etag: string,
+    token = approver.token,
+    reason = 'Hay un error de redacción en D1',
+  ) {
+    return server()
+      .post(`${reportUrl(reviewId)}/reopenings`)
+      .set(as(token))
+      .set('If-Match', etag)
+      .send({ reason });
+  }
+
+  /** El token del enlace que salió en el último correo. */
+  function mailedToken(): string {
+    const link = /https?:\/\/\S+\/report#token=[\w-]+/.exec(
+      mailbox[mailbox.length - 1].text,
+    );
+    return new URLSearchParams(new URL(link![0]).hash.slice(1)).get('token')!;
+  }
+
+  const download = (token: string) =>
+    server().post(DOWNLOADS).send({ token }).responseType('blob');
+
   beforeAll(async () => {
     vi.spyOn(AppThrottlerGuard.prototype, 'canActivate').mockResolvedValue(
       true,
@@ -236,7 +280,16 @@ describe('Informe (e2e, base propia)', () => {
       imports: [AppModule],
     })
       .overrideProvider(MAIL_PORT)
-      .useValue({ send: async () => ({ sent: true, providerId: 'e2e' }) })
+      .useValue({
+        send: (message: MailMessage) => {
+          if (mailFails) {
+            return Promise.resolve({ sent: false, reason: 'proveedor caído' });
+          }
+          // Solo los correos del informe: los demás no son de esta suite.
+          if (message.text.includes('/report#token=')) mailbox.push(message);
+          return Promise.resolve({ sent: true, providerId: 'e2e' });
+        },
+      })
       .overrideProvider(SCORING_ENGINE_PORT)
       .useValue(engine)
       .compile();
@@ -297,6 +350,8 @@ describe('Informe (e2e, base propia)', () => {
   beforeEach(() => {
     aiError = null;
     aiRequests.length = 0;
+    mailFails = false;
+    mailbox.length = 0;
   });
 
   afterAll(async () => {
@@ -574,7 +629,10 @@ describe('Informe (e2e, base propia)', () => {
         await prisma.reportApproval.findFirstOrThrow({
           where: { reportId: report.id },
         }),
-      ).toMatchObject({ voidCause: 'REOPENED', voidedById: approver.id });
+      ).toMatchObject({
+        voidCause: 'REVIEW_REOPENED',
+        voidedById: approver.id,
+      });
       const notApproved = await approveReport(reviewId);
       expect(notApproved.status).toBe(409);
       expect(notApproved.body.code).toBe('REVIEW_NOT_APPROVED');
@@ -612,7 +670,344 @@ describe('Informe (e2e, base propia)', () => {
         await prisma.reportApproval.findFirstOrThrow({
           where: { reportId: report.id },
         }),
-      ).toMatchObject({ voidCause: 'RECALCULATED' });
+      ).toMatchObject({ voidCause: 'REVIEW_RECALCULATED' });
+    });
+  });
+
+  describe('reapertura del informe', () => {
+    it('el Revisor recibe 403; sin motivo, 400; un borrador no se reabre (409)', async () => {
+      const draft = await draftedCase();
+      const { body } = await reopenReport(draft.reviewId, draft.etag).expect(
+        409,
+      );
+      expect(body.code).toBe('REPORT_NOT_APPROVED');
+
+      const { reviewId, etag } = await approvedCase();
+      await reopenReport(reviewId, etag, reviewer.token).expect(403);
+      await reopenReport(reviewId, etag, approver.token, '   ').expect(400);
+      await server()
+        .post(`${reportUrl(reviewId)}/reopenings`)
+        .set(as(approver.token))
+        .send({ reason: 'Sin versión' })
+        .expect(428);
+      expect((await read(reviewId)).body.status).toBe('APPROVED');
+    });
+
+    it('el Aprobador lo devuelve a borrador con motivo, sin tocar la aprobación del caso', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+
+      const reopened = await reopenReport(reviewId, etag).expect(200);
+      expect(reopened.body.status).toBe('DRAFT');
+      expect(reopened.body.approval).toBeNull();
+      expect(reopened.body.outdated).toBe(false);
+      expect(
+        await prisma.reportApproval.findFirstOrThrow({
+          where: { reportId: report.id },
+        }),
+      ).toMatchObject({
+        voidCause: 'REPORT_REOPENED',
+        voidedById: approver.id,
+        voidReason: 'Hay un error de redacción en D1',
+      });
+      expect(
+        await prisma.review.findUniqueOrThrow({ where: { id: reviewId } }),
+      ).toMatchObject({ status: 'APPROVED' });
+
+      // Se corrige y se vuelve a aprobar sin regenerar nada.
+      await edit(
+        reviewId,
+        report.sections[0].id,
+        'Texto corregido',
+        reopened.headers.etag as string,
+      ).expect(200);
+      expect((await approveReport(reviewId)).status).toBe(201);
+    });
+  });
+
+  describe('entrega y descarga', () => {
+    it('el Revisor recibe 403 al entregar; un borrador no se entrega (409); sin If-Match, 428', async () => {
+      const draft = await draftedCase();
+      const { body } = await deliver(draft.reviewId, draft.etag).expect(409);
+      expect(body.code).toBe('REPORT_NOT_APPROVED');
+
+      const { reviewId, etag } = await approvedCase();
+      await deliver(reviewId, etag, reviewer.token).expect(403);
+      await server()
+        .post(`${reportUrl(reviewId)}/deliveries`)
+        .set(as(approver.token))
+        .expect(428);
+      expect(mailbox).toHaveLength(0);
+      expect(await prisma.reportDelivery.count()).toBe(
+        await prisma.reportDownloadLink.count(),
+      );
+    });
+
+    it('el cliente recibe el correo, descarga el PDF aprobado y la descarga queda registrada', async () => {
+      const { reviewId, report, etag, lead, diagnosticId } =
+        await approvedCase();
+
+      const delivered = await deliver(reviewId, etag).expect(201);
+      expect(delivered.body.resend).toBe(false);
+      expect(mailbox).toHaveLength(1);
+      expect(mailbox[0].to).toBe(lead.email);
+      const token = mailedToken();
+
+      const { body: after, headers } = await read(reviewId);
+      expect(after.status).toBe('DELIVERED');
+      expect(after.deliveredAt).toBe(delivered.body.deliveredAt);
+      expect(headers.etag).toBe(delivered.headers.etag);
+
+      const delivery = await prisma.reportDelivery.findFirstOrThrow({
+        where: { reportId: report.id },
+        include: { downloadLink: true },
+      });
+      expect(delivery).toMatchObject({
+        recipientEmail: lead.email,
+        recipientName: LEAD_NAME,
+        deliveredById: approver.id,
+        templateVersion: 1,
+      });
+      // Del token solo se guarda el hash.
+      expect(delivery.downloadLink!.tokenHash).toBe(
+        createHash('sha256').update(token).digest('hex'),
+      );
+
+      const pdf = await download(token).expect(200);
+      expect(pdf.headers['content-type']).toBe('application/pdf');
+      expect(pdf.headers['cache-control']).toBe('no-store');
+      expect(pdf.headers['content-disposition']).toBe(
+        'attachment; filename="informe-score.pdf"',
+      );
+      const file = pdf.body as Buffer;
+      expect(file.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(createHash('sha256').update(file).digest('hex')).toBe(
+        delivery.pdfSha256,
+      );
+
+      // El panel ve el mismo PDF, y la entrega con su descarga.
+      const preview = await server()
+        .get(`${reportUrl(reviewId)}/pdf`)
+        .set(as(reviewer.token))
+        .responseType('blob')
+        .expect(200);
+      expect((preview.body as Buffer).equals(file)).toBe(true);
+      const { body: deliveries } = await server()
+        .get(`${reportUrl(reviewId)}/deliveries`)
+        .set(as(reviewer.token))
+        .expect(200);
+      expect(deliveries).toHaveLength(1);
+      expect(deliveries[0]).toMatchObject({
+        recipientEmail: lead.email,
+        deliveredBy: { id: approver.id },
+        link: { revokedAt: null, downloads: 1 },
+      });
+      expect(deliveries[0].link.lastDownloadAt).toBeTruthy();
+
+      expect(
+        await prisma.auditLog.findFirstOrThrow({
+          where: { action: 'REPORT_DOWNLOADED', entityId: report.id },
+        }),
+      ).toMatchObject({ actorType: 'END_CLIENT', actorId: diagnosticId });
+    });
+
+    it('un informe entregado ya no se edita ni se reabre (409)', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+      const delivered = await deliver(reviewId, etag).expect(201);
+      const current = delivered.headers.etag as string;
+
+      const edited = await edit(
+        reviewId,
+        report.sections[0].id,
+        'Cambio tardío',
+        current,
+      ).expect(409);
+      expect(edited.body.code).toBe('REPORT_DELIVERED');
+      const reopened = await reopenReport(reviewId, current).expect(409);
+      expect(reopened.body.code).toBe('REPORT_DELIVERED');
+    });
+
+    it('si el correo no sale, la entrega no queda marcada y se puede reintentar', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+
+      mailFails = true;
+      const { body } = await deliver(reviewId, etag).expect(503);
+      expect(body.code).toBe('REPORT_EMAIL_FAILED');
+      expect((await read(reviewId)).body.status).toBe('APPROVED');
+      expect(
+        await prisma.reportDelivery.count({ where: { reportId: report.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.reportDownloadLink.count({
+          where: { reportId: report.id },
+        }),
+      ).toBe(0);
+
+      mailFails = false;
+      await deliver(reviewId, etag).expect(201);
+      await download(mailedToken()).expect(200);
+    });
+
+    it('reenviar revoca el enlace anterior y solo queda uno vigente; con la versión vieja, 412', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+      const first = await deliver(reviewId, etag).expect(201);
+      const oldToken = mailedToken();
+
+      await deliver(reviewId, etag).expect(412);
+      await deliver(
+        reviewId,
+        first.headers.etag as string,
+        reviewer.token,
+      ).expect(403);
+      const second = await deliver(
+        reviewId,
+        first.headers.etag as string,
+      ).expect(201);
+      expect(second.body.resend).toBe(true);
+      const newToken = mailedToken();
+      expect(newToken).not.toBe(oldToken);
+
+      const rejected = await server()
+        .post(DOWNLOADS)
+        .send({ token: oldToken })
+        .expect(401);
+      expect(rejected.body.code).toBe('INVALID_REPORT_LINK');
+      await download(newToken).expect(200);
+
+      const links = await prisma.reportDownloadLink.findMany({
+        where: { reportId: report.id },
+      });
+      expect(links).toHaveLength(2);
+      expect(links.filter((l) => l.revokedAt === null)).toHaveLength(1);
+      expect((await read(reviewId)).body.status).toBe('DELIVERED');
+    });
+
+    it('un enlace inventado o vencido responde 401 con el mismo mensaje', async () => {
+      const { reviewId, etag } = await approvedCase();
+      await deliver(reviewId, etag).expect(201);
+      const token = mailedToken();
+
+      const invented = await server()
+        .post(DOWNLOADS)
+        .send({ token: 'no-existe' })
+        .expect(401);
+      await server().post(DOWNLOADS).send({}).expect(400);
+
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(Date.now() + 31 * 24 * 60 * 60 * 1000);
+        const expired = await server()
+          .post(DOWNLOADS)
+          .send({ token })
+          .expect(401);
+        expect(expired.body.code).toBe('INVALID_REPORT_LINK');
+        expect(expired.body.detail).toBe(invented.body.detail);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('no se entrega si el caso tiene pendientes, ni se reenvía si el caso se reabrió', async () => {
+      const { reviewId, etag, diagnosticId } = await approvedCase();
+      const calculation = await prisma.calculation.findFirstOrThrow({
+        where: { diagnosticId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+      // Una alerta abierta que llegó por fuera del flujo normal.
+      const flag = await prisma.flag.create({
+        data: {
+          calculationId: calculation.id,
+          source: 'ENGINE',
+          severity: 'HIGH',
+          message: 'Alerta de prueba',
+        },
+      });
+      const blocked = await deliver(reviewId, etag).expect(409);
+      expect(blocked.body.code).toBe('REPORT_DELIVERY_BLOCKED');
+      expect(blocked.body.errors).toEqual([
+        expect.objectContaining({ code: 'OPEN_FLAGS' }),
+      ]);
+      expect(mailbox).toHaveLength(0);
+
+      await prisma.flag.update({
+        where: { id: flag.id },
+        data: {
+          status: 'REVIEWED',
+          reviewedById: approver.id,
+          reviewedAt: new Date(),
+        },
+      });
+      const delivered = await deliver(reviewId, etag).expect(201);
+
+      await server()
+        .post(`${REVIEWS}/${reviewId}/reopenings`)
+        .set(as(approver.token))
+        .send({ reason: 'Se detectó un error después de entregar' })
+        .expect(201);
+      const resent = await deliver(
+        reviewId,
+        delivered.headers.etag as string,
+      ).expect(409);
+      expect(resent.body.code).toBe('REVIEW_NOT_APPROVED');
+      expect(mailbox).toHaveLength(1);
+    });
+
+    it('entregas y descargas no se alteran desde la base; del enlace solo cambia la revocación', async () => {
+      const { reviewId, report, etag } = await approvedCase();
+      await deliver(reviewId, etag).expect(201);
+      await download(mailedToken()).expect(200);
+      const where = { reportId: report.id };
+
+      await expect(
+        prisma.reportDelivery.updateMany({
+          where,
+          data: { recipientEmail: 'otro@test.local' },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.reportDelivery.deleteMany({ where }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.reportDownload.deleteMany({ where: { link: where } }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.reportDownloadLink.updateMany({
+          where,
+          data: { expiresAt: new Date(Date.now() + 1e12) },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.reportDownloadLink.deleteMany({ where }),
+      ).rejects.toThrow();
+      // Un segundo enlace vigente para el mismo informe no entra.
+      const delivery = await prisma.reportDelivery.findFirstOrThrow({ where });
+      await expect(
+        prisma.reportDownloadLink.create({
+          data: {
+            deliveryId: delivery.id,
+            reportId: report.id,
+            tokenHash: 'a'.repeat(64),
+            expiresAt: new Date(Date.now() + 60_000),
+          },
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('ni el correo del cliente ni el token entran a la bitácora', async () => {
+      const since = new Date();
+      const { reviewId, etag, lead } = await approvedCase();
+      await deliver(reviewId, etag).expect(201);
+      const token = mailedToken();
+      await download(token).expect(200);
+
+      const logs = JSON.stringify(
+        await prisma.auditLog.findMany({
+          where: { createdAt: { gte: since } },
+        }),
+      );
+      expect(logs).toContain('REPORT_DELIVERED');
+      expect(logs).toContain('REPORT_DOWNLOADED');
+      expect(logs).not.toContain(lead.email);
+      expect(logs).not.toContain(token);
     });
   });
 

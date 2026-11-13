@@ -13,6 +13,11 @@ function baseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 }
 
+/** URL completa de una ruta de la API, para lo que no es JSON (el PDF). */
+export function apiUrl(path: string): string {
+  return `${baseUrl()}/api/v1${path}`;
+}
+
 /**
  * Llama a la API con el JWT de la sesión como Bearer. Solo desde el
  * servidor (Server Components y Server Actions): la cookie es httpOnly.
@@ -25,7 +30,7 @@ export async function callApi<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl()}/api/v1${path}`, {
+    response = await fetch(apiUrl(path), {
       ...init,
       headers: {
         "Content-Type": "application/json",

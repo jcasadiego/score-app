@@ -82,6 +82,26 @@ sesión tiene Jira conectado, con:
 - Los nombres técnicos que mencione un ticket o su prompt van en inglés;
   el texto del ticket y los textos de pantalla, en español.
 
+## Hooks y subagentes
+
+`settings.json` registra dos hooks (scripts en `hooks/`, requieren `jq`):
+
+- **`protect-files.sh`** (antes de editar): bloquea `.env` y `.env.*` (salvo
+  `.env.example`), los `pnpm-lock.yaml` y las migraciones de Prisma que ya
+  están en `origin/develop` (el local: sin un `git fetch` reciente, una
+  migración recién mergeada no se detecta). Normaliza la ruta antes de
+  comparar y, si falta `jq`, bloquea en vez de dejar pasar. No cubre lo que
+  se haga por Bash: es una red de seguridad, no un control.
+- **`format-lint.sh`** (después de editar): sobre el archivo editado corre
+  Prettier + `eslint --fix` en `api` (`src/` y `test/`) y `eslint --fix` en
+  `apps/panel` y `apps/diagnostico`. Si quedan errores, se los muestra a
+  Claude para que los corrija. Sin `node_modules` no hace nada.
+
+`agents/compliance-reviewer.md` revisa el diff de la rama contra las reglas
+propias de SCORE (CLAUDE.md 5.2, 5.3, 6 y 9). Se pide con "usa el
+compliance-reviewer sobre esta rama", antes del PR y junto a
+`/security-review`. Solo lee y reporta.
+
 ## Nota
 
 `settings.json` permite las herramientas de Jira con los dos nombres que

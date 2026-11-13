@@ -4,6 +4,8 @@ export const ROUTES = {
   questionnaire: "/diagnostic",
   recover: "/recover",
   submitted: "/submitted",
+  /** Descarga del informe, desde el correo de entrega (`/report#token=…`). */
+  report: "/report",
   /** Borra la cookie (un Server Component no puede) y lleva a recuperar. */
   sessionEnded: "/session-ended",
 } as const;

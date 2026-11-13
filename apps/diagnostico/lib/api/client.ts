@@ -63,7 +63,47 @@ export async function callApi<T>(
       response.status === 204 ? undefined : ((await response.json()) as T);
     return { ok: true, data: data as T };
   }
+  return problemResult(response);
+}
 
+/**
+ * Como `callApi`, para una respuesta binaria (el PDF del informe). Solo acepta
+ * el tipo esperado: cualquier otra cosa cuenta como error.
+ */
+export async function callApiFile(
+  path: string,
+  { method = "POST", body, contentType }: CallOptions & { contentType: string },
+): Promise<ActionResult<Uint8Array>> {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl()}/api/v1${path}`, {
+      method,
+      headers: {
+        ...(body !== undefined && { "Content-Type": "application/json" }),
+        ...(await clientIpHeaders()),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_ERROR };
+  }
+
+  if (!response.ok) return problemResult(response);
+  if (!response.headers.get("content-type")?.startsWith(contentType)) {
+    return { ok: false, status: 502, message: GENERIC_ERROR };
+  }
+  try {
+    return { ok: true, data: new Uint8Array(await response.arrayBuffer()) };
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_ERROR };
+  }
+}
+
+/** El error RFC 9457 de la API, traducido a un mensaje para el cliente. */
+async function problemResult(
+  response: Response,
+): Promise<ActionResult<never>> {
   const problem = (await response.json().catch(() => null)) as {
     detail?: string;
     code?: string;

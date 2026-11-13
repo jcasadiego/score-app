@@ -31,8 +31,25 @@ en producción con `pnpm build && pnpm exec next start -p 3001`.
 | `/submitted` | Confirmación tras enviar, o aviso de que ya se había enviado (`?state=already`). |
 | `/session-ended` | Borra la cookie cuando la API rechaza la sesión y lleva a `/recover`. |
 
+## Descarga del informe (PF-44)
+
+| Ruta | Qué hace |
+|---|---|
+| `/report#token=…` | Llega desde el correo de entrega del informe. Un botón descarga el PDF (`informe-score.pdf`) sin salir de la página; se puede volver a descargar mientras el enlace siga vigente. El token se usa al pulsar, no al abrir, para que un antivirus o la vista previa del correo no gasten una descarga. Si el enlace venció o fue reemplazado por uno más nuevo, el mismo mensaje en los dos casos: buscar el correo más reciente o responder al correo para pedir otro (no hay autoservicio: lo reenvía el equipo desde el panel). Con 429, pide esperar un minuto; con otro fallo, ofrece reintentar. |
+
+- No guarda nada del cliente: ni cookie ni almacenamiento del navegador.
+- La Server Action `downloadReport` manda el token a `POST /report-downloads` en
+  el cuerpo y devuelve los bytes del PDF; el navegador los guarda con un
+  enlace `blob:`, sin cambiar la CSP.
+- Esta ruta lleva `Referrer-Policy: no-referrer` (`next.config.ts`).
+- Para probarla en local hace falta un informe entregado: con la api en
+  `MAIL_DRIVER=log`, el enlace sale en su log al entregar o reenviar.
+
 ## Seguridad
 
+- **Los tokens de los enlaces** (diagnóstico e informe) llegan en el fragmento
+  (`#token=…`): nunca llegan a este servidor ni a sus logs, y viajan a la API
+  en el cuerpo de un POST, nunca en una URL.
 - **El navegador nunca habla con la API.** Todo pasa por Server Actions y
   Server Components (`lib/api/client.ts`), así que `connect-src 'self'`.
 - **Sesión:** cookie `score_diagnostic_session`, `httpOnly`, `Secure` en

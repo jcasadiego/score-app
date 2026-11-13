@@ -155,7 +155,8 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
     ofrece "Regenerar todo".
   - Aprobar, entregar, reenviar el enlace y reabrir el informe (con motivo,
     antes de entregar): solo el Aprobador. Entregar muestra el nombre y el
-    correo de destino antes de confirmar. El Revisor ve "Pendiente de
+    correo de destino antes de confirmar; se piden a `GET /leads/:id` al abrir
+    la confirmación, no con la pantalla. El Revisor ve "Pendiente de
     aprobación" o "pendiente de entrega".
   - Si el caso se reabre o se recalcula después de entregar, el informe
     vuelve a borrador como "Pendiente de reenvío" y la entrega siguiente
@@ -207,8 +208,7 @@ fijo abajo al centro. Sirve de prueba de regresión visual cada vez que
 se toque la tabla. En producción el parámetro se ignora. En ese modo
 las acciones de fila llaman a la API real con ids falsos (404).
 
-## Pendiente a propósito (no construido todavía)
+## Roles
 
-Los roles Revisor y
-Aprobador están en `CLAUDE.md`, sección 5.3: el panel oculta lo que el rol no
-permite, y quien valida el permiso es la API.
+Los roles Revisor y Aprobador están en `CLAUDE.md`, sección 5.3: el panel
+oculta lo que el rol no permite, y quien valida el permiso es la API.

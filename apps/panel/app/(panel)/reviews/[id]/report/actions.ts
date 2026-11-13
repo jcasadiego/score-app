@@ -17,6 +17,7 @@ import {
   reopenReport,
   type SectionRevision,
 } from "@/lib/api/reports";
+import { getLead } from "@/lib/api/leads";
 import {
   REPORT_REOPEN_REASON_MAX,
   REPORT_SECTION_BODY_MAX,
@@ -229,5 +230,26 @@ export async function deliverReportAction(
       };
     }
     return failure(error, "No pudimos enviar el informe. Intenta de nuevo.");
+  }
+}
+
+/**
+ * A quién sale el informe, para confirmarlo antes de entregar (solo el
+ * Aprobador ve ese paso). Se pide al abrir la confirmación y no con la
+ * pantalla: el correo no viaja a quien no lo necesita.
+ */
+export async function deliveryRecipientAction(
+  leadId: string,
+): Promise<{ ok: true; name: string; email: string } | { ok: false; error: string }> {
+  try {
+    const session = await verifySession();
+    if (session.role !== "ADMIN") throw new ApiError(403, "No tienes permiso para hacer esto.");
+    const token = await sessionToken();
+    if (!isId(leadId)) throw new ApiError(400, "Ese cliente no es válido.");
+    const { name, email } = await getLead(token, leadId);
+    return { ok: true, name, email };
+  } catch (error) {
+    const result = await failure(error, "No pudimos cargar el correo del cliente.");
+    return { ok: false, error: result.error ?? "No pudimos cargar el correo del cliente." };
   }
 }

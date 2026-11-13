@@ -27,6 +27,7 @@ import {
   regenerateReportAction,
   regenerateSectionAction,
   sectionRevisionsAction,
+  deliveryRecipientAction,
   type ReportActionResult,
 } from "@/app/(panel)/reviews/[id]/report/actions";
 import { ReportStatusTag } from "./report-status-tag";
@@ -69,13 +70,11 @@ export function ReportScreen({
   review,
   report,
   deliveries,
-  recipient,
   isApprover,
 }: {
   review: ReviewDetail;
   report: Report | null;
   deliveries: DeliveryRow[];
-  recipient: { name: string; email: string };
   isApprover: boolean;
 }) {
   const router = useRouter();
@@ -87,6 +86,9 @@ export function ReportScreen({
   const [editing, setEditing] = useState<ReportSection | null>(null);
   const [history, setHistory] = useState<History | null>(null);
   const [delivering, setDelivering] = useState(false);
+  const [recipient, setRecipient] = useState<
+    { name: string; email: string } | { error: string } | null
+  >(null);
   const [reopening, setReopening] = useState(false);
 
   const reviewApproved = review.status === "APPROVED";
@@ -186,6 +188,16 @@ export function ReportScreen({
     });
   }
 
+  /** El correo de destino se pide al abrir la confirmación (solo el Aprobador). */
+  function openDelivery() {
+    setRecipient(null);
+    open(() => setDelivering(true));
+    startBusy(async () => {
+      const result = await deliveryRecipientAction(review.diagnostic.leadId);
+      setRecipient(result.ok ? { name: result.name, email: result.email } : { error: result.error });
+    });
+  }
+
   const pdfHref = `${reportHref(review.id)}/pdf`;
 
   const header = (
@@ -234,7 +246,7 @@ export function ReportScreen({
           )}
           {isApprover && report?.status === "APPROVED" && (
             <>
-              <Button type="primary" disabled={busy} onClick={() => open(() => setDelivering(true))}>
+              <Button type="primary" disabled={busy} onClick={openDelivery}>
                 {report.redeliveryPending ? "Entregar versión actualizada" : "Entregar al cliente"}
               </Button>
               <Button disabled={busy} onClick={() => open(() => setReopening(true))}>
@@ -243,7 +255,7 @@ export function ReportScreen({
             </>
           )}
           {isApprover && report?.status === "DELIVERED" && (
-            <Button disabled={busy} onClick={() => open(() => setDelivering(true))}>
+            <Button disabled={busy} onClick={openDelivery}>
               Reenviar enlace
             </Button>
           )}

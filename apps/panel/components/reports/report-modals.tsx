@@ -187,7 +187,8 @@ export function DeliverModal({
   onCancel,
 }: {
   report: Report;
-  recipient: { name: string; email: string };
+  /** Nulo mientras carga; `error` si no se pudo cargar. */
+  recipient: { name: string; email: string } | { error: string } | null;
   onDone: (result: ReportActionResult) => void;
   onCancel: () => void;
 }) {
@@ -226,7 +227,11 @@ export function DeliverModal({
           key="submit"
           type="primary"
           loading={sending}
-          disabled={blockers !== null && blockers.length > 0}
+          disabled={
+            (blockers !== null && blockers.length > 0) ||
+            !recipient ||
+            "error" in recipient
+          }
           onClick={send}
         >
           {resend ? "Reenviar enlace" : "Entregar"}
@@ -241,14 +246,22 @@ export function DeliverModal({
               ? "El cliente recibe la versión actualizada con un enlace nuevo. El correo le avisa que su informe cambió."
               : "El cliente recibe un correo con un enlace para descargar el PDF, sin crear usuario ni contraseña."}
         </Typography.Paragraph>
-        <Descriptions column={1} size="small" bordered>
-          <Descriptions.Item label="Cliente">
-            <span style={{ overflowWrap: "anywhere" }}>{recipient.name}</span>
-          </Descriptions.Item>
-          <Descriptions.Item label="Correo">
-            <span style={{ overflowWrap: "anywhere" }}>{recipient.email}</span>
-          </Descriptions.Item>
-        </Descriptions>
+        {recipient === null ? (
+          <Flex justify="center" style={{ padding: 12 }}>
+            <Spin />
+          </Flex>
+        ) : "error" in recipient ? (
+          <Alert type="error" showIcon title={recipient.error} />
+        ) : (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="Cliente">
+              <span style={{ overflowWrap: "anywhere" }}>{recipient.name}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Correo">
+              <span style={{ overflowWrap: "anywhere" }}>{recipient.email}</span>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
         {blockers && blockers.length > 0 && (
           <Alert
             type="warning"

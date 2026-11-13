@@ -307,7 +307,7 @@ export class ReviewsService {
           select: {
             id: true,
             completedAt: true,
-            lead: { select: { name: true } },
+            lead: { select: { id: true, name: true } },
             questionnaireVersion: { select: { family: true } },
           },
         },
@@ -327,6 +327,7 @@ export class ReviewsService {
       diagnostic: {
         id: diagnostic.id,
         completedAt: diagnostic.completedAt,
+        leadId: diagnostic.lead.id,
         leadName: diagnostic.lead.name,
         family: diagnostic.questionnaireVersion.family,
       },

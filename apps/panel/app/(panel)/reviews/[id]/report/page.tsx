@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { verifySession } from "@/lib/auth/dal";
 import { getToken } from "@/lib/auth/session";
 import { getReview, type ReviewDetail } from "@/lib/api/reviews";
-import { getDiagnostic, type DiagnosticDetail } from "@/lib/api/diagnostics";
 import {
   getReport,
   listDeliveries,
@@ -36,7 +35,6 @@ export default async function ReportPage({ params }: PageProps<"/reviews/[id]/re
   const { id } = await params;
 
   let review: ReviewDetail;
-  let diagnostic: DiagnosticDetail;
   let report: Report | null;
   let deliveries: DeliveryRow[] = [];
   const token = await getToken();
@@ -44,12 +42,8 @@ export default async function ReportPage({ params }: PageProps<"/reviews/[id]/re
     if (!token) {
       throw new ApiError(401, "Tu sesión expiró. Vuelve a iniciar sesión.");
     }
-    // El caso primero: confirma que existe antes de pedir su informe.
-    review = await getReview(token, id);
-    [diagnostic, report] = await Promise.all([
-      getDiagnostic(token, review.diagnostic.id),
-      getReport(token, id),
-    ]);
+    // En paralelo: si el caso no existe, `getReview` falla con 404.
+    [review, report] = await Promise.all([getReview(token, id), getReport(token, id)]);
     // Sin entregas previas no hay registro que pedir.
     if (report && (report.deliveredAt || report.status === "DELIVERED")) {
       deliveries = withLinkStatus(await listDeliveries(token, id));
@@ -68,7 +62,6 @@ export default async function ReportPage({ params }: PageProps<"/reviews/[id]/re
       review={review}
       report={report}
       deliveries={deliveries}
-      recipient={{ name: diagnostic.lead.name, email: diagnostic.lead.email }}
       isApprover={session.role === "ADMIN"}
     />
   );

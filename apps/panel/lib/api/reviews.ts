@@ -73,7 +73,7 @@ export interface ReviewDetail {
   assignedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  diagnostic: ReviewDiagnostic;
+  diagnostic: ReviewDiagnostic & { leadId: string };
   approval: ReviewApproval | null;
   latestCalculation: {
     id: string;

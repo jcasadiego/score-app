@@ -172,7 +172,8 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
   - **Bandeja:** `GET /reviews?page&pageSize&assignment=unassigned|mine&status=`.
     Solo diagnósticos con un cálculo exitoso, paginada en la base, con los flags
     abiertos del cálculo vigente en una sola consulta. `unassigned` incluye los
-    casos tomados por alguien desactivado.
+    casos tomados por alguien desactivado. Bandeja y detalle traen `report`:
+    `{ status, redeliveryPending }` del informe del caso, o `null` si no hay.
   - **Detalle:** `GET /reviews/:id` trae el estado, quién lo tiene, la
     aprobación vigente, el último intento de cálculo y `approvalBlockers` (lo
     que falta para aprobar). Responde con `ETag`.

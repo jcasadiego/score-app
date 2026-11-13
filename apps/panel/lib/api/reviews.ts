@@ -5,6 +5,7 @@ import type { QuestionType } from "@/lib/diagnostics/labels";
 import type { CalculationStatus } from "@/lib/diagnostics/calculation-labels";
 import type { FlagAnalysisStatus } from "@/lib/diagnostics/flag-labels";
 import type { ReviewStatus } from "@/lib/reviews/labels";
+import type { ReportStatus } from "@/lib/reports/labels";
 
 type Person = { id: string; name: string };
 
@@ -20,6 +21,13 @@ export interface ReviewDiagnostic {
   family: DiagnosticFamily;
 }
 
+/** El estado del informe del caso; nulo si todavía no se generó. */
+export interface ReviewReportSummary {
+  status: ReportStatus;
+  /** Se entregó antes y el caso cambió después: falta la versión actualizada. */
+  redeliveryPending: boolean;
+}
+
 export interface ReviewListItem {
   id: string;
   status: ReviewStatus;
@@ -28,6 +36,7 @@ export interface ReviewListItem {
   createdAt: string;
   diagnostic: ReviewDiagnostic;
   openFlags: number;
+  report: ReviewReportSummary | null;
 }
 
 export interface PaginatedReviews {
@@ -64,7 +73,7 @@ export interface ReviewDetail {
   assignedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  diagnostic: ReviewDiagnostic;
+  diagnostic: ReviewDiagnostic & { leadId: string };
   approval: ReviewApproval | null;
   latestCalculation: {
     id: string;
@@ -77,6 +86,7 @@ export interface ReviewDetail {
   } | null;
   lastCorrectionSequence: number;
   approvalBlockers: ApprovalBlocker[];
+  report: ReviewReportSummary | null;
 }
 
 type OptionView = { id: string; value: string; text: string };

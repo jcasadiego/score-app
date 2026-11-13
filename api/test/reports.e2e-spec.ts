@@ -971,6 +971,22 @@ describe('Informe (e2e, base propia)', () => {
         redeliveryPending: true,
       });
       expect(pending.deliveredAt).toBeTruthy();
+      // La bandeja y la pantalla del caso ven el mismo estado.
+      const { body: review } = await server()
+        .get(`${REVIEWS}/${reviewId}`)
+        .set(as(reviewer.token))
+        .expect(200);
+      expect(review.report).toEqual({
+        status: 'DRAFT',
+        redeliveryPending: true,
+      });
+      const { body: inbox } = await server()
+        .get(`${REVIEWS}?page=1&pageSize=100`)
+        .set(as(reviewer.token))
+        .expect(200);
+      expect(
+        inbox.data.find((r: { id: string }) => r.id === reviewId).report,
+      ).toEqual({ status: 'DRAFT', redeliveryPending: true });
       expect(
         await prisma.reportApproval.findFirstOrThrow({
           where: { reportId: report.id },

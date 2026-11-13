@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -45,6 +46,8 @@ import { CorrectionModal } from "./correction-modal";
 import { ApproveModal, ReopenModal } from "./approval-modals";
 import { CorrectionsCard } from "./corrections-card";
 import { NotesCard } from "./notes-card";
+import { ReportStatusTag } from "@/components/reports/report-status-tag";
+import { reportHref } from "@/lib/reports/labels";
 
 interface Me {
   id: string;
@@ -187,6 +190,16 @@ export function ReviewScreen({
           </Descriptions.Item>
           <Descriptions.Item label="Correcciones">
             {corrections.length === 0 ? "Ninguna" : corrections.length}
+          </Descriptions.Item>
+          <Descriptions.Item label="Informe">
+            <Space wrap size={8}>
+              <ReportStatusTag report={review.report} />
+              {(approved || review.report) && (
+                <Link href={reportHref(review.id)}>
+                  {review.report ? "Ver informe" : "Generar informe"}
+                </Link>
+              )}
+            </Space>
           </Descriptions.Item>
         </Descriptions>
 

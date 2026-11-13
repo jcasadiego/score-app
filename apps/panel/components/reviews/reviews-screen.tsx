@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportStatusTag } from "@/components/reports/report-status-tag";
 import { useState, useTransition, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -110,6 +111,7 @@ export function ReviewsScreen({ page, view, me }: ReviewsScreenProps) {
     {
       title: "Lead",
       key: "lead",
+      width: 220,
       render: (_, review) => (
         <Typography.Link
           href={reviewHref(review.id)}
@@ -159,6 +161,12 @@ export function ReviewsScreen({ page, view, me }: ReviewsScreenProps) {
         ) : (
           <Typography.Text type="secondary">—</Typography.Text>
         ),
+    },
+    {
+      title: "Informe",
+      key: "report",
+      width: 170,
+      render: (_, review) => <ReportStatusTag report={review.report} />,
     },
     {
       title: "Enviado",
@@ -240,7 +248,7 @@ export function ReviewsScreen({ page, view, me }: ReviewsScreenProps) {
         dataSource={page.data}
         columns={columns}
         loading={navigating}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1180 }}
         locale={{
           emptyText: (
             <Empty

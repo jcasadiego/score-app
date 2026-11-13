@@ -144,6 +144,29 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
   - Corregir y aprobar envían `If-Match` con la `version` del caso. Un 412
     avisa que alguien más cambió el caso, recarga los datos y deja el modal
     abierto con lo escrito.
+- **Informe del caso** (PF-43, `/reviews/[id]/report`, `components/reports/`):
+  - Se abre desde "Revisión del caso" (fila "Informe"). La bandeja también
+    muestra el estado del informe: sin informe, borrador, aprobado sin
+    entregar, entregado o pendiente de reenvío (`report` en `GET /reviews`).
+  - "Generar borrador" solo con el caso aprobado. Cada dimensión muestra sus
+    cuatro partes con quién las escribió (IA o a mano) y su historial.
+    Editar y "Regenerar con IA" por sección solo en borrador, con el caso
+    aprobado y el informe al día. Si el caso cambió, la pantalla lo avisa y
+    ofrece "Regenerar todo".
+  - Aprobar, entregar, reenviar el enlace y reabrir el informe (con motivo,
+    antes de entregar): solo el Aprobador. Entregar muestra el nombre y el
+    correo de destino antes de confirmar; se piden a `GET /leads/:id` al abrir
+    la confirmación, no con la pantalla. El Revisor ve "Pendiente de
+    aprobación" o "pendiente de entrega".
+  - Si el caso se reabre o se recalcula después de entregar, el informe
+    vuelve a borrador como "Pendiente de reenvío" y la entrega siguiente
+    sale como versión actualizada.
+  - "Vista previa del PDF" abre `/reviews/[id]/report/pdf`, un Route Handler
+    que pide el PDF a la API con la sesión y lo devuelve con `no-store`.
+  - Registro de entregas: cuándo, a quién, quién la envió, estado del
+    enlace (calculado en el servidor) y descargas.
+  - Todo lo que cambia el informe envía `If-Match`; un 412 recarga sin
+    perder lo escrito.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),
@@ -185,8 +208,7 @@ fijo abajo al centro. Sirve de prueba de regresión visual cada vez que
 se toque la tabla. En producción el parámetro se ignora. En ese modo
 las acciones de fila llaman a la API real con ids falsos (404).
 
-## Pendiente a propósito (no construido todavía)
+## Roles
 
-El informe (generar, ver y entregar) es del módulo Delivery. Los roles Revisor y
-Aprobador están en `CLAUDE.md`, sección 5.3: el panel oculta lo que el rol no
-permite, y quien valida el permiso es la API.
+Los roles Revisor y Aprobador están en `CLAUDE.md`, sección 5.3: el panel
+oculta lo que el rol no permite, y quien valida el permiso es la API.

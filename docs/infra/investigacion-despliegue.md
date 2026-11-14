@@ -74,13 +74,13 @@ Hobby con instancias gratuitas cuesta $0.
 | `apps/panel` | Web service gratuito, $0 | Web service Starter (0,5 CPU / 512 MB), $7 |
 | `apps/diagnostico` | Web service gratuito, $0 | Starter, $7 |
 | `api` | Web service gratuito, $0, 1 instancia | Starter $7, siempre encendida, o Standard (1 CPU / 2 GB, $25) si la memoria no alcanza |
-| PostgreSQL | Gratuita (1 GB, vence a los 30 días), $0 | Render Postgres 256 MB, $6 + $0,30/GB; se sube a 1 GB ($19) cuando haga falta |
+| PostgreSQL | Gratuita (1 GB, vence a los 30 días), $0 | Render Postgres 256 MB, $6 + $0,30/GB; se sube a 1 GB ($19 + almacenamiento) cuando haga falta |
 | Migraciones | En el arranque de la API | Cron job aparte con su propia credencial (mínimo $1/mes) |
 | Segundo plano | Dentro de la API (como hoy) | Igual |
 | Tareas programadas | No hacen falta hoy | Cron de Render (mínimo $1/mes) cuando llegue PF-49 |
 | Archivos | No hacen falta hoy | Cloudflare R2 si algún día se guardan PDF |
 | Restauración a un punto en el tiempo | No hay (la base gratuita no tiene respaldos) | 7 días (plan Pro) |
-| **Total estimado** | **$0/mes** | **~$53/mes** al lanzar (~$68 con la base de 1 GB) |
+| **Total estimado** | **$0/mes** | **~$53/mes** al lanzar (~$66 con la base de 1 GB) |
 
 **PROD arranca con lo mínimo (decisión de José, 2026-11-14).** La base de
 256 MB conserva los respaldos y la restauración a un punto en el tiempo, y
@@ -181,7 +181,9 @@ por visitante.
 
 **Ojo con los videos.** La salida del sitio cuenta contra lo incluido (5 GB
 al mes en Hobby, 25 GB en Pro; luego $0,15/GB). Un video de 20 MB visto 1.000
-veces son 20 GB. Conviene comprimirlos; alojarlos en un servicio de video
+veces son 20 GB. En QA el sitio comparte los 5 GB de Hobby con los demás
+servicios, y al pasarse Render suspende todos los servicios gratuitos hasta
+el mes siguiente. Conviene comprimirlos; alojarlos en un servicio de video
 sería un proveedor nuevo.
 
 ## 2. Comparativa de combinaciones
@@ -195,7 +197,7 @@ no incluyen `score-sitio`. La opción C queda descartada junto con Vercel.
 |---|---|---|---|---|
 | Proveedores | 1 | 2 | 3 | 1 + operación propia |
 | Costo QA / mes | $0 en instancias gratuitas (~$27 de pago) | ~$16 (estimación) | ~$24 | ~$29–31 |
-| Costo PROD / mes | ~$53 al lanzar, con el sitio (~$68 con la base de 1 GB) | ~$40 (estimación) | ~$46 (+$29 si se quiere soporte por correo en Fly) | ~$29–31 + nuestro tiempo |
+| Costo PROD / mes | ~$53 al lanzar, con el sitio (~$66 con la base de 1 GB) | ~$40 (estimación) | ~$46 (+$29 si se quiere soporte por correo en Fly) | ~$29–31 + nuestro tiempo |
 | Precios leídos directamente | Sí (2026-11-14) | Sí | Sí | Sí |
 | ¿La API se duerme? | No en instancia de pago; sí en la gratuita (QA) | No, salvo que se active "Serverless" | No, si se desactiva `auto_stop_machines` | No |
 | Base de datos | Gestionada, PITR 3/7 días, AES-256 | Neon: PITR 7 días (Launch) o 30 (Scale), ramas | Igual que B | Postgres propio; respaldos `pg_dump` a S3; PITR hay que montarlo |
@@ -220,7 +222,7 @@ no incluyen `score-sitio`. La opción C queda descartada junto con Vercel.
 | Cron job de migraciones | — | — | $1 (mínimo mensual) |
 | **Total** | **$0** | **$27,30** | **$53,30** |
 
-Si la base de PROD sube a 1 GB: $19 + 5 GB × $0,30 = $20,50, total $67,50.
+Si la base de PROD sube a 1 GB, con el mismo GB de almacenamiento: $19 + 1 GB × $0,30 = $19,30, total $66,30. Con 5 GB de almacenamiento: $20,50, total $67,50.
 
 Incluido: 5 GB de salida y 500 minutos de build en Hobby; 25 GB y 1.000 en
 Pro. Salida adicional a $0,15/GB; build adicional a $5 por 1.000 minutos.
@@ -322,7 +324,9 @@ José y se anota en el inventario (CLAUDE.md 5.2).
 Principio: **GitHub Actions decide cuándo se despliega; Render ejecuta la
 migración y el despliegue.** El despliegue automático de Render queda apagado.
 Así la aprobación vive en GitHub, la migración corre dentro de la red privada
-de Render y **ninguna credencial de la base sale de Render** (sección 11.2).
+de Render y **ninguna credencial de la base se guarda en GitHub** (sección
+11.2). Ojo: en PROD, la API key de Render que guarda GitHub sí permite leer
+las variables de los servicios, incluidas las credenciales (sección 11.4).
 QA y PROD comparten el flujo salvo en la migración: las instancias gratuitas
 de QA no admiten el comando previo al despliegue ni conviene pagarles un cron
 job.
@@ -603,8 +607,10 @@ se "transfiere" QA: PROD nace aparte.
 - **Lo que esto no significa.** Que el proveedor tenga esos informes no hace
   que SCORE cumpla nada por sí solo. Al elegir, se actualizan
   `docs/compliance/data-inventory.md` (fila "Hosting y base de datos") y
-  `docs/compliance/control-matrix.md` (cifrado en reposo y respaldos). No se
-  tocaron en este PR porque todavía no hay proveedor elegido.
+  `docs/compliance/control-matrix.md` (cifrado en reposo y respaldos). Render
+  ya está elegido (2026-11-14), pero este PR no los toca: el inventario se
+  actualiza en el PR de PF-67 (cuenta de QA) y, con la matriz, en el de
+  PF-74 (ambiente de PROD).
 - **QA solo con datos de prueba.** Si el cliente quisiera cargar casos reales
   en la muestra, QA pasaría a necesitar lo mismo que PROD (DPA firmado,
   respaldos probados).
@@ -621,7 +627,10 @@ se "transfiere" QA: PROD nace aparte.
      Conviene dejar los pasos escritos o en un `render.yaml`.
    - Tres web services con *root directory* `api`, `apps/panel` y
      `apps/diagnostico`, más el sitio estático de `score-sitio` conectado a
-     su repo, con sus cabeceras de seguridad.
+     su repo, con sus cabeceras de seguridad. El sitio de QA no se indexa
+     (`noindex` y `robots.txt` que bloquea todo), muestra un aviso visible
+     de "ambiente de prueba" y su URL no se publica: su formulario escribe
+     en la base de QA, que solo debe tener datos de prueba.
      Despliegue automático apagado, deploy hook por servicio y health check
      en `/health` para la API. El comando de arranque de la API migra antes
      de levantar el servidor.
@@ -657,7 +666,8 @@ se "transfiere" QA: PROD nace aparte.
    - **Cron job de migraciones:** mismo repo y *root directory* `api`, con
      la credencial del rol de migraciones como única variable sensible y un
      comando programado inocuo. El pipeline le lanza el job puntual.
-   - Un usuario de Render dedicado al pipeline, dueño de la API key.
+   - Un usuario de Render dedicado al pipeline, dueño de la API key, con
+     rol Developer (sección 11.1). Se crea junto con PF-58.
 2. **GitHub:** ambiente `production` con revisor requerido y solo la rama
    `main`. Secretos: los deploy hooks y la API key de Render.
 3. **DNS en GoDaddy:** `musicfinance.pro` y sus subdominios para sitio,
@@ -678,10 +688,10 @@ se "transfiere" QA: PROD nace aparte.
 |---|---|
 | QA en instancias gratuitas no replica PROD (migración, red privada, sueño, sin respaldos) | Ensayo fiel antes de abrir PROD: QA unos días en instancias de pago, o el propio ambiente de PROD antes de tener clientes |
 | La base gratuita de QA se borra a los 30 días (más 14 de gracia) | Aceptado por José; pasos de recreación escritos. Salida: base de $6/mes |
-| La base de 256 MB de PROD puede quedarse corta al crecer el uso | Vigilar memoria y conexiones en las métricas de Render; subir a 1 GB ($19) se hace desde el panel |
-| Los videos del sitio pueden pasar los 25 GB de salida incluidos | Comprimirlos y vigilar el consumo; el excedente cuesta $0,15/GB |
+| La base de 256 MB de PROD puede quedarse corta al crecer el uso | Vigilar memoria y conexiones en las métricas de Render; subir a 1 GB ($19 + almacenamiento) se hace desde el panel |
+| Los videos del sitio pueden pasar la salida incluida (5 GB en QA, que suspende todo QA; 25 GB en PROD) | Comprimirlos y vigilar el consumo; el excedente cuesta $0,15/GB |
 | Las 750 horas gratuitas se reparten entre tres servicios | Sin monitor en QA; si se agotan, los servicios vuelven el mes siguiente o se pasa alguno a $7/mes |
-| La API key de Render guardada en GitHub es de usuario y da acceso a todo lo de ese usuario | Solo en el ambiente `production`, con revisor; usuario dedicado al pipeline; rotación (sección 11.4) |
+| La API key de Render guardada en GitHub es de usuario y permite leer todos los secretos de PROD | Solo en el ambiente `production`, con revisor; usuario dedicado al pipeline; rotación (sección 11.4) |
 | Ninguna plataforma documenta cuántos proxies pone delante | Medirlo en QA (ya está en PF-30); sin eso, el límite de intentos de login se puede evadir o bloquear a todos |
 | Un despliegue corta un cálculo o una llamada de IA en curso | Espera de apagado ≥ 90 s; lo pendiente se retoma al arrancar (ya implementado) |
 | 512 MB pueden no alcanzar para la API (PDF + IA) o para Next | Medir en QA; subir a la instancia siguiente |
@@ -745,6 +755,12 @@ Regla general: cuentas nominales (una por persona), sin usuarios compartidos,
 y un registro de quién tiene acceso a qué, revisado al salir alguien del
 equipo.
 
+**Excepción: la cuenta de servicio del pipeline en Render.** Es la única
+cuenta no personal. Condiciones: un responsable con nombre (a definir por
+José), un correo del equipo o del cliente que no sea personal, 2FA activado,
+rol Developer (no Admin), anotada en el registro de accesos y nunca usada
+para entrar al panel. Su única función es ser dueña de la API key.
+
 ### 11.2. Exposición de la base de datos
 
 - En Render, las conexiones externas a la base se limitan por rango de IP, y
@@ -767,7 +783,7 @@ Las instancias gratuitas de QA también conectan a la base por la URL interna.
 | | Cron job de migraciones (PROD) | En el arranque de la API (QA) | Desde GitHub Actions (descartado) |
 |---|---|---|---|
 | Base expuesta a internet | No | No | Sí, a cualquier IP, protegida solo por TLS y contraseña |
-| Credencial de la base en GitHub | No | No | Sí |
+| Credencial de la base guardada en GitHub | No, pero la API key de Render permite leerla (sección 11.4) | No | Sí |
 | Credencial de migraciones en el entorno de la API | No | Sí (aceptable con datos de prueba) | No |
 | Qué se guarda en GitHub | Deploy hooks y una API key de Render | Deploy hooks | Deploy hooks y la credencial de la base |
 | Costo | Mínimo $1/mes | $0 | $0 |
@@ -791,7 +807,11 @@ Las instancias gratuitas de QA también conectan a la base por la URL interna.
   lanzarlo. El orden exacto se afina al escribir los workflows.
 
 Hasta que PF-58 separe los roles, la API tiene una sola credencial y el cron
-job usaría la misma: el aislamiento empieza a valer con PF-58.
+job usaría la misma: no aislaría nada y sumaría la API key en GitHub sin
+ningún beneficio. **Por eso el cron job y la API key se crean junto con
+PF-58.** Si PROD se despliega antes (por ejemplo, para el ensayo), migra con
+el comando previo al despliegue de la API, que las instancias de pago sí
+tienen, y GitHub guarda solo los deploy hooks.
 
 Para trabajo manual sobre la base (una restauración, una consulta de soporte):
 abrir temporalmente la IP de quien lo hace, dejar constancia y volver a
@@ -853,7 +873,11 @@ fork.
 - **Las API keys de Render son de usuario, no de workspace** (las acotadas
   están en acceso anticipado). QA usa solo deploy hooks. PROD guarda además
   una key para lanzar el job de migración (aceptado por José el 2026-11-14).
-  Quien la obtenga actúa en Render con los permisos de ese usuario, así que:
+  Quien la obtenga actúa en Render con los permisos de ese usuario. En Pro
+  solo existen los roles Admin y Developer, y los dos ven variables y cadenas
+  de conexión: **la key permite leer `DATABASE_URL`, la credencial de
+  migraciones, `JWT_SECRET` y `MFA_ENCRYPTION_KEY` de PROD** (que la API de
+  Render devuelva los valores está por confirmar; se asume que sí). Por eso:
   secreto del ambiente `production` (solo se entrega tras la aprobación del
   revisor y desde `main`), nunca a nivel de repo; un usuario de Render
   dedicado al pipeline, para poder revocarla sin afectar a nadie; rotación
@@ -897,7 +921,7 @@ fork.
 |---|---|---|---|
 | Base cerrada a internet | Sí | Sí | — |
 | Respaldos y PITR | No con la base gratuita; 3 días con una de pago | Sí, 7 días | — |
-| Credencial de migraciones aislada de la API | No (instancias gratuitas) | Sí, con el cron job | — |
+| Credencial de migraciones aislada de la API | No (instancias gratuitas) | Sí, con el cron job y PF-58 | — |
 | Exigir 2FA | No (cada cuenta activa el suyo) | Sí | — |
 | Más de un miembro | No | Sí | — |
 | Bitácora de accesos | No | Sí, 90 días | — |
@@ -909,10 +933,12 @@ no pueda ver secretos, haría falta Scale ($499/mes).
 
 ### 11.7. Tareas de seguridad antes de abrir PROD
 
-1. 2FA exigido en Render; MFA activo en GitHub, Resend, Anthropic y Sentry.
-2. Acceso externo a la base cerrado en QA y en PROD; en PROD, la credencial
-   de migraciones solo en el cron job (con PF-58 hecho) y la API key de
-   Render como secreto del ambiente `production`.
+1. 2FA exigido en Render, incluida la cuenta de servicio del pipeline; MFA
+   activo en GitHub, Resend, Anthropic, Sentry y UptimeRobot.
+2. Acceso externo a la base cerrado en QA y en PROD. Con PF-58 hecho: la
+   credencial de migraciones solo en el cron job y la API key de Render como
+   secreto del ambiente `production`, creadas juntas; antes de PF-58, ni
+   cron job ni key.
 3. Ambientes `qa` y `production` limitados por rama, con revisor en PROD.
 4. Aprobación de workflows para todo colaborador externo.
 5. `TRUST_PROXY_HOPS` medido y probado: cinco contraseñas erradas bloquean esa

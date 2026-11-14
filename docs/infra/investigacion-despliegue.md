@@ -23,7 +23,11 @@
 > también el despliegue de `score-sitio`, que **va en Render; Vercel queda
 > descartado**. (3) Guardar secretos del pipeline en los secretos de GitHub es
 > aceptable, incluida la API key de Render que hace falta en PROD para aislar
-> la credencial de migraciones (secciones 3 y 11.2).
+> la credencial de migraciones (secciones 3 y 11.2). (4) **PROD arranca con lo
+> mínimo:** es un lanzamiento con público acotado, así que la base empieza en
+> la instancia más pequeña y se sube cuando haga falta. (5) `score-sitio` es
+> estático salvo el envío del formulario a la API: va como **sitio estático**,
+> que en Render es gratuito.
 
 ## 0. Lo que el código exige del hosting
 
@@ -66,17 +70,25 @@ Hobby con instancias gratuitas cuesta $0.
 | Pieza | QA (cuenta nuestra) | PROD (cuenta del cliente) |
 |---|---|---|
 | Workspace | Hobby, $0 | Pro, $25/mes fijo, miembros ilimitados |
-| `score-sitio` | Web service gratuito, $0 | Web service Starter (0,5 CPU / 512 MB), $7 |
-| `apps/panel` | Web service gratuito, $0 | Starter, $7 |
+| `score-sitio` | Sitio estático, $0 (no se duerme) | Sitio estático, $0 |
+| `apps/panel` | Web service gratuito, $0 | Web service Starter (0,5 CPU / 512 MB), $7 |
 | `apps/diagnostico` | Web service gratuito, $0 | Starter, $7 |
 | `api` | Web service gratuito, $0, 1 instancia | Starter $7, siempre encendida, o Standard (1 CPU / 2 GB, $25) si la memoria no alcanza |
-| PostgreSQL | Gratuita (1 GB, vence a los 30 días), $0 | Render Postgres 1 GB, $19 + $0,30/GB |
+| PostgreSQL | Gratuita (1 GB, vence a los 30 días), $0 | Render Postgres 256 MB, $6 + $0,30/GB; se sube a 1 GB ($19) cuando haga falta |
 | Migraciones | En el arranque de la API | Cron job aparte con su propia credencial (mínimo $1/mes) |
 | Segundo plano | Dentro de la API (como hoy) | Igual |
 | Tareas programadas | No hacen falta hoy | Cron de Render (mínimo $1/mes) cuando llegue PF-49 |
 | Archivos | No hacen falta hoy | Cloudflare R2 si algún día se guardan PDF |
 | Restauración a un punto en el tiempo | No hay (la base gratuita no tiene respaldos) | 7 días (plan Pro) |
-| **Total estimado** | **$0/mes** | **~$75/mes** (con la API en Starter) |
+| **Total estimado** | **$0/mes** | **~$53/mes** al lanzar (~$68 con la base de 1 GB) |
+
+**PROD arranca con lo mínimo (decisión de José, 2026-11-14).** La base de
+256 MB conserva los respaldos y la restauración a un punto en el tiempo, y
+se cambia de instancia desde el panel de Render (si el cambio implica un
+corte breve: no confirmado). Los tres web services ya están en
+la instancia de pago más pequeña. Lo que no se recorta es el workspace Pro:
+ahí están las cuentas por persona, el 2FA exigido y la bitácora de accesos
+(sección 11.6).
 
 Si recrear la base de QA cada 30 días resulta molesto, se pasa solo la base a
 la instancia de $6/mes y los servicios siguen gratis.
@@ -111,8 +123,9 @@ una "muestra estable", y se acepta así. Lo que implica, leído en
 - **El trabajo en segundo plano de la API se corta al dormirse** (motor, IA,
   correos). Se retoma al volver a arrancar: se atrasa, no se pierde.
 - **750 horas gratuitas al mes para todo el workspace**, compartidas entre los
-  cuatro servicios. Alcanzan si duermen; un monitor de caídas los mantendría
-  despiertos y las agotaría en unos 8 días. Por eso QA va sin monitor. Al
+  tres web services (el sitio estático no las consume). Alcanzan si duermen;
+  un monitor de caídas los mantendría despiertos y las agotaría en unos 10
+  días. Por eso QA va sin monitor. Al
   agotarlas, Render suspende los servicios gratuitos hasta el mes siguiente.
 - **La base vence a los 30 días.** Hay 14 días de gracia y luego se borra. Es
   una sola por workspace, de 1 GB, sin respaldos ni PgBouncer. Cada mes se
@@ -141,15 +154,35 @@ limita sus términos a "personal or non-commercial use" (sección 2.3); Fly.io
 no tiene plan gratuito para organizaciones nuevas; Supabase pausa el proyecto
 tras 1 semana sin actividad; Railway da $1 de crédito al mes.
 
-**`score-sitio` también va en Render (decisión de José, 2026-11-14).** José
-asume su despliegue. Es Next.js 16 con una ruta de servidor (`app/api/lead`),
-así que no puede ser un sitio estático gratuito: es un web service más, $0 en
-QA y $7/mes en PROD. Vive en su propio repo y su pipeline se define allí. Se
-gana un solo proveedor y un solo contrato de datos, desaparece la duda sobre
-los términos de Vercel Hobby y la URL del sitio en QA es estable, lo que
-simplifica `CORS_ORIGINS`. Se pierde el CDN de Vercel delante del sitio. En
-PROD el sitio no puede ir en instancia gratuita: un visitante esperaría un
-minuto.
+**`score-sitio` también va en Render, como sitio estático (decisiones de
+José, 2026-11-14).** José asume su despliegue. El sitio es estático (texto,
+imágenes y videos) salvo el formulario, que envía los datos a la API. Los
+sitios estáticos de Render son gratuitos en QA y en PROD, se sirven desde su
+CDN y no se duermen. Se gana un solo proveedor y un solo contrato de datos, y
+la URL del sitio en QA es estable, lo que simplifica `CORS_ORIGINS`.
+
+Hoy el sitio no se puede exportar como estático: tiene una ruta de servidor
+(`app/api/lead/route.ts`) que reenvía el formulario a la API. Cambios que
+hacen falta en el repo `score-sitio`, en un PR propio:
+
+1. `output: "export"` en `next.config.ts`.
+2. Quitar `app/api/lead` y que `LeadForm.tsx` llame directo a
+   `POST /leads/prequalification`, con la URL en una variable
+   `NEXT_PUBLIC_*`. La URL no es un secreto: el endpoint es público y la API
+   ya admite el origen del sitio por `CORS_ORIGINS`.
+3. Las cabeceras de seguridad de `next.config.ts` (`headers()`) no aplican a
+   un sitio exportado: se configuran en Render, en las cabeceras de respuesta
+   del sitio estático.
+
+El contrato del endpoint no cambia. Además mejora el límite de intentos: con
+el reenvío, la API ve la IP del servidor del sitio y todos los visitantes
+comparten el tope de 5 envíos por minuto; con la llamada directa, el tope es
+por visitante.
+
+**Ojo con los videos.** La salida del sitio cuenta contra lo incluido (5 GB
+al mes en Hobby, 25 GB en Pro; luego $0,15/GB). Un video de 20 MB visto 1.000
+veces son 20 GB. Conviene comprimirlos; alojarlos en un servicio de video
+sería un proveedor nuevo.
 
 ## 2. Comparativa de combinaciones
 
@@ -161,8 +194,8 @@ no incluyen `score-sitio`. La opción C queda descartada junto con Vercel.
 | | **A. Render todo en uno** (elegida) | **B. Railway + Neon** | **C. Vercel + Fly.io + Neon** (descartada) | **D. VPS + Coolify** (solo referencia) |
 |---|---|---|---|---|
 | Proveedores | 1 | 2 | 3 | 1 + operación propia |
-| Costo QA / mes | $0 en instancias gratuitas (~$34 de pago, con el sitio) | ~$16 (estimación) | ~$24 | ~$29–31 |
-| Costo PROD / mes | ~$75 con el sitio (~$68 sin él) | ~$40 (estimación) | ~$46 (+$29 si se quiere soporte por correo en Fly) | ~$29–31 + nuestro tiempo |
+| Costo QA / mes | $0 en instancias gratuitas (~$27 de pago) | ~$16 (estimación) | ~$24 | ~$29–31 |
+| Costo PROD / mes | ~$53 al lanzar, con el sitio (~$68 con la base de 1 GB) | ~$40 (estimación) | ~$46 (+$29 si se quiere soporte por correo en Fly) | ~$29–31 + nuestro tiempo |
 | Precios leídos directamente | Sí (2026-11-14) | Sí | Sí | Sí |
 | ¿La API se duerme? | No en instancia de pago; sí en la gratuita (QA) | No, salvo que se active "Serverless" | No, si se desactiva `auto_stop_machines` | No |
 | Base de datos | Gestionada, PITR 3/7 días, AES-256 | Neon: PITR 7 días (Launch) o 30 (Scale), ramas | Igual que B | Postgres propio; respaldos `pg_dump` a S3; PITR hay que montarlo |
@@ -181,10 +214,13 @@ no incluyen `score-sitio`. La opción C queda descartada junto con Vercel.
 | Pieza | QA gratuita (elegida) | QA de pago (referencia) | PROD |
 |---|---|---|---|
 | Workspace | Hobby $0 | Hobby $0 | Pro $25 |
-| 4 web services (sitio, panel, diagnóstico, API) | 4 × $0 = $0 | 4 × $7 = $28 | 4 × $7 = $28 |
-| PostgreSQL | Gratuita $0 | $6 + 1 GB × $0,30 = $6,30 | $19 + 5 GB × $0,30 = $20,50 |
+| Sitio estático | $0 | $0 | $0 |
+| 3 web services (panel, diagnóstico, API) | 3 × $0 = $0 | 3 × $7 = $21 | 3 × $7 = $21 |
+| PostgreSQL | Gratuita $0 | $6 + 1 GB × $0,30 = $6,30 | $6 + 1 GB × $0,30 = $6,30 |
 | Cron job de migraciones | — | — | $1 (mínimo mensual) |
-| **Total** | **$0** | **$34,30** | **$74,50** |
+| **Total** | **$0** | **$27,30** | **$53,30** |
+
+Si la base de PROD sube a 1 GB: $19 + 5 GB × $0,30 = $20,50, total $67,50.
 
 Incluido: 5 GB de salida y 500 minutos de build en Hobby; 25 GB y 1.000 en
 Pro. Salida adicional a $0,15/GB; build adicional a $5 por 1.000 minutos.
@@ -292,7 +328,7 @@ de QA no admiten el comando previo al despliegue ni conviene pagarles un cron
 job.
 
 Este pipeline cubre las tres piezas de este repo. `score-sitio` se despliega
-desde su propio repo, con su deploy hook de Render.
+desde su propio repo, como sitio estático de Render.
 
 **En cada PR (ya existe, se amplía):**
 
@@ -550,7 +586,7 @@ se "transfiere" QA: PROD nace aparte.
 
 ## 8. Región y privacidad
 
-- **Región.** Todo en Virginia (EE. UU. este): los cuatro servicios y la base en
+- **Región.** Todo en Virginia (EE. UU. este): los servicios y la base en
   la misma región. La región de un servicio de Render **no se puede cambiar**
   después de crearlo; si la ley aplicable (PF-49, PF-62) exige otra, hay que
   recrear y migrar. Render ofrece además Oregón, Ohio, Fráncfort y Singapur,
@@ -584,7 +620,8 @@ se "transfiere" QA: PROD nace aparte.
      30 días:** base nueva, `DATABASE_URL` nueva en la API, migrar y sembrar.
      Conviene dejar los pasos escritos o en un `render.yaml`.
    - Tres web services con *root directory* `api`, `apps/panel` y
-     `apps/diagnostico`, más el de `score-sitio` conectado a su repo.
+     `apps/diagnostico`, más el sitio estático de `score-sitio` conectado a
+     su repo, con sus cabeceras de seguridad.
      Despliegue automático apagado, deploy hook por servicio y health check
      en `/health` para la API. El comando de arranque de la API migra antes
      de levantar el servidor.
@@ -610,8 +647,9 @@ se "transfiere" QA: PROD nace aparte.
 
 ### PROD (cuentas a nombre del cliente, con acceso para nosotros)
 
-1. **Render:** workspace Pro del cliente; nosotros como miembros. Los cuatro
-   web services en instancia Starter, base de 1 GB con el acceso externo
+1. **Render:** workspace Pro del cliente; nosotros como miembros. Los tres
+   web services en instancia Starter, el sitio estático con sus cabeceras de
+   seguridad, base de 256 MB con el acceso externo
    cerrado y espera de apagado de al menos 90 s en la API. Secretos **nuevos
    y distintos** de los de QA; `MFA_ENCRYPTION_KEY` respaldada fuera de
    Render. `SCORING_ENGINE_DRIVER=disabled` hasta PF-26;
@@ -640,7 +678,9 @@ se "transfiere" QA: PROD nace aparte.
 |---|---|
 | QA en instancias gratuitas no replica PROD (migración, red privada, sueño, sin respaldos) | Ensayo fiel antes de abrir PROD: QA unos días en instancias de pago, o el propio ambiente de PROD antes de tener clientes |
 | La base gratuita de QA se borra a los 30 días (más 14 de gracia) | Aceptado por José; pasos de recreación escritos. Salida: base de $6/mes |
-| Las 750 horas gratuitas se reparten entre cuatro servicios | Sin monitor en QA; si se agotan, los servicios vuelven el mes siguiente o se pasa alguno a $7/mes |
+| La base de 256 MB de PROD puede quedarse corta al crecer el uso | Vigilar memoria y conexiones en las métricas de Render; subir a 1 GB ($19) se hace desde el panel |
+| Los videos del sitio pueden pasar los 25 GB de salida incluidos | Comprimirlos y vigilar el consumo; el excedente cuesta $0,15/GB |
+| Las 750 horas gratuitas se reparten entre tres servicios | Sin monitor en QA; si se agotan, los servicios vuelven el mes siguiente o se pasa alguno a $7/mes |
 | La API key de Render guardada en GitHub es de usuario y da acceso a todo lo de ese usuario | Solo en el ambiente `production`, con revisor; usuario dedicado al pipeline; rotación (sección 11.4) |
 | Ninguna plataforma documenta cuántos proxies pone delante | Medirlo en QA (ya está en PF-30); sin eso, el límite de intentos de login se puede evadir o bloquear a todos |
 | Un despliegue corta un cálculo o una llamada de IA en curso | Espera de apagado ≥ 90 s; lo pendiente se retoma al arrancar (ya implementado) |
@@ -653,8 +693,9 @@ se "transfiere" QA: PROD nace aparte.
 
 **Preguntas abiertas para José**
 
-1. **Resuelta (2026-11-14):** `score-sitio` va en Render y Vercel queda
-   descartado.
+1. **Resuelta (2026-11-14):** `score-sitio` va en Render como sitio estático
+   y Vercel queda descartado. Falta el PR en `score-sitio` que lo vuelve
+   exportable (sección 1).
 2. **Resuelta (2026-11-14):** QA en instancias gratuitas de Render, $0/mes.
 3. Dominio para los correos de QA: ¿se verifica un subdominio nuestro, o se le
    pide ya al cliente un registro DNS en `musicfinance.pro`?
@@ -758,8 +799,8 @@ cerrar. Con plan Pro, el cambio de la lista queda en la bitácora de Render.
 
 ### 11.3. Protección de lo que queda público
 
-Quedan públicos el sitio, el panel, el diagnóstico y la API (el sitio llama a
-`POST /leads/prequalification` desde el navegador).
+Quedan públicos el sitio, el panel, el diagnóstico y la API (el sitio, al
+ser estático, llama a `POST /leads/prequalification` desde el navegador).
 
 - **Denegación de servicio:** Render incluye protección en todos los planes,
   sobre la infraestructura de Cloudflare.

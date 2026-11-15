@@ -8,6 +8,10 @@
 # cargan a mano en el panel de Render al crear el Blueprint; las marcadas con
 # `generateValue` las genera Render.
 #
+# Build con `--prod=false`: las variables de Render también rigen en el build y,
+# con NODE_ENV=production, pnpm saltaría las devDependencies (prisma, nest CLI,
+# TypeScript), que hacen falta para compilar y, en la API, para migrar.
+#
 # El despliegue automático queda apagado: lo decide GitHub Actions con el
 # deploy hook de cada servicio (PF-71). Hasta entonces, se despliega a mano
 # desde el panel de Render.
@@ -31,7 +35,7 @@ services:
     region: virginia
     branch: develop
     rootDir: api
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
     # Migra, siembra (solo con APP_ENV=qa) y levanta la API. Ver el script.
     startCommand: sh scripts/start-qa.sh
     healthCheckPath: /health
@@ -105,7 +109,7 @@ services:
     region: virginia
     branch: develop
     rootDir: apps/panel
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
     startCommand: pnpm start
     autoDeployTrigger: "off"
     envVars:
@@ -128,7 +132,7 @@ services:
     region: virginia
     branch: develop
     rootDir: apps/diagnostico
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
     startCommand: pnpm start
     autoDeployTrigger: "off"
     envVars:

@@ -19,7 +19,7 @@ pnpm dev   # http://localhost:3002 (3000 lo usa la api, 3001 diagnostico)
 
 Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
 
-- **Build:** `pnpm install --frozen-lockfile && pnpm build`.
+- **Build:** `pnpm install --frozen-lockfile --prod=false && pnpm build`.
 - **Arranque:** `pnpm start` (`next start` toma el `PORT` de Render).
 - `NEXT_PUBLIC_API_URL` es la URL pública de la API y queda fija en el build:
   cambiarla exige recompilar. `PANEL_API_SECRET` sale del servicio de la API.

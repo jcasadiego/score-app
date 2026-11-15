@@ -25,7 +25,7 @@ en producción con `pnpm build && pnpm exec next start -p 3001`.
 
 Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
 
-- **Build:** `pnpm install --frozen-lockfile && pnpm build`.
+- **Build:** `pnpm install --frozen-lockfile --prod=false && pnpm build`.
 - **Arranque:** `pnpm start` (`next start` toma el `PORT` de Render).
 - `NEXT_PUBLIC_API_URL` es la URL pública de la API y queda fija en el build:
   cambiarla exige recompilar. `DIAGNOSTIC_API_SECRET` sale del servicio de la

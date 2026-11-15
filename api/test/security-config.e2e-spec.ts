@@ -5,6 +5,14 @@ import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
 import { parseCorsOrigins } from './../src/config/cors';
 
+// Algunas pruebas arrancan con NODE_ENV=production, pero los e2e usan un solo
+// rol, dueño de todo, y el chequeo de mínimo privilegio (PF-58) frenaría la
+// API. Ese chequeo se prueba contra roles reales en database-roles.e2e-spec.ts.
+vi.mock('../src/prisma/database-roles', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/prisma/database-roles')>()),
+  assertLeastPrivilege: vi.fn().mockResolvedValue(undefined),
+}));
+
 const LOGIN_LIMIT = 5;
 
 describe('Configuración de seguridad (e2e)', () => {

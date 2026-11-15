@@ -39,7 +39,7 @@ anotarlo aquí, porque también es un dato personal.
 | Proveedor | Qué recibe | Para qué | Región | Contrato (DPA) | Estado |
 |---|---|---|---|---|---|
 | Resend | Correo y nombre del destinatario, y el enlace de acceso del cliente o el de descarga de su informe (el PDF no se adjunta). En los avisos al equipo, nombre, familia y UTM del lead | Correo transaccional | Por confirmar | Por firmar | En uso con cuenta de desarrollo. Falta la cuenta y el dominio del cliente |
-| Hosting y base de datos | Todo lo anterior | Operar SCORE | Por definir | Por firmar | Por elegir (PF-30) |
+| Render (hosting y base de datos) | Todo lo anterior | Operar SCORE | EE. UU., Virginia | Por firmar (Render ofrece DPA a todo workspace) | Elegido por José el 2026-11-14 (`docs/infra/investigacion-despliegue.md`). QA: workspace nuestro, instancias gratuitas, solo datos de prueba (`render.yaml`, PF-67 a PF-73). PROD: workspace del cliente (PF-74), sin crear |
 | Anthropic (Claude API) | Respuestas del diagnóstico por `code`/`value`, resultado del cálculo y, para el informe, las notas del revisor y el texto vigente de la dimensión que se regenera; minimizado: nunca nombre, correo ni teléfono del lead, y su nombre tachado en los textos libres (`src/ai/minimize.ts`) | Flags y borrador del informe | Por confirmar | Por firmar: cuenta a nombre de Music Finance Pro | Servicio listo (PF-32), sin cuenta real. Condiciones oficiales: borra entradas y salidas en 30 días; hasta 2 años si se marcan por violar su política de uso; no las usa para entrenar (privacy.claude.com, revisado el 2026-11-08). Evaluar un acuerdo de retención cero |
 | Pasarela de pagos y CRM | Por definir | Pagos y CRM | Por definir | Por firmar | Sin delimitar |
 

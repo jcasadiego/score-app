@@ -5,6 +5,9 @@ import { ApiError } from "./errors";
 const GENERIC_ERROR_MESSAGE =
   "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
 
+const API_STARTING_MESSAGE =
+  "El servidor está iniciando. Intenta de nuevo en un minuto.";
+
 export const CHALLENGE_EXPIRED_MESSAGE =
   "Pasó demasiado tiempo. Vuelve a iniciar sesión.";
 
@@ -115,6 +118,7 @@ export async function login(
 
   const body = await readBody<LoginChallenge>(response);
   if (!body?.mfaToken || !body.mfaStatus) {
+    logUnexpected(response);
     throw new ApiError(500, GENERIC_ERROR_MESSAGE);
   }
   return body;
@@ -197,6 +201,11 @@ function readBody<T>(response: Response): Promise<T | null> {
 }
 
 async function authError(response: Response): Promise<ApiError> {
+  if (response.status === 502 || response.status === 503) {
+    // En QA (instancias gratuitas) la API se duerme y tarda cerca de un minuto
+    // en despertar; mientras tanto la plataforma responde 502/503.
+    return new ApiError(response.status, API_STARTING_MESSAGE);
+  }
   if (response.status === 429) {
     return new ApiError(
       429,
@@ -210,5 +219,18 @@ async function authError(response: Response): Promise<ApiError> {
   if (body?.code === "MFA_CHALLENGE_EXPIRED") {
     return new ApiError(401, CHALLENGE_EXPIRED_MESSAGE);
   }
+  logUnexpected(response);
   return new ApiError(response.status, GENERIC_ERROR_MESSAGE);
+}
+
+/**
+ * Deja en el log del servidor qué respondió la API cuando no es un caso
+ * conocido, para poder diagnosticarlo. Solo la ruta y el estado: nunca el
+ * cuerpo, que puede traer datos de la persona.
+ */
+function logUnexpected(response: Response): void {
+  const path = new URL(response.url).pathname;
+  console.error(
+    `Respuesta inesperada de la API: ${response.status} en ${path}`,
+  );
 }

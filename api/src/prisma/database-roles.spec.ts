@@ -1,9 +1,11 @@
 import {
   assertLeastPrivilege,
   databaseUserFromUrl,
+  hasEncryptedConnection,
   privilegeProblems,
   quoteIdent,
   quoteLiteral,
+  scramSha256Verifier,
   type QueryRows,
 } from './database-roles';
 
@@ -13,7 +15,39 @@ const ROLE_OK = {
   rolcreatedb: false,
   rolbypassrls: false,
   can_create: false,
+  member_of: [] as string[],
 };
+
+describe('scramSha256Verifier', () => {
+  it('arma el verificador en el formato de Postgres, sin la contraseña', () => {
+    const verifier = scramSha256Verifier('secreto-123', Buffer.alloc(16, 1));
+    expect(verifier).toMatch(
+      /^SCRAM-SHA-256\$4096:AQEBAQEBAQEBAQEBAQEBAQ==\$[A-Za-z0-9+/]{43}=:[A-Za-z0-9+/]{43}=$/,
+    );
+    expect(verifier).not.toContain('secreto');
+  });
+
+  it('usa una sal nueva cada vez', () => {
+    expect(scramSha256Verifier('a')).not.toBe(scramSha256Verifier('a'));
+  });
+
+  it('rechaza contraseñas con espacios o fuera de ASCII', () => {
+    expect(() => scramSha256Verifier('con espacio')).toThrow('ASCII');
+    expect(() => scramSha256Verifier('contraseña')).toThrow('ASCII');
+  });
+});
+
+describe('hasEncryptedConnection', () => {
+  it.each([
+    ['postgresql://a:b@db/x?sslmode=require', true],
+    ['postgresql://a:b@db/x?sslmode=verify-full', true],
+    ['postgresql://a:b@db/x?sslmode=prefer', false],
+    ['postgresql://a:b@db/x', false],
+    ['no es una url', false],
+  ])('%s → %s', (url, expected) => {
+    expect(hasEncryptedConnection(url)).toBe(expected);
+  });
+});
 
 const table = (tablename: string, overrides: Record<string, boolean> = {}) => ({
   tablename,
@@ -106,6 +140,13 @@ describe('privilegeProblems', () => {
       'puede modificar audit_logs, que es de solo inserción',
       'no puede modificar reports',
       'puede vaciar users',
+    ]);
+  });
+
+  it('reporta pertenecer a otro rol, aunque no herede sus permisos', async () => {
+    const query = fakeQuery({ ...ROLE_OK, member_of: ['score_owner'] }, [], []);
+    expect(await privilegeProblems(query, 'public')).toEqual([
+      'pertenece a otros roles: score_owner',
     ]);
   });
 

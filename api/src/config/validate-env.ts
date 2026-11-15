@@ -1,18 +1,10 @@
 import { z } from 'zod';
+import { hasEncryptedConnection } from '../prisma/database-roles';
 import { isSecureOrigin, parseCorsOrigins } from './cors';
 
 /** Vacío en `.env` (`VAR=""`) cuenta como no definido. */
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
-
-function hasEncryptedDatabaseConnection(databaseUrl: string): boolean {
-  try {
-    const sslMode = new URL(databaseUrl).searchParams.get('sslmode');
-    return ['require', 'verify-ca', 'verify-full'].includes(sslMode ?? '');
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Se valida `process.env` completo al boot para fallar rápido y con un
@@ -130,7 +122,7 @@ const EnvSchema = z
       }
     }
     if (env.NODE_ENV === 'production') {
-      if (!hasEncryptedDatabaseConnection(env.DATABASE_URL)) {
+      if (!hasEncryptedConnection(env.DATABASE_URL)) {
         ctx.addIssue({
           code: 'custom',
           path: ['DATABASE_URL'],

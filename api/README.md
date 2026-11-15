@@ -119,10 +119,14 @@ En QA y PROD la API no se conecta como dueña del esquema:
   base): dueño de las tablas. Solo lo usan `prisma migrate deploy`
   (`prisma.config.ts` lo prefiere a `DATABASE_URL`) y `scripts/db-app-role.ts`.
 - **Rol de la API** (`DATABASE_URL`): sin DDL. Lee y escribe todas las tablas,
-  salvo `audit_logs` (solo `SELECT` e `INSERT`) y `_prisma_migrations` (nada).
-  Como no es dueño de nada, no puede quitar el trigger de la bitácora.
+  salvo `audit_logs` y los historiales de solo inserción (`APPEND_ONLY_TABLES`:
+  solo `SELECT` e `INSERT`) y `_prisma_migrations` (nada). Como no es dueño de
+  nada ni pertenece a otro rol, no puede quitar los triggers.
 - `scripts/db-app-role.ts` crea el rol con el usuario y la contraseña de
   `DATABASE_URL` (o los ajusta si ya existe) y rehace sus permisos desde cero.
+  La contraseña viaja como verificador SCRAM-SHA-256, nunca en claro: debe ser
+  ASCII imprimible, sin espacios. En producción exige `sslmode` en
+  `MIGRATION_DATABASE_URL`.
   Es idempotente y corre después de cada migración: una tabla nueva queda con
   sus permisos. Rotar la contraseña = cambiar `DATABASE_URL` y volver a
   desplegar.

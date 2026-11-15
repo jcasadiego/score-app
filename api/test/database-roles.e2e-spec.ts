@@ -2,9 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { Client } from 'pg';
 import {
+  APPEND_ONLY_TABLES,
   applyAppRole,
   databaseUserFromUrl,
   privilegeProblems,
+  quoteIdent,
   type QueryRows,
 } from '../src/prisma/database-roles';
 
@@ -106,6 +108,29 @@ describe('Roles de la base (PF-58)', () => {
     expect(await sqlState(app, 'SELECT * FROM _prisma_migrations')).toBe(
       '42501',
     );
+  });
+
+  it('con el rol de la API, los historiales de solo inserción tampoco se modifican', async () => {
+    for (const table of APPEND_ONLY_TABLES) {
+      expect(await sqlState(app, `SELECT count(*) FROM ${table}`)).toBeNull();
+      expect(await sqlState(app, `DELETE FROM ${table} WHERE false`)).toBe(
+        '42501',
+      );
+    }
+  });
+
+  it('detecta si el rol de la API pertenece al dueño, aunque no herede', async () => {
+    const {
+      rows: [{ user }],
+    } = await owner.query<{ user: string }>('SELECT current_user AS user');
+    await admin.query(`GRANT ${quoteIdent(user)} TO ${ROLE}`);
+    try {
+      expect(await privilegeProblems(asQuery(app), 'public')).toContainEqual(
+        `pertenece a otros roles: ${user}`,
+      );
+    } finally {
+      await admin.query(`REVOKE ${quoteIdent(user)} FROM ${ROLE}`);
+    }
   });
 
   it('con el rol de la API, el resto de las tablas admite leer y escribir', async () => {

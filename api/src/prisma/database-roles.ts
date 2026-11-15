@@ -1,3 +1,4 @@
+import { createHash, createHmac, pbkdf2Sync, randomBytes } from 'node:crypto';
 import type { ClientBase } from 'pg';
 
 /**
@@ -14,8 +15,20 @@ import type { ClientBase } from 'pg';
  * su rol cumple (`assertLeastPrivilege`).
  */
 
-/** Tablas en las que la API solo puede leer e insertar. */
-export const APPEND_ONLY_TABLES = ['audit_logs'] as const;
+/**
+ * Tablas en las que la API solo puede leer e insertar: la bitácora y los
+ * historiales que un trigger ya declara de solo inserción. El permiso se quita
+ * además del trigger, para no depender solo de él.
+ */
+export const APPEND_ONLY_TABLES = [
+  'audit_logs',
+  'answer_corrections',
+  'answer_correction_selections',
+  'report_section_revisions',
+  'report_approval_revisions',
+  'report_deliveries',
+  'report_downloads',
+] as const;
 
 /** Tablas internas de Prisma: la API no las toca. */
 export const INTERNAL_TABLES = ['_prisma_migrations'] as const;
@@ -44,6 +57,43 @@ export function databaseUserFromUrl(databaseUrl: string): DatabaseUser {
 /** Comillas de identificador de Postgres, igual que `quote_ident`. */
 export function quoteIdent(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Verificador SCRAM-SHA-256 de una contraseña, en el formato que guarda
+ * Postgres (RFC 5802 y 7677). Va en `CREATE/ALTER ROLE ... PASSWORD` en lugar
+ * de la contraseña: así nunca viaja en claro ni queda en un log de sentencias
+ * del servidor.
+ */
+export function scramSha256Verifier(
+  password: string,
+  salt: Buffer = randomBytes(16),
+  iterations = 4096,
+): string {
+  // Postgres normaliza con SASLprep; con ASCII imprimible no cambia nada.
+  if (!/^[\x21-\x7e]+$/.test(password)) {
+    throw new Error(
+      'La contraseña del rol de la API debe ser ASCII imprimible, sin espacios',
+    );
+  }
+  const salted = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  const clientKey = createHmac('sha256', salted).update('Client Key').digest();
+  const storedKey = createHash('sha256').update(clientKey).digest();
+  const serverKey = createHmac('sha256', salted).update('Server Key').digest();
+  return (
+    `SCRAM-SHA-256$${iterations}:${salt.toString('base64')}` +
+    `$${storedKey.toString('base64')}:${serverKey.toString('base64')}`
+  );
+}
+
+/** Si la URL exige TLS (`sslmode` require, verify-ca o verify-full). */
+export function hasEncryptedConnection(databaseUrl: string): boolean {
+  try {
+    const sslMode = new URL(databaseUrl).searchParams.get('sslmode');
+    return ['require', 'verify-ca', 'verify-full'].includes(sslMode ?? '');
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -79,7 +129,7 @@ export async function applyAppRole(
   const schema = quoteIdent(app.schema);
   const attributes =
     'LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS';
-  const password = `PASSWORD ${quoteLiteral(app.password)}`;
+  const password = `PASSWORD ${quoteLiteral(scramSha256Verifier(app.password))}`;
 
   await owner.query('BEGIN');
   try {
@@ -147,10 +197,14 @@ export async function privilegeProblems(
     rolcreatedb: boolean;
     rolbypassrls: boolean;
     can_create: boolean;
+    member_of: string[];
   }>(
-    `SELECT rolsuper, rolcreaterole, rolcreatedb, rolbypassrls,
-            has_schema_privilege(current_user, $1, 'CREATE') AS can_create
-       FROM pg_roles WHERE rolname = current_user`,
+    `SELECT r.rolsuper, r.rolcreaterole, r.rolcreatedb, r.rolbypassrls,
+            has_schema_privilege(current_user, $1, 'CREATE') AS can_create,
+            ARRAY(SELECT g.rolname::text FROM pg_auth_members m
+                    JOIN pg_roles g ON g.oid = m.roleid
+                   WHERE m.member = r.oid ORDER BY g.rolname) AS member_of
+       FROM pg_roles r WHERE r.rolname = current_user`,
     [schema],
   );
   if (role.rolsuper) problems.push('es superusuario');
@@ -158,10 +212,15 @@ export async function privilegeProblems(
   if (role.rolcreatedb) problems.push('puede crear bases');
   if (role.rolbypassrls) problems.push('ignora RLS');
   if (role.can_create) problems.push(`puede crear objetos en ${schema}`);
+  // Con NOINHERIT no hereda permisos, pero podría hacer SET ROLE a esos roles.
+  if (role.member_of.length) {
+    problems.push(`pertenece a otros roles: ${role.member_of.join(', ')}`);
+  }
 
+  // MEMBER y no USAGE: con NOINHERIT, USAGE no ve la membresía.
   const owned = await query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
-      WHERE schemaname = $1 AND pg_has_role(current_user, tableowner, 'USAGE')
+      WHERE schemaname = $1 AND pg_has_role(current_user, tableowner, 'MEMBER')
       ORDER BY tablename`,
     [schema],
   );

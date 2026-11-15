@@ -19,6 +19,14 @@ if [ -z "${MIGRATION_DATABASE_URL:-}" ]; then
   echo "start-qa: falta MIGRATION_DATABASE_URL (rol de migraciones)" >&2
   exit 1
 fi
+# Lleva la credencial del dueño del esquema: nunca sin TLS.
+case "$MIGRATION_DATABASE_URL" in
+  *sslmode=require*|*sslmode=verify-ca*|*sslmode=verify-full*) ;;
+  *)
+    echo "start-qa: MIGRATION_DATABASE_URL debe exigir TLS (sslmode=require o más estricto)" >&2
+    exit 1
+    ;;
+esac
 
 cd "$(dirname "$0")/.."
 

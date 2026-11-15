@@ -2,6 +2,7 @@ import { Client } from 'pg';
 import {
   applyAppRole,
   databaseUserFromUrl,
+  hasEncryptedConnection,
 } from '../src/prisma/database-roles';
 
 /**
@@ -18,6 +19,15 @@ import {
 async function main() {
   const ownerUrl = requireEnv('MIGRATION_DATABASE_URL');
   const app = databaseUserFromUrl(requireEnv('DATABASE_URL'));
+  // Esta conexión lleva la credencial del dueño del esquema.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    !hasEncryptedConnection(ownerUrl)
+  ) {
+    throw new Error(
+      'MIGRATION_DATABASE_URL: en producción, conexión cifrada (sslmode=require, verify-ca o verify-full)',
+    );
+  }
 
   const owner = new Client({ connectionString: ownerUrl });
   await owner.connect();

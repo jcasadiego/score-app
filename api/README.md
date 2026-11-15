@@ -98,6 +98,8 @@ Definido en `../render.yaml` (Blueprint, instancias gratuitas). Node 22
   ni sembrar. PROD no lo usa: allí migra un cron job aparte (PF-75).
 - **Repetible:** la siembra no duplica el Aprobador (no toca su contraseña si
   ya existe) ni el cuestionario. Así se recarga la base gratuita cada 30 días.
+  Busca al Aprobador por `ADMIN_EMAIL`: si se le cambia el correo en el panel,
+  el siguiente arranque crea otro ADMIN. Cambiar también `ADMIN_EMAIL`.
 - **`DATABASE_URL`:** URL interna + `?sslmode=require&uselibpqcompat=true`.
   Sin `uselibpqcompat`, `pg` trata `require` como `verify-full` y rechaza el
   certificado autofirmado de la red interna de Render.

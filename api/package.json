@@ -4,6 +4,9 @@
   "description": "",
   "author": "",
   "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "postinstall": "prisma generate",
@@ -13,6 +16,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main",
+    "start:qa": "sh scripts/start-qa.sh",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -97,5 +101,6 @@
   },
   "scarfSettings": {
     "enabled": false
-  }
+  },
+  "packageManager": "pnpm@9.4.0"
 }

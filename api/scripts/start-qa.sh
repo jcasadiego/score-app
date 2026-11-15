@@ -14,14 +14,28 @@ if [ "${APP_ENV:-}" != "qa" ]; then
   exit 1
 fi
 
+# Migraciones con el rol dueño del esquema; la API, con su rol sin DDL (PF-58).
+if [ -z "${MIGRATION_DATABASE_URL:-}" ]; then
+  echo "start-qa: falta MIGRATION_DATABASE_URL (rol de migraciones)" >&2
+  exit 1
+fi
+
 cd "$(dirname "$0")/.."
 
 echo "start-qa: aplicando migraciones"
 ./node_modules/.bin/prisma migrate deploy
 
-# Idempotente: no duplica el Aprobador ni el cuestionario de prueba.
+echo "start-qa: aplicando los permisos del rol de la API"
+node dist/scripts/db-app-role.js
+
+# Con el rol de la API (DATABASE_URL). Idempotente: no duplica el Aprobador
+# ni el cuestionario de prueba.
 echo "start-qa: sembrando el primer Aprobador y el cuestionario de prueba"
 node dist/prisma/seed.js
+
+# La API no hereda la credencial de migraciones: el proceso que atiende
+# peticiones solo conoce su rol sin DDL.
+unset MIGRATION_DATABASE_URL
 
 # exec: el servidor reemplaza al shell y recibe SIGTERM directo de Render.
 echo "start-qa: levantando la API"

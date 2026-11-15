@@ -80,6 +80,31 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 - `pnpm test:e2e` — pruebas end-to-end (requieren Postgres corriendo).
 - `pnpm prisma migrate dev` — aplica cambios de `prisma/schema.prisma`.
 - `pnpm prisma studio` — explorador visual de la base de datos.
+- `pnpm start:qa` — arranque de QA (ver abajo).
+
+## Despliegue en Render (QA)
+
+Definido en `../render.yaml` (Blueprint, instancias gratuitas). Node 22
+(`NODE_VERSION` en Render; `engines` en `package.json`).
+
+- **Build:** `pnpm install --frozen-lockfile && pnpm build`, desde `api/`.
+  `postinstall` genera el cliente de Prisma.
+- **Arranque:** `sh scripts/start-qa.sh`. Aplica `prisma migrate deploy`,
+  corre la siembra compilada (`dist/prisma/seed.js`: primer Aprobador con
+  `ADMIN_*` y cuestionario de prueba) y levanta `dist/src/main` con `exec`.
+  Si la migración o la siembra fallan, sale con código distinto de cero y
+  Render conserva la versión anterior.
+- **Solo con `APP_ENV=qa`:** con cualquier otro valor el script sale sin migrar
+  ni sembrar. PROD no lo usa: allí migra un cron job aparte (PF-75).
+- **Repetible:** la siembra no duplica el Aprobador (no toca su contraseña si
+  ya existe) ni el cuestionario. Así se recarga la base gratuita cada 30 días.
+- **`DATABASE_URL`:** URL interna + `?sslmode=require&uselibpqcompat=true`.
+  Sin `uselibpqcompat`, `pg` trata `require` como `verify-full` y rechaza el
+  certificado autofirmado de la red interna de Render.
+- **Health check:** `GET /health`.
+
+Para simularlo en local: base vacía, `APP_ENV=qa` y
+`pnpm build && pnpm start:qa`.
 
 ## Estructura
 

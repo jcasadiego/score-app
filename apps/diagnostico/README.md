@@ -21,6 +21,16 @@ Para entrar hace falta un enlace real: se genera desde el panel
 `http://localhost:3001/access#token=…`. La CSP con nonce solo se comporta como
 en producción con `pnpm build && pnpm exec next start -p 3001`.
 
+## Despliegue en Render (QA)
+
+Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
+
+- **Build:** `pnpm install --frozen-lockfile && pnpm build`.
+- **Arranque:** `pnpm start` (`next start` toma el `PORT` de Render).
+- `NEXT_PUBLIC_API_URL` es la URL pública de la API y queda fija en el build:
+  cambiarla exige recompilar. `DIAGNOSTIC_API_SECRET` sale del servicio de la
+  API.
+
 ## Flujo (PF-17)
 
 | Ruta | Qué hace |

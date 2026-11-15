@@ -232,6 +232,25 @@ describe('Recuperación de contraseña (e2e)', () => {
       .expect(400);
   });
 
+  it('rechaza una contraseña filtrada y deja el enlace sin usar', async () => {
+    const token = await requestLink();
+
+    const { body } = await request(app.getHttpServer())
+      .post(`${BASE}/confirm`)
+      .send({ token, password: 'Password1234' })
+      .expect(400);
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'password', code: 'PASSWORD_BREACHED' }],
+    });
+
+    // El enlace sigue sirviendo con otra contraseña.
+    await request(app.getHttpServer())
+      .post(`${BASE}/confirm`)
+      .send({ token, password: 'clave-nueva-456' })
+      .expect(204);
+  });
+
   it('limita las solicitudes por minuto', async () => {
     for (let i = 0; i < 3; i++) {
       await request(app.getHttpServer())

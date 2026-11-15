@@ -1030,3 +1030,19 @@ model ReportDownload {
   @@index([linkId, createdAt])
   @@map("report_downloads")
 }
+
+/// Contadores del límite de peticiones, compartidos entre instancias de la API
+/// (PF-60). `key` es un HMAC-SHA256 (llave derivada de `JWT_SECRET`) de la ruta
+/// y de quien llama (usuario, diagnóstico o IP): nunca la IP en claro. Viven lo
+/// que dura la ventana o el bloqueo y se borran solos.
+model ThrottleCounter {
+  key          String    @db.Char(64)
+  throttler    String    @db.VarChar(64)
+  hits         Int
+  windowEndsAt DateTime  @map("window_ends_at") @db.Timestamptz(3)
+  blockedUntil DateTime? @map("blocked_until") @db.Timestamptz(3)
+
+  @@id([key, throttler])
+  @@index([windowEndsAt])
+  @@map("throttle_counters")
+}

@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { panelLink } from '../config/panel-url';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
+import { PasswordPolicyService } from '../password-policy/password-policy.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { hashToken, newLinkToken } from './password-link.service';
@@ -37,6 +38,7 @@ export class PasswordResetService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly config: ConfigService<ValidatedEnv, true>,
+    private readonly passwordPolicy: PasswordPolicyService,
   ) {}
 
   /**
@@ -124,6 +126,10 @@ export class PasswordResetService {
         code: INVALID_LINK_CODE,
       });
     }
+
+    // Después de validar el enlace: con uno inválido no se consulta nada fuera.
+    // El enlace sigue sin usar, así que se puede probar con otra contraseña.
+    await this.passwordPolicy.assertNotBreached(password);
 
     const passwordHash = await argon2.hash(password);
 

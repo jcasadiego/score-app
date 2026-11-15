@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../generated/prisma/client';
+import { isCommonPassword } from '../src/password-policy/breached-passwords';
 import { PASSWORD_MAX, PASSWORD_MIN } from '../src/users/dto/limits';
 import {
   sampleDataAllowed,
@@ -27,6 +28,10 @@ async function main() {
     throw new Error(
       `ADMIN_PASSWORD debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`,
     );
+  }
+  // Solo la lista local: la siembra corre al desplegar y no depende de la red.
+  if (isCommonPassword(password)) {
+    throw new Error('ADMIN_PASSWORD es una contraseña común filtrada: elige otra');
   }
 
   const prisma = new PrismaClient({

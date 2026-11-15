@@ -9,6 +9,9 @@ paths = [
   '''\.spec\.ts$''',
   '''\.e2e-spec\.ts$''',
   '''vitest\.config\.e2e\.mts$''',
+  # Lista pública de contraseñas comunes (SecLists) para rechazarlas (PF-60):
+  # no son secretos de SCORE.
+  '''api/assets/common-passwords\.txt$''',
 ]
 # Secretos del CI, que solo firman tokens contra el Postgres de servicio.
 regexes = ['''ci-secret-[a-z-]+''']

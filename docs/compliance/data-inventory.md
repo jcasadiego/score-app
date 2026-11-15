@@ -29,9 +29,11 @@ agregue un dato personal o un proveedor lo anota aquí en el mismo PR.
 | Enlaces a sus perfiles públicos (Spotify, YouTube, Instagram, TikTok, sitio web) | Cliente final | `external_links` | Diagnóstico | Por definir | Por definir (PF-49) |
 | Estado, actividad y fechas del diagnóstico; quién lo generó y el motivo de generarlo sin pago | Cliente final y equipo interno | `diagnostics` | Seguimiento del diagnóstico y control del acceso sin pago | Por definir | Por definir (PF-49) |
 | Enlace de acceso del cliente (solo hash), uso y revocación | Cliente final | `access_links` | Acceso sin contraseña | Por definir | Vence en 30 días (`ACCESS_LINK_TTL_DAYS`); la fila no se borra todavía |
+| Contador del límite de peticiones: HMAC de la ruta y de quien llama (id de usuario, de diagnóstico o IP), golpes y vencimiento; nunca la IP en claro | Equipo, clientes y visitantes | `throttle_counters` | Frenar abusos en login y rutas públicas (PF-60) | Por definir | Lo que dura la ventana o el bloqueo (1 minuto por defecto); se borra en el siguiente barrido |
 
-La IP no se guarda en logs ni en bitácora; solo se usa en memoria para el límite
-de peticiones. Si una investigación de seguridad la requiere, hay que decidirlo y
+La IP no se guarda en logs ni en bitácora. Para el límite de peticiones solo se
+guarda un HMAC que la incluye (`throttle_counters`), con una llave derivada de
+`JWT_SECRET`: sin el secreto no se puede revertir. Si una investigación de seguridad la requiere, hay que decidirlo y
 anotarlo aquí, porque también es un dato personal.
 
 ## Proveedores que reciben datos
@@ -40,6 +42,7 @@ anotarlo aquí, porque también es un dato personal.
 |---|---|---|---|---|---|
 | Resend | Correo y nombre del destinatario, y el enlace de acceso del cliente o el de descarga de su informe (el PDF no se adjunta). En los avisos al equipo, nombre, familia y UTM del lead | Correo transaccional | Por confirmar | Por firmar | En uso con cuenta de desarrollo. Falta la cuenta y el dominio del cliente |
 | Render (hosting y base de datos) | Todo lo anterior | Operar SCORE | EE. UU., Virginia | Por firmar (Render ofrece DPA a todo workspace) | Elegido por José el 2026-11-14 (`docs/infra/investigacion-despliegue.md`). QA: workspace nuestro, instancias gratuitas, solo datos de prueba (`render.yaml`, PF-67 a PF-73). PROD: workspace del cliente (PF-74), sin crear |
+| Have I Been Pwned (Pwned Passwords) | Los 5 primeros caracteres del SHA-1 de una contraseña nueva (k-anonimato) y la IP del servidor de la API; nunca la contraseña, el correo ni quién la elige | Rechazar contraseñas filtradas (PF-60) | Global (Cloudflare) | No aplica: no recibe datos personales | Aprobado por José el 2026-11-15. Gratis y sin clave; si no responde en 2 s, vale solo la lista local (`BREACHED_PASSWORDS_PROVIDER`) |
 | Anthropic (Claude API) | Respuestas del diagnóstico por `code`/`value`, resultado del cálculo y, para el informe, las notas del revisor y el texto vigente de la dimensión que se regenera; minimizado: nunca nombre, correo ni teléfono del lead, y su nombre tachado en los textos libres (`src/ai/minimize.ts`) | Flags y borrador del informe | Por confirmar | Por firmar: cuenta a nombre de Music Finance Pro | Servicio listo (PF-32), sin cuenta real. Condiciones oficiales: borra entradas y salidas en 30 días; hasta 2 años si se marcan por violar su política de uso; no las usa para entrenar (privacy.claude.com, revisado el 2026-11-08). Evaluar un acuerdo de retención cero |
 | Pasarela de pagos y CRM | Por definir | Pagos y CRM | Por definir | Por firmar | Sin delimitar |
 

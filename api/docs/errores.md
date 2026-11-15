@@ -22,7 +22,7 @@ Un código publicado no cambia de significado.
 
 | `code` | Estado | Cuándo |
 | -------------------- | ------ | ------------------------------------- |
-| `VALIDATION_FAILED` | 400 | Datos que no pasan la validación; `errors` trae cada campo. |
+| `VALIDATION_FAILED` | 400 | Datos que no pasan la validación; `errors` trae cada campo. Una contraseña filtrada trae `errors[].field = password` y `errors[].code = PASSWORD_BREACHED` (PF-60). |
 | `BAD_REQUEST` | 400 | Otra petición mal formada, como un JSON inválido. |
 | `INVALID_RESET_LINK` | 400 | Enlace de recuperación inválido, usado o vencido. |
 | `UNAUTHORIZED` | 401 | Sin sesión, o sesión o enlace no válidos. |

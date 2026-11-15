@@ -1,6 +1,6 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
-import { Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { SESSION_AUDIENCE } from '../diagnostics/access-links.service';
@@ -38,6 +38,30 @@ function sha256(value: string): Buffer {
 @Injectable()
 export class AppThrottlerGuard extends ThrottlerGuard {
   private readonly jwt = new JwtService();
+  private keySecret?: Buffer;
+
+  /**
+   * La clave del contador se guarda en la base (PF-60) y lleva la IP: con un
+   * SHA-256 sin sal se podría revertir probando todas las IPv4. Con HMAC, y una
+   * llave derivada de `JWT_SECRET` solo para esto, no se puede sin el secreto.
+   */
+  protected generateKey(
+    context: ExecutionContext,
+    suffix: string,
+    name: string,
+  ): string {
+    const jwtSecret = process.env.JWT_SECRET;
+    // validate-env ya lo exige; esto evita derivar la llave de un secreto vacío.
+    if (!jwtSecret) throw new Error('Falta JWT_SECRET para el límite');
+    this.keySecret ??= Buffer.from(
+      hkdfSync('sha256', jwtSecret, Buffer.alloc(0), 'score-throttle-keys', 32),
+    );
+    return createHmac('sha256', this.keySecret)
+      .update(
+        `${context.getClass().name}-${context.getHandler().name}-${name}-${suffix}`,
+      )
+      .digest('hex');
+  }
 
   protected getTracker(req: ThrottledRequest): Promise<string> {
     const token = this.bearerToken(req);

@@ -389,8 +389,9 @@ desde su propio repo, como sitio estático de Render.
 - **Este diseño frente a PF-58.** En QA la migración corre en el arranque de
   la API, así que la credencial del rol de migraciones queda en su entorno:
   aceptable con datos de prueba. En PROD la tiene solo el cron job de
-  migraciones, y la API en ejecución nunca la ve. Hoy la API usa una sola
-  `DATABASE_URL`; la separación de roles llega con PF-58.
+  migraciones, y la API en ejecución nunca la ve. La separación de roles
+  (PF-58) ya está: `MIGRATION_DATABASE_URL` para migrar y
+  `scripts/db-app-role.ts` para crear y ajustar el rol de la API.
 - **Alternativa más simple todavía:** que Render despliegue solo "After CI
   Checks Pass", sin workflow. PROD se quedaría sin puerta de aprobación.
 

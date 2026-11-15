@@ -5,6 +5,7 @@ import * as argon2 from 'argon2';
 import { AuditService } from '../audit/audit.service';
 import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
+import { PasswordPolicyService } from '../password-policy/password-policy.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import {
@@ -36,6 +37,7 @@ describe('PasswordResetService', () => {
   let users: { findByEmail: Mock; unlockAfterPasswordReset: Mock };
   let mail: { sendPasswordReset: Mock };
   let audit: { record: Mock };
+  let passwordPolicy: { assertNotBreached: Mock };
   let service: PasswordResetService;
 
   beforeEach(() => {
@@ -64,6 +66,9 @@ describe('PasswordResetService', () => {
         .mockResolvedValue({ sent: true, providerId: 'em_1' }),
     };
     audit = { record: vi.fn().mockResolvedValue({}) };
+    passwordPolicy = {
+      assertNotBreached: vi.fn().mockResolvedValue(undefined),
+    };
     const config = {
       get: vi.fn().mockReturnValue('https://panel.example.com'),
     };
@@ -73,6 +78,7 @@ describe('PasswordResetService', () => {
       mail as unknown as MailService,
       audit as unknown as AuditService,
       config as unknown as ConfigService<ValidatedEnv, true>,
+      passwordPolicy as unknown as PasswordPolicyService,
     );
   });
 
@@ -168,6 +174,31 @@ describe('PasswordResetService', () => {
         expect.objectContaining({ action: 'ACCOUNT_UNLOCKED' }),
         expect.anything(),
       );
+    });
+
+    it('con una contraseña filtrada no cambia nada y el enlace sigue sin usar', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(validToken);
+      passwordPolicy.assertNotBreached.mockRejectedValue(
+        new BadRequestException('filtrada'),
+      );
+
+      await expect(
+        service.confirm('token-ok', 'password1234'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(passwordPolicy.assertNotBreached).toHaveBeenCalledWith(
+        'password1234',
+      );
+      expect(prisma.passwordResetToken.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('con un enlace inválido no consulta las contraseñas filtradas', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(null);
+
+      await expect(service.confirm('token-malo', 'x')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(passwordPolicy.assertNotBreached).not.toHaveBeenCalled();
     });
 
     it('si levantó un bloqueo, lo deja en la bitácora dentro de la transacción', async () => {

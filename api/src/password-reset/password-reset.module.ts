@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { MailModule } from '../mail/mail.module';
+import { PasswordPolicyModule } from '../password-policy/password-policy.module';
 import { UsersModule } from '../users/users.module';
 import { PasswordResetController } from './password-reset.controller';
 import { PasswordResetService } from './password-reset.service';
 
 @Module({
-  imports: [UsersModule, MailModule, AuditModule],
+  imports: [UsersModule, MailModule, AuditModule, PasswordPolicyModule],
   controllers: [PasswordResetController],
   providers: [PasswordResetService],
 })

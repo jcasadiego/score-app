@@ -10,10 +10,16 @@ import {
   type QueryRows,
 } from '../src/prisma/database-roles';
 
-// Base y rol propios: los roles son de todo el servidor, no de una base.
+// Base y roles propios: los roles son de todo el servidor, no de una base.
 const DATABASE = `score_roles_${process.pid}`;
 const ROLE = `score_app_e2e_${process.pid}`;
 const PASSWORD = `${randomBytes(12).toString('hex')}'"\\x`;
+// Dueño sin superusuario, como el usuario que crea Render: puede crear roles y
+// bases, pero no tocar SUPERUSER, REPLICATION ni BYPASSRLS.
+const OWNER = {
+  user: `score_owner_e2e_${process.pid}`,
+  password: randomBytes(12).toString('hex'),
+};
 
 function urlFor(name: string, user?: { user: string; password: string }) {
   const url = new URL(process.env.DATABASE_URL as string);
@@ -49,17 +55,22 @@ describe('Roles de la base (PF-58)', () => {
     await admin.connect();
     await admin.query(`DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`);
     await admin.query(`DROP ROLE IF EXISTS ${ROLE}`);
-    await admin.query(`CREATE DATABASE ${DATABASE}`);
+    await admin.query(`DROP ROLE IF EXISTS ${OWNER.user}`);
+    await admin.query(
+      `CREATE ROLE ${OWNER.user} LOGIN CREATEROLE CREATEDB PASSWORD '${OWNER.password}'`,
+    );
+    await admin.query(`CREATE DATABASE ${DATABASE} OWNER ${OWNER.user}`);
     execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-      env: { ...process.env, DATABASE_URL: urlFor(DATABASE) },
+      env: { ...process.env, DATABASE_URL: urlFor(DATABASE, OWNER) },
       stdio: 'pipe',
     });
 
-    owner = new Client({ connectionString: urlFor(DATABASE) });
+    owner = new Client({ connectionString: urlFor(DATABASE, OWNER) });
     await owner.connect();
     const appUser = { user: ROLE, password: PASSWORD, schema: 'public' };
     await applyAppRole(owner, appUser);
-    // Dos veces: se aplica en cada despliegue.
+    // Dos veces: se aplica en cada despliegue, y la segunda ajusta el rol que ya
+    // existe (en Render fallaba: "permission denied to alter role").
     await applyAppRole(owner, appUser);
 
     app = new Client({ connectionString: urlFor(DATABASE, appUser) });
@@ -71,6 +82,7 @@ describe('Roles de la base (PF-58)', () => {
     await owner?.end();
     await admin.query(`DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`);
     await admin.query(`DROP ROLE IF EXISTS ${ROLE}`);
+    await admin.query(`DROP ROLE IF EXISTS ${OWNER.user}`);
     await admin.end();
   });
 
@@ -119,17 +131,20 @@ describe('Roles de la base (PF-58)', () => {
     }
   });
 
-  it('detecta si el rol de la API pertenece al dueño, aunque no herede', async () => {
-    const {
-      rows: [{ user }],
-    } = await owner.query<{ user: string }>('SELECT current_user AS user');
-    await admin.query(`GRANT ${quoteIdent(user)} TO ${ROLE}`);
+  it('detecta si el rol de la API pertenece a otro rol, aunque no herede', async () => {
+    // No se usa el dueño: desde Postgres 16 quien crea un rol queda como su
+    // miembro, y hacer al rol de la API miembro de su dueño sería circular.
+    const other = `score_other_e2e_${process.pid}`;
+    await admin.query(`DROP ROLE IF EXISTS ${other}`);
+    await admin.query(`CREATE ROLE ${other}`);
+    await admin.query(`GRANT ${quoteIdent(other)} TO ${ROLE}`);
     try {
       expect(await privilegeProblems(asQuery(app), 'public')).toContainEqual(
-        `pertenece a otros roles: ${user}`,
+        `pertenece a otros roles: ${other}`,
       );
     } finally {
-      await admin.query(`REVOKE ${quoteIdent(user)} FROM ${ROLE}`);
+      await admin.query(`REVOKE ${quoteIdent(other)} FROM ${ROLE}`);
+      await admin.query(`DROP ROLE ${other}`);
     }
   });
 
@@ -142,7 +157,7 @@ describe('Roles de la base (PF-58)', () => {
   });
 
   it('rechaza usar el mismo usuario para la API y las migraciones', async () => {
-    const { user, password } = databaseUserFromUrl(urlFor(DATABASE));
+    const { user, password } = databaseUserFromUrl(urlFor(DATABASE, OWNER));
     await expect(
       applyAppRole(owner, { user, password, schema: 'public' }),
     ).rejects.toThrow('mismo usuario');

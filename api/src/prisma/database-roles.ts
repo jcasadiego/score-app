@@ -139,9 +139,13 @@ export async function applyAppRole(
     );
     // La contraseña se fija siempre: la URL de la API es la fuente de verdad,
     // y así una rotación solo exige cambiar la variable y volver a desplegar.
+    // Al ajustar un rol existente solo se tocan LOGIN y la contraseña: un dueño
+    // sin superusuario (como el de Render) no puede nombrar SUPERUSER,
+    // REPLICATION ni BYPASSRLS en ALTER ROLE, ni siquiera para apagarlos. Los
+    // atributos quedan desde el CREATE, y assertLeastPrivilege los verifica.
     await owner.query(
       rowCount
-        ? `ALTER ROLE ${role} WITH ${attributes} ${password}`
+        ? `ALTER ROLE ${role} WITH LOGIN ${password}`
         : `CREATE ROLE ${role} WITH ${attributes} ${password}`,
     );
 

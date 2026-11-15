@@ -45,11 +45,18 @@ services:
         value: production
       - key: APP_ENV
         value: qa
-      # URL interna de la base + `?sslmode=require&uselibpqcompat=true`.
+      # URLs internas de la base + `?sslmode=require&uselibpqcompat=true`.
       # Sin `uselibpqcompat`, `pg` trata `require` como `verify-full` y
-      # rechaza el certificado autofirmado de la red interna. Se carga a mano
+      # rechaza el certificado autofirmado de la red interna. Se cargan a mano
       # (no `fromDatabase`) porque la URL de Render no trae el `sslmode`.
+      #
+      # Roles separados (PF-58): DATABASE_URL lleva el rol de la API, sin DDL
+      # (usuario y contraseña elegidos al cargarla; el arranque crea el rol);
+      # MIGRATION_DATABASE_URL, el usuario de Render, dueño del esquema. La
+      # API no hereda esta última: `start-qa.sh` la quita antes de levantarla.
       - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
         sync: false
       # Se mide en QA (PF-69); la API no arranca en producción sin ella.
       - key: TRUST_PROXY_HOPS

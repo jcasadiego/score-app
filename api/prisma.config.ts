@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "ts-node prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Las migraciones corren con el rol dueño del esquema (PF-58). Sin
+    // MIGRATION_DATABASE_URL (local, CI) se usa DATABASE_URL, con un solo rol.
+    url: process.env["MIGRATION_DATABASE_URL"] || process.env["DATABASE_URL"],
   },
 });

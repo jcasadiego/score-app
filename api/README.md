@@ -89,24 +89,52 @@ Definido en `../render.yaml` (Blueprint, instancias gratuitas). Node 22
 
 - **Build:** `pnpm install --frozen-lockfile && pnpm build`, desde `api/`.
   `postinstall` genera el cliente de Prisma.
-- **Arranque:** `sh scripts/start-qa.sh`. Aplica `prisma migrate deploy`,
-  corre la siembra compilada (`dist/prisma/seed.js`: primer Aprobador con
-  `ADMIN_*` y cuestionario de prueba) y levanta `dist/src/main` con `exec`.
-  Si la migración o la siembra fallan, sale con código distinto de cero y
-  Render conserva la versión anterior.
+- **Arranque:** `sh scripts/start-qa.sh`. Aplica `prisma migrate deploy` con
+  el rol de migraciones, crea o ajusta el rol de la API y sus permisos
+  (`dist/scripts/db-app-role.js`), corre la siembra compilada con el rol de la
+  API (`dist/prisma/seed.js`: primer Aprobador con `ADMIN_*` y cuestionario de
+  prueba), quita `MIGRATION_DATABASE_URL` del entorno y levanta
+  `dist/src/main` con `exec`. Si un paso falla, sale con código distinto de
+  cero y Render conserva la versión anterior.
 - **Solo con `APP_ENV=qa`:** con cualquier otro valor el script sale sin migrar
   ni sembrar. PROD no lo usa: allí migra un cron job aparte (PF-75).
 - **Repetible:** la siembra no duplica el Aprobador (no toca su contraseña si
   ya existe) ni el cuestionario. Así se recarga la base gratuita cada 30 días.
   Busca al Aprobador por `ADMIN_EMAIL`: si se le cambia el correo en el panel,
   el siguiente arranque crea otro ADMIN. Cambiar también `ADMIN_EMAIL`.
-- **`DATABASE_URL`:** URL interna + `?sslmode=require&uselibpqcompat=true`.
-  Sin `uselibpqcompat`, `pg` trata `require` como `verify-full` y rechaza el
-  certificado autofirmado de la red interna de Render.
+- **`DATABASE_URL` y `MIGRATION_DATABASE_URL`:** URLs internas +
+  `?sslmode=require&uselibpqcompat=true`. Sin `uselibpqcompat`, `pg` trata
+  `require` como `verify-full` y rechaza el certificado autofirmado de la red
+  interna de Render.
 - **Health check:** `GET /health`.
 
 Para simularlo en local: base vacía, `APP_ENV=qa` y
 `pnpm build && pnpm start:qa`.
+
+## Roles de la base (PF-58)
+
+En QA y PROD la API no se conecta como dueña del esquema:
+
+- **Rol de migraciones** (`MIGRATION_DATABASE_URL`, en Render el usuario de la
+  base): dueño de las tablas. Solo lo usan `prisma migrate deploy`
+  (`prisma.config.ts` lo prefiere a `DATABASE_URL`) y `scripts/db-app-role.ts`.
+- **Rol de la API** (`DATABASE_URL`): sin DDL. Lee y escribe todas las tablas,
+  salvo `audit_logs` y los historiales de solo inserción (`APPEND_ONLY_TABLES`:
+  solo `SELECT` e `INSERT`) y `_prisma_migrations` (nada). Como no es dueño de
+  nada ni pertenece a otro rol, no puede quitar los triggers.
+- `scripts/db-app-role.ts` crea el rol con el usuario y la contraseña de
+  `DATABASE_URL` (o los ajusta si ya existe) y rehace sus permisos desde cero.
+  La contraseña viaja como verificador SCRAM-SHA-256, nunca en claro: debe ser
+  ASCII imprimible, sin espacios. En producción exige `sslmode` en
+  `MIGRATION_DATABASE_URL`.
+  Es idempotente y corre después de cada migración: una tabla nueva queda con
+  sus permisos. Rotar la contraseña = cambiar `DATABASE_URL` y volver a
+  desplegar.
+- Con `NODE_ENV=production`, la API comprueba su rol al arrancar
+  (`assertLeastPrivilege`, `src/prisma/database-roles.ts`) y no arranca si
+  puede alterar el esquema o la bitácora, o si le falta un permiso.
+- En local, CI y e2e hay un solo rol, dueño de todo: el chequeo no corre.
+  `test/database-roles.e2e-spec.ts` prueba los dos roles contra Postgres real.
 
 ## Estructura
 

@@ -32,7 +32,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Control | ISO 27001 | SOC 2 | Estado | Evidencia o qué falta |
 |---|---|---|---|---|
 | Bitácora de escrituras e intentos denegados | A.8.15 | CC7.2 | Implementado | `api/src/audit/`, `test/audit.e2e-spec.ts` |
-| Bitácora de solo inserción | A.5.33, A.8.15 | CC7.2 | Parcial | Trigger en la base. La API es dueña de la tabla y podría quitarlo: en producción, las migraciones deben usar otro rol (PF-58) |
+| Bitácora de solo inserción | A.5.33, A.8.15 | CC7.2 | Parcial | Trigger en la base y, en QA y PROD, rol de la API sin DDL ni membresías: solo `SELECT` e `INSERT` en `audit_logs` y en los historiales de solo inserción, sin poder quitar los triggers ni alterar tablas; su contraseña se fija como verificador SCRAM (PF-58, `src/prisma/database-roles.ts`, `test/database-roles.e2e-spec.ts`). La API no arranca en producción si su rol puede alterar el esquema o la bitácora. Falta probarlo en QA (PF-69). En QA la credencial de migraciones vive en el servicio de la API (se quita del proceso antes de levantarlo); en PROD, solo en el job de migraciones (PF-75) |
 | Registro de quién consulta datos personales | A.8.15 | CC7.2, P6 | Parcial | Leads, con `LEADS_LISTED` y `LEAD_VIEWED`. Cada módulo nuevo con datos personales debe declararlo |
 | Id de petición en respuesta, log y bitácora | A.8.15 | CC7.2 | Implementado | `api/src/common/request-context.ts` |
 | Logs en JSON, sin URLs ni valores de consultas | A.8.11, A.8.15 | CC7.2, C1.1 | Implementado | `main.ts`, `problem-details.ts` |

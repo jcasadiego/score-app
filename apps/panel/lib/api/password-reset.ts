@@ -62,9 +62,17 @@ export async function confirmPasswordReset(
     const body = (await response.json().catch(() => null)) as {
       code?: string;
       detail?: string;
+      errors?: { field?: string; code?: string }[];
     } | null;
     if (body?.code === "INVALID_RESET_LINK" && body.detail) {
       throw new ApiError(INVALID_LINK_STATUS, body.detail);
+    }
+    // PF-60: la contraseña aparece en filtraciones conocidas.
+    if (body?.errors?.some((e) => e.code === "PASSWORD_BREACHED")) {
+      throw new ApiError(
+        400,
+        "Esta contraseña aparece en filtraciones conocidas. Elige otra.",
+      );
     }
     throw new ApiError(
       400,

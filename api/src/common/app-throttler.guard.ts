@@ -50,14 +50,11 @@ export class AppThrottlerGuard extends ThrottlerGuard {
     suffix: string,
     name: string,
   ): string {
+    const jwtSecret = process.env.JWT_SECRET;
+    // validate-env ya lo exige; esto evita derivar la llave de un secreto vacío.
+    if (!jwtSecret) throw new Error('Falta JWT_SECRET para el límite');
     this.keySecret ??= Buffer.from(
-      hkdfSync(
-        'sha256',
-        process.env.JWT_SECRET ?? '',
-        Buffer.alloc(0),
-        'score-throttle-keys',
-        32,
-      ),
+      hkdfSync('sha256', jwtSecret, Buffer.alloc(0), 'score-throttle-keys', 32),
     );
     return createHmac('sha256', this.keySecret)
       .update(

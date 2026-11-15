@@ -87,8 +87,11 @@ perderla o cambiarla obliga a restablecer el MFA de todos.
 Definido en `../render.yaml` (Blueprint, instancias gratuitas). Node 22
 (`NODE_VERSION` en Render; `engines` en `package.json`).
 
-- **Build:** `pnpm install --frozen-lockfile && pnpm build`, desde `api/`.
-  `postinstall` genera el cliente de Prisma.
+- **Build:** `pnpm install --frozen-lockfile --prod=false && pnpm build`, desde `api/`.
+  `postinstall` genera el cliente de Prisma. `--prod=false` hace falta porque
+  en Render `NODE_ENV=production` también rige en el build, y sin él pnpm salta
+  las `devDependencies` (`prisma`, el CLI de Nest), que el build y la migración
+  del arranque necesitan.
 - **Arranque:** `sh scripts/start-qa.sh`. Aplica `prisma migrate deploy` con
   el rol de migraciones, crea o ajusta el rol de la API y sus permisos
   (`dist/scripts/db-app-role.js`), corre la siembra compilada con el rol de la

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AiModule } from './ai/ai.module';
@@ -18,17 +18,32 @@ import { QuestionnaireModule } from './questionnaire/questionnaire.module';
 import { RulesModule } from './rules/rules.module';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 import { UsersModule } from './users/users.module';
-import { validateEnv } from './config/validate-env';
+import { ValidatedEnv, validateEnv } from './config/validate-env';
+import { PostgresThrottlerStorage } from './common/postgres-throttler.storage';
+import { PrismaService } from './prisma/prisma.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: Number(process.env.THROTTLE_TTL ?? 60_000),
-        limit: Number(process.env.THROTTLE_LIMIT ?? 100),
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService, PrismaService],
+      useFactory: (
+        config: ConfigService<ValidatedEnv, true>,
+        prisma: PrismaService,
+      ) => ({
+        throttlers: [
+          {
+            ttl: config.get('THROTTLE_TTL', { infer: true }),
+            limit: config.get('THROTTLE_LIMIT', { infer: true }),
+          },
+        ],
+        // En la base, para que el límite valga con varias instancias (PF-60).
+        storage:
+          config.get('THROTTLE_STORAGE', { infer: true }) === 'postgres'
+            ? new PostgresThrottlerStorage(prisma)
+            : undefined,
+      }),
+    }),
     PrismaModule,
     AuditModule,
     AiModule,

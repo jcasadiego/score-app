@@ -95,6 +95,12 @@ const EnvSchema = z
     MAIL_FROM: optional(z.string()),
     MAIL_REPLY_TO: optional(z.email()),
     MAIL_LOGO_URL: optional(z.url()),
+    // Contraseñas filtradas (PF-60): `hibp` consulta Pwned Passwords con
+    // k-anonimato además de la lista local; `local`, solo la lista (tests).
+    BREACHED_PASSWORDS_PROVIDER: z.enum(['hibp', 'local']).default('hibp'),
+    // Contadores del límite de peticiones (PF-60): `postgres` los comparte entre
+    // instancias; `memory` es por proceso (tests).
+    THROTTLE_STORAGE: z.enum(['postgres', 'memory']).default('postgres'),
   })
   .superRefine((env, ctx) => {
     // Con el mismo secreto, un token del panel serviría como enlace de cliente.

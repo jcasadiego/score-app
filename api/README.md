@@ -373,8 +373,18 @@ En QA y PROD la API no se conecta como dueña del esquema:
   cliente final válida, por la IP que informa el panel o `apps/diagnostico` en
   rutas sin sesión (`x-client-ip`, solo con `x-panel-secret` igual a
   `PANEL_API_SECRET` o `x-diagnostic-secret` igual a `DIAGNOSTIC_API_SECRET`) y,
-  si no, por IP de conexión. Cada contador es por ruta y vive en memoria, así que con
-  varias instancias de la API hará falta un almacén compartido.
+  si no, por IP de conexión. Cada contador es por ruta y vive en Postgres
+  (`throttle_counters`, `src/common/postgres-throttler.storage.ts`), así que el
+  límite se mantiene con varias instancias (PF-60). La clave es un HMAC con una
+  llave derivada de `JWT_SECRET`: nunca guarda la IP en claro. Ventana fija;
+  los vencidos se borran solos. `THROTTLE_STORAGE=memory` lo deja por proceso
+  (los e2e).
+- `src/password-policy/` — rechaza contraseñas filtradas al restablecerlas o
+  activarlas (PF-60): lista local de contraseñas comunes de 12 o más
+  caracteres (`assets/common-passwords.txt`, SecLists, MIT) y Pwned Passwords
+  de Have I Been Pwned con k-anonimato (solo salen 5 caracteres del SHA-1; con
+  relleno). Si HIBP no responde en 2 s, vale solo la lista. La siembra usa solo
+  la lista. `BREACHED_PASSWORDS_PROVIDER=local` evita la red (los e2e).
 - `src/audit/` — bitácora de auditoría (requisito duro). Cada evento
   guarda actor tipado (`PANEL_USER` / `END_CLIENT` / `SYSTEM` + id
   cuando aplica), acción, entidad afectada por referencia (tipo + id,

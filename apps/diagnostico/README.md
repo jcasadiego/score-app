@@ -30,6 +30,9 @@ Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
 - `NEXT_PUBLIC_API_URL` es la URL pública de la API y queda fija en el build:
   cambiarla exige recompilar. `DIAGNOSTIC_API_SECRET` sale del servicio de la
   API.
+- `TRUST_PROXY_HOPS=3` en Render (medido en PF-69): la IP del usuario que se le
+  informa a la API es la entrada de `x-forwarded-for` que está esas posiciones
+  desde el final. Debe coincidir con la de la API.
 
 ## Flujo (PF-17)
 

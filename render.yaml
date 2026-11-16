@@ -62,9 +62,11 @@ services:
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
-      # Se mide en QA (PF-69); la API no arranca en producción sin ella.
+      # Medido en QA (PF-69, 2026-11-16): Render pone 3 proxies delante
+      # (Cloudflare y los suyos). Con menos, todos comparten el límite de
+      # login; con más, el cliente puede inventar su IP.
       - key: TRUST_PROXY_HOPS
-        sync: false
+        value: "3"
       # https://<diagnóstico de QA>,https://<sitio de QA>
       - key: CORS_ORIGINS
         sync: false
@@ -119,6 +121,8 @@ services:
       # por la red privada). Se usa en el build: cambiarla exige recompilar.
       - key: NEXT_PUBLIC_API_URL
         sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "3"
       - key: PANEL_API_SECRET
         fromService:
           type: web
@@ -140,6 +144,8 @@ services:
         value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "3"
       - key: DIAGNOSTIC_API_SECRET
         fromService:
           type: web

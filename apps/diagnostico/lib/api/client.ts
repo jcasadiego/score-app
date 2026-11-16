@@ -13,15 +13,28 @@ function baseUrl(): string {
 }
 
 /**
+ * IP de quien navega, según `x-forwarded-for`. Cada proxy delante de este
+ * servidor agrega una entrada al final, así que la del cliente es la que está
+ * `TRUST_PROXY_HOPS` posiciones desde el final; las anteriores las puede
+ * inventar el cliente. Medido en Render QA (PF-69): 3 proxies (Cloudflare y
+ * Render). Es la misma regla que aplica la API con su `TRUST_PROXY_HOPS`.
+ * Si la cadena es más corta de lo esperado, no se informa nada.
+ */
+function forwardedClientIp(forwardedFor: string | null): string | undefined {
+  const hops = Number(process.env.TRUST_PROXY_HOPS || "1");
+  if (!forwardedFor || !Number.isInteger(hops) || hops < 1) return undefined;
+  const entries = forwardedFor.split(",").map((entry) => entry.trim());
+  return entries.length >= hops ? entries.at(-hops) || undefined : undefined;
+}
+
+/**
  * La API ve la IP de este servidor, no la del cliente. Con estos encabezados
- * cuenta sus límites por cliente. Se toma la última entrada de
- * `x-forwarded-for`: la agrega el proxy, y las anteriores las puede inventar el
- * cliente. Sin secreto o sin IP no se envía nada.
+ * cuenta sus límites por cliente. Sin secreto o sin IP no se envía nada.
  */
 async function clientIpHeaders(): Promise<Record<string, string>> {
   const secret = process.env.DIAGNOSTIC_API_SECRET;
   const forwardedFor = (await headers()).get("x-forwarded-for");
-  const ip = forwardedFor?.split(",").at(-1)?.trim();
+  const ip = forwardedClientIp(forwardedFor);
   return secret && ip
     ? { "x-diagnostic-secret": secret, "x-client-ip": ip }
     : {};

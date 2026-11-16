@@ -46,8 +46,13 @@ Otras restricciones que salen del código y de PF-30:
 - **Una sola instancia de la API.** El límite de intentos y los contadores
   viven en memoria; escalar a más instancias exige PF-60.
 - **`TRUST_PROXY_HOPS` exacto.** La API no arranca en producción sin el número
-  exacto de proxies delante. Ningún proveedor lo documenta: se mide en QA
-  (ya es un criterio de PF-30).
+  exacto de proxies delante. Ningún proveedor lo documenta. **Medido en Render
+  QA el 2026-11-16 (PF-69): 3** (Cloudflare y dos de Render). Método: 6 logins
+  fallidos con un `X-Forwarded-For` inventado distinto cada vez; con 1, 2 y 3 el
+  sexto da 429 (la cabecera falsa no cuenta), con 4 pasan todos (sí cuenta).
+  Con 1 y 2 la API veía la IP de un proxy: todos compartían el límite. El panel
+  y el diagnóstico usan el mismo valor para la IP que informan. Se vuelve a
+  medir en PROD.
 - **El navegador nunca llama a la API** desde el panel ni desde el diagnóstico:
   todo pasa por el servidor de Next. CORS solo importa para `score-sitio`.
 - **No hay Dockerfile** en ninguna pieza. Las plataformas con build nativo de

@@ -82,3 +82,10 @@ GitHub, por un chat ni por un archivo del repo.
   contraseñas filtradas o no cumple el largo. Cambiarla en Render y redesplegar.
 - **El panel dice que la API está iniciando:** la instancia gratuita tarda unos
   80 segundos en despertar y migrar. Esperar y reintentar.
+
+## Historial
+
+| Fecha | Qué | Vence (más 14 días de gracia) |
+|---|---|---|
+| 2026-11-15 | Primera carga (PF-68, PF-69) | 2026-12-15 |
+| 2026-11-17 | Recreación de prueba del procedimiento (PF-70): arranque con las cuatro líneas de `start-qa:`, Aprobador con MFA nuevo y cuestionario de prueba visible en el panel | 2026-12-17 (estimado: confirmar en *Info* de la base) |

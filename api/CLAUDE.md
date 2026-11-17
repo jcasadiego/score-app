@@ -37,7 +37,10 @@ revisar la regla correspondiente. Reglas generales del repo: `CLAUDE.md` raíz.
   sin fin. Solo `AuthService.completeLogin` abre sesión, tras el segundo factor.
 - **Migraciones de renombre:** Prisma resuelve un rename como DROP +
   CREATE. Escribirlas a mano con `RENAME` y revisar siempre el SQL antes
-  de aplicarlo (#26).
+  de aplicarlo (#26). Desde PF-71 el CI de `api` frena todo `RENAME` (rompe
+  el código que sigue corriendo durante el despliegue): preferir
+  expand/contract y, si el renombre directo se justifica, usar la etiqueta
+  `migracion-destructiva` con la línea `Migración destructiva: <motivo>`.
 - **Migraciones con varios pasos:** Prisma no las envuelve en una transacción;
   un fallo deja aplicado lo anterior. Escribir `BEGIN`/`COMMIT` en el SQL y
   probarlo con un fallo forzado sobre una base aparte (PF-46).

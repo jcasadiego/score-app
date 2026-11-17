@@ -89,7 +89,14 @@ Flujo del día a día:
    (`dorny/paths-filter`) salta el job real si la pieza no cambió — así
    los checks requeridos de `develop` no quedan pendientes. Aparte,
    `security.yml` analiza secretos (gitleaks), dependencias y código (CodeQL), y
-   Dependabot propone parches. Las actions van fijadas por SHA.
+   Dependabot propone parches. Las actions van fijadas por SHA. El CI de
+   `api` falla con una migración destructiva salvo etiqueta
+   `migracion-destructiva` y línea `Migración destructiva: <motivo>` en el PR.
+7. Al fusionar en `develop`, `deploy-qa.yml` despliega a QA (Render) solo
+   las piezas que cambiaron, con los deploy hooks del ambiente `qa` de
+   GitHub, y espera a ver el commit nuevo en el aire. Para redesplegar todo,
+   correrlo a mano desde `develop`. `CODEOWNERS` cubre `.github/` y
+   `render.yaml`.
 
 ## 5.1. Revisión de seguridad
 

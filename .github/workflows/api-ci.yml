@@ -3,6 +3,9 @@ name: api CI
 on:
   pull_request:
     branches: [develop, main]
+    # `labeled`/`unlabeled`: la etiqueta `migracion-destructiva` vuelve a
+    # correr el check de migraciones sin tener que empujar otro commit.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 # Mínimo privilegio: `pull-requests` solo lo usa paths-filter para ver el diff.
 permissions:
@@ -23,6 +26,7 @@ jobs:
             api:
               - 'api/**'
               - '.github/workflows/api-ci.yml'
+              - '.github/scripts/check-migrations.py'
 
   api:
     needs: changes
@@ -56,6 +60,20 @@ jobs:
       THROTTLE_LIMIT: 100
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # El check de migraciones compara contra la base del PR.
+          fetch-depth: 0
+
+      # Va primero para fallar rápido (PF-71). La descripción del PR entra por
+      # variable de entorno, nunca interpolada en el comando.
+      - name: Migraciones destructivas
+        working-directory: .
+        run: python3 -I .github/scripts/check-migrations.py
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ALLOWED: ${{ contains(github.event.pull_request.labels.*.name, 'migracion-destructiva') }}
+          PR_BODY: ${{ github.event.pull_request.body }}
 
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:

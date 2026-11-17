@@ -1,0 +1,117 @@
+name: Despliegue a QA
+
+# Despliega a QA (Render) lo que se fusiona en `develop`, solo las piezas que
+# cambiaron (PF-71; docs/infra/investigacion-despliegue.md, secciones 3 y
+# 11.4). Nunca corre en PR: los deploy hooks son secretos del ambiente `qa`,
+# que solo los entrega a `develop`. Nunca usar `pull_request_target` aquí.
+#
+# A mano (workflow_dispatch, desde `develop`): despliega las tres piezas. Sirve
+# para reintentar un despliegue fallido o tras regenerar un deploy hook.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un solo despliegue a QA a la vez, sin cancelar el que está en curso. GitHub
+# deja una sola corrida en espera: con tres fusiones seguidas, la del medio se
+# cancela y sus piezas no se despliegan hasta la siguiente fusión que las
+# toque. Si pasa, correr este workflow a mano.
+concurrency:
+  group: deploy-qa
+  cancel-in-progress: false
+
+env:
+  API_URL: https://score-api-qa.onrender.com
+  PANEL_URL: https://score-panel-qa.onrender.com
+  DIAGNOSTICO_URL: https://score-diagnostico-qa.onrender.com
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.api == 'true' }}
+      panel: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.panel == 'true' }}
+      diagnostico: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.diagnostico == 'true' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: github.event_name == 'push'
+      # Mismo filtro que el job `changes` de cada CI, contra el commit anterior
+      # al push (la rama por omisión del repo es `main`, por eso `base`).
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
+        if: github.event_name == 'push'
+        id: filter
+        with:
+          base: ${{ github.ref_name }}
+          filters: |
+            api:
+              - 'api/**'
+            panel:
+              - 'apps/panel/**'
+            diagnostico:
+              - 'apps/diagnostico/**'
+
+  # La API va primero: la migración corre en su arranque y el panel y el
+  # diagnóstico nuevos pueden depender de ella (patrón expand/contract).
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: qa
+      url: ${{ env.API_URL }}/health
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: .github/scripts/render-deploy.sh score-api-qa
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+      # La versión anterior también responde 200: se espera a ver el commit.
+      - run: .github/scripts/wait-for.sh "$API_URL/health" ".status == \"ok\" and .commit == \"$GITHUB_SHA\""
+
+  panel:
+    needs: [changes, api]
+    if: >-
+      !cancelled() && needs.changes.outputs.panel == 'true' &&
+      (needs.api.result == 'success' || needs.api.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: qa
+      url: ${{ env.PANEL_URL }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: .github/scripts/render-deploy.sh score-panel-qa
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PANEL }}
+      # El build lleva el SHA como id (next.config.ts): este archivo solo existe
+      # en la versión nueva.
+      - run: .github/scripts/wait-for.sh "$PANEL_URL/_next/static/$GITHUB_SHA/_ssgManifest.js"
+      - name: Petición de humo
+        run: .github/scripts/wait-for.sh "$PANEL_URL/login"
+        env:
+          TIMEOUT_SECONDS: 180
+
+  diagnostico:
+    needs: [changes, api]
+    if: >-
+      !cancelled() && needs.changes.outputs.diagnostico == 'true' &&
+      (needs.api.result == 'success' || needs.api.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: qa
+      url: ${{ env.DIAGNOSTICO_URL }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: .github/scripts/render-deploy.sh score-diagnostico-qa
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_DIAGNOSTICO }}
+      - run: .github/scripts/wait-for.sh "$DIAGNOSTICO_URL/_next/static/$GITHUB_SHA/_ssgManifest.js"
+      - name: Petición de humo
+        run: .github/scripts/wait-for.sh "$DIAGNOSTICO_URL/"
+        env:
+          TIMEOUT_SECONDS: 180

@@ -23,6 +23,19 @@ describe('HealthController (e2e)', () => {
     return request(app.getHttpServer())
       .get('/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect({ status: 'ok', commit: null });
+  });
+
+  it('/health informa el commit desplegado que da Render', async () => {
+    const sha = 'a'.repeat(40);
+    process.env.RENDER_GIT_COMMIT = sha;
+    try {
+      await request(app.getHttpServer())
+        .get('/health')
+        .expect(200)
+        .expect({ status: 'ok', commit: sha });
+    } finally {
+      delete process.env.RENDER_GIT_COMMIT;
+    }
   });
 });

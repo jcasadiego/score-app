@@ -1,0 +1,9 @@
+# Dueños del código (PF-71). Los workflows y sus scripts deciden qué se
+# despliega y con qué secretos: todo cambio ahí pasa por el dueño del repo.
+# Con un solo desarrollador no se exige su aprobación en la protección de rama
+# (riesgo aceptado, docs/compliance/control-matrix.md); al sumar a alguien,
+# activar "Require review from Code Owners" en `develop` y `main`.
+/.github/workflows/ @jcasadiego
+/.github/scripts/ @jcasadiego
+/.github/CODEOWNERS @jcasadiego
+/render.yaml @jcasadiego

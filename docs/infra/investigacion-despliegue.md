@@ -324,7 +324,13 @@ prefirmadas de hasta 7 días), cifrado AES-256 y jurisdicción `us` o `eu`
 garantizada por bucket. Sería un proveedor nuevo que recibe datos: se avisa a
 José y se anota en el inventario (CLAUDE.md 5.2).
 
-## 3. Pipeline de GitHub Actions (diseño, sin workflows todavía)
+## 3. Pipeline de GitHub Actions
+
+QA ya está implementado (PF-71): `.github/workflows/deploy-qa.yml` y el check
+de migraciones destructivas en `api-ci.yml`. Cómo confirma que la versión
+nueva está arriba: la API devuelve el commit en `/health` y el panel y el
+diagnóstico usan el SHA como id del build de Next.js, todo a partir de
+`RENDER_GIT_COMMIT`. PROD sigue en diseño (PF-75).
 
 Principio: **GitHub Actions decide cuándo se despliega; Render ejecuta la
 migración y el despliegue.** El despliegue automático de Render queda apagado.

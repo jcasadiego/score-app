@@ -13,8 +13,7 @@
 # TypeScript), que hacen falta para compilar y, en la API, para migrar.
 #
 # El despliegue automático queda apagado: lo decide GitHub Actions con el
-# deploy hook de cada servicio (PF-71). Hasta entonces, se despliega a mano
-# desde el panel de Render.
+# deploy hook de cada servicio (PF-71, `.github/workflows/deploy-qa.yml`).
 
 databases:
   - name: score-qa-db

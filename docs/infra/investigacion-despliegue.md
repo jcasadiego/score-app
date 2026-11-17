@@ -636,7 +636,7 @@ se "transfiere" QA: PROD nace aparte.
    instancias gratuitas.
    - Base Postgres gratuita, con el acceso externo cerrado. **Se recrea cada
      30 días:** base nueva, `DATABASE_URL` nueva en la API, migrar y sembrar.
-     Conviene dejar los pasos escritos o en un `render.yaml`.
+     Pasos en `recreacion-base-qa.md` (PF-70).
    - Tres web services con *root directory* `api`, `apps/panel` y
      `apps/diagnostico`, más el sitio estático de `score-sitio` conectado a
      su repo, con sus cabeceras de seguridad. El sitio de QA no se indexa

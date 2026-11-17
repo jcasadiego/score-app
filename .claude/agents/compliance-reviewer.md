@@ -67,8 +67,7 @@ lectura: `git diff`, `git log`, `git show`, `git merge-base`, `ls`, `grep`.
 
 ### Convenciones del repo (6) y lecciones (9, api y panel)
 - Nombres técnicos en inglés (identificadores, rutas, campos JSON, tablas,
-  columnas, enums, env); UI, comentarios, tests y commits en español. Excepción:
-  `api/src/leads/legacy/`.
+  columnas, enums, env); UI, comentarios, tests y commits en español.
 - Rutas REST en plural y `kebab-case`; errores en RFC 9457 (y en
   `api/docs/errores.md` si hay código nuevo); paginación
   `{ data, total, page, pageSize }` resuelta en la base, no en memoria.
@@ -76,7 +75,7 @@ lectura: `git diff`, `git log`, `git show`, `git merge-base`, `ls`, `grep`.
   `onDelete: Restrict` en el dominio, `@db.Timestamptz(3)` en fechas, sin
   arreglos o JSON donde va una tabla puente. Migraciones de renombre con
   `RENAME` y de varios pasos con `BEGIN`/`COMMIT`.
-- Cambio en el contrato de `POST /leads/prequalification` o el alias legacy
+- Cambio en el contrato de `POST /leads/prequalification`
   → "coordinar con José (afecta a score-sitio)".
 - `apps/panel`: ids interpolados en rutas con `encodeURIComponent`; nada de
   copiar datos del servidor a `useState`; colores solo desde `lib/theme.ts`.

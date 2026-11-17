@@ -204,9 +204,6 @@ terminó):
 - **En español:** los textos que ve el usuario final (UI, correos,
   mensajes de error que muestra el panel), los comentarios de código,
   los nombres de los tests, los commits y los PRs.
-- Excepción a propósito: el contrato legacy de precalificación
-  (`api/src/leads/legacy/`) sigue en español hasta que se borre (ver
-  sección 7).
 
 **Glosario** (usar siempre los mismos términos):
 
@@ -263,10 +260,8 @@ formulario de precalificación del sitio, dentro de `api`. Si cambias su
 forma (campos, tipos, códigos de respuesta), coordínalo con José antes de
 mergear — el cambio afecta al otro repo y él es quien ve los dos lados.
 
-**Pendiente:** `POST /leads/precalificacion` sigue como alias con el
-contrato viejo completo (`src/leads/legacy/`). Borrarlo cuando
-`score-sitio` use `POST /leads/prequalification` — coordinar con José (ver
-`api/docs/contrato-precalificacion.md`).
+El contrato está en `api/docs/contrato-precalificacion.md`. El alias viejo
+`POST /leads/precalificacion` se retiró el 2026-11-17.
 
 ## 8. Seguimiento en Jira
 

@@ -6,7 +6,7 @@ function flatten(errors: ValidationError[], parent = ''): ProblemError[] {
     const field = parent ? `${parent}.${error.property}` : error.property;
     const own = Object.values(error.constraints ?? {}).map((constraint) => ({
       field,
-      // Mismo texto que el `ValidationPipe` por defecto, que lee la ruta legacy.
+      // Mismo texto que el `ValidationPipe` por defecto (va también en `message`).
       message: parent ? `${parent}.${constraint}` : constraint,
     }));
     return [...own, ...flatten(error.children ?? [], field)];

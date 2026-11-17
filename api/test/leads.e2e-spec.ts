@@ -78,53 +78,6 @@ describe('LeadsController (e2e)', () => {
     });
   });
 
-  describe('ruta legacy de score-sitio (POST /leads/precalificacion)', () => {
-    const RUTA_LEGACY = '/api/v1/leads/precalificacion';
-    const VALID_LEGACY = {
-      nombre: 'Ana Pérez',
-      email: 'ana.legacy.e2e@example.com',
-      telefono: '+52 55 1234 5678',
-      familia: 'CATALOGO',
-      utmSource: 'instagram',
-    };
-
-    it('acepta el payload viejo y responde { id, estado: NUEVO }', async () => {
-      const response = await request(app.getHttpServer())
-        .post(RUTA_LEGACY)
-        .send(VALID_LEGACY)
-        .expect(201);
-
-      expect(Object.keys(response.body).sort()).toEqual(['estado', 'id']);
-      expect(response.body.estado).toBe('NUEVO');
-      createdIds.push(response.body.id);
-
-      const lead = await prisma.lead.findUniqueOrThrow({
-        where: { id: response.body.id },
-      });
-      expect(lead).toMatchObject({
-        name: 'Ana Pérez',
-        phone: '+52 55 1234 5678',
-        family: 'CATALOG',
-        status: 'NEW',
-      });
-    });
-
-    it('mantiene la forma de error vieja { statusCode, mensaje }', async () => {
-      const response = await request(app.getHttpServer())
-        .post(RUTA_LEGACY)
-        .send({ ...VALID_LEGACY, familia: 'CATALOG' })
-        .expect(400);
-
-      expect(Object.keys(response.body).sort()).toEqual([
-        'mensaje',
-        'statusCode',
-      ]);
-      expect(response.body.mensaje).toEqual([
-        'familia must be one of the following values: PROYECTO, B2B, PROFESIONAL, CATALOGO',
-      ]);
-    });
-  });
-
   it('no guarda los datos personales del lead en la bitácora', async () => {
     const since = new Date();
     const response = await request(app.getHttpServer())

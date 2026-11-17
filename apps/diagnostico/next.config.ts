@@ -23,6 +23,13 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // En Render, el build lleva el SHA del commit como id (PF-71): el workflow de
+  // despliegue confirma que la versión nueva está arriba pidiendo
+  // `/_next/static/<sha>/_ssgManifest.js`. Fuera de Render, el id por defecto.
+  generateBuildId: async () => {
+    const commit = process.env.RENDER_GIT_COMMIT;
+    return commit && /^[0-9a-f]{40}$/.test(commit) ? commit : null;
+  },
   async headers() {
     return [
       { source: "/:path*", headers: SECURITY_HEADERS },

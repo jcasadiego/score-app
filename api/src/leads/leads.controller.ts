@@ -26,8 +26,7 @@ import { PrequalificationErrorFilter } from './prequalification-error.filter';
 
 /**
  * `POST prequalification` es el endpoint público que consume el formulario
- * de `score-sitio` desde el navegador (mientras el sitio migra, también
- * existe `POST precalificacion` en `legacy/`) — sin auth de usuario a propósito
+ * de `score-sitio` desde el navegador — sin auth de usuario a propósito
  * (contrato en `docs/contrato-precalificacion.md`). El resto es para
  * `apps/panel` y exige JWT + un rol del panel, por eso los guards van por método y
  * no en el controlador.

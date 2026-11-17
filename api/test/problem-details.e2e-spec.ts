@@ -102,19 +102,4 @@ describe('Errores RFC 9457 (e2e)', () => {
       message: expect.any(String),
     });
   });
-
-  it('la ruta legacy conserva exactamente su formato', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/api/v1/leads/precalificacion')
-      .send({})
-      .expect(400);
-
-    expect(response.headers['content-type']).toContain('application/json');
-    expect(Object.keys(response.body).sort()).toEqual([
-      'mensaje',
-      'statusCode',
-    ]);
-    expect(response.body.statusCode).toBe(400);
-    expect(response.body.mensaje).toEqual(expect.any(Array));
-  });
 });

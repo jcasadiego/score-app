@@ -1,8 +1,6 @@
 # Errores de la API
 
 Todos los errores siguen RFC 9457, con `Content-Type: application/problem+json`.
-La excepción es el alias legacy `POST /leads/precalificacion`, que conserva
-`{ statusCode, mensaje }` hasta que se retire.
 
 | Campo | Qué es |
 | ---------- | --------------------------------------------------------------- |

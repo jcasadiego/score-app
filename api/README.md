@@ -522,11 +522,8 @@ En QA y PROD la API no se conecta como dueña del esquema:
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un
   `Lead` en estado `NEW` con la familia ya elegida y los UTM; responde
-  solo `{ id, status }`. Mientras `score-sitio` migra, `POST
-  /leads/precalificacion` (`src/leads/legacy/`) sigue aceptando el
-  contrato viejo en español, con su forma de error `{ statusCode,
-  mensaje }`. Los datos personales (`nombre`, `email`,
-  `telefono`) no entran a la bitácora: `@AuditRoute()` solo guarda lo declarado.
+  solo `{ id, status }`. Los datos personales (`name`, `email`,
+  `phone`) no entran a la bitácora: `@AuditRoute()` solo guarda lo declarado.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):
@@ -556,8 +553,7 @@ En QA y PROD la API no se conecta como dueña del esquema:
   verdad, pero solo al email dueño de la cuenta de Resend.
 - `src/notifications/` — avisos por correo al equipo, solo a los usuarios
   activos del rol que tiene que actuar (`NOTICE_RECIPIENTS`, PF-38): lead
-  nuevo a los Aprobadores (lo dispara `LeadsService.create`, también desde el
-  alias legacy) y diagnóstico completado a Revisores y Aprobadores
+  nuevo a los Aprobadores (lo dispara `LeadsService.create`) y diagnóstico completado a Revisores y Aprobadores
   (`notifyDiagnosticCompleted`, al enviar el diagnóstico). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
   un fallo del correo afectan a la operación que los dispara. Cada envío queda
   en la bitácora asociado al lead o al diagnóstico, sin sus datos personales.

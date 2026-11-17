@@ -4,13 +4,9 @@
 sección 7). Cualquier cambio de campos, tipos, límites o códigos de
 respuesta se coordina con José **antes** de mergear.
 
-> **Cambio en curso (2026-10-31):** la api pasó a nombres en inglés
-> (`CLAUDE.md`, sección 6). La ruta nueva es `POST
-> /leads/prequalification`, documentada abajo. La ruta vieja `POST
-> /leads/precalificacion` **sigue funcionando igual que antes** (mismos
-> campos en español, misma respuesta `{ id, estado: "NUEVO" }` y mismos
-> errores `{ statusCode, mensaje }`) hasta que el sitio migre; ver
-> [Ruta vieja](#ruta-vieja-mientras-migra-el-sitio) al final.
+> **Ruta vieja retirada (2026-11-17):** `POST /leads/precalificacion`, con
+> el contrato anterior en español, se borró cuando `score-sitio` pasó a
+> `POST /leads/prequalification` (score-sitio#7, en QA desde el 2026-11-17).
 
 ## Endpoint
 
@@ -126,18 +122,3 @@ if (res.status === 201) {
 
 Fuera de producción, el esquema también se puede ver en Swagger
 (`/docs`, sección `leads`).
-
-## Ruta vieja (mientras migra el sitio)
-
-`POST {API_URL}/api/v1/leads/precalificacion` acepta exactamente el
-contrato anterior: campos `nombre`, `email`, `telefono`, `familia`
-(`PROYECTO`, `B2B`, `PROFESIONAL`, `CATALOGO`) y los UTM, mismo límite de
-5 envíos por minuto, respuesta `201 { id, estado: "NUEVO" }` y errores
-`{ statusCode, mensaje }`. Por dentro guarda el lead con los valores
-nuevos (`CATALOGO` → `CATALOG`).
-
-Para migrar el sitio: cambiar la ruta, renombrar los campos y los
-valores de `familia`, leer `status` en vez de `estado` y `errors` en vez
-de `mensaje`. Cuando el sitio ya no use la ruta vieja, se borra
-(`api/src/leads/legacy/`) — avisar a José para coordinarlo.
-

@@ -21,6 +21,9 @@ pnpm start:dev                # http://localhost:3000
 `GET /health` confirma que el servicio y la conexión a Postgres están
 vivos (fuera del prefijo `/api` y del versionado, a propósito — es la
 ruta que usa cualquier orquestador/healthcheck de infraestructura).
+Responde `{ status, commit }`: `commit` es el SHA desplegado según
+`RENDER_GIT_COMMIT` (null fuera de Render), y el workflow de despliegue lo
+usa para confirmar que la versión nueva ya está arriba.
 
 Con `NODE_ENV` en `development` o `test`, `GET /docs` sirve Swagger UI
 con todos los endpoints documentados automáticamente — rutas, DTOs de

@@ -9,9 +9,9 @@ export const LEAD_STATUSES = ["NEW", "CONTACTED", "CONVERTED"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const FAMILY_LABELS: Record<DiagnosticFamily, string> = {
-  PROJECT: "Proyecto",
-  B2B: "B2B",
-  PROFESSIONAL: "Profesional",
+  PROJECT: "Artista o proyecto",
+  B2B: "Empresa",
+  PROFESSIONAL: "Evento",
   CATALOG: "Catálogo",
 };
 

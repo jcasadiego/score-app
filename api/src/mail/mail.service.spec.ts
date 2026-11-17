@@ -203,7 +203,7 @@ describe('MailService', () => {
 
     const { text } = provider.send.mock.calls[0][0];
     expect(text).toContain('Lead: Ana Pérez');
-    expect(text).toContain('Familia: Profesional');
+    expect(text).toContain('Familia: Evento');
     expect(text).toContain('https://panel.example.com/diagnostics/d-1');
   });
 });

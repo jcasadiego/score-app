@@ -1,19 +1,30 @@
 import "server-only";
+import { isIP } from "node:net";
 import { headers } from "next/headers";
 
 /**
- * IP de quien navega, según `x-forwarded-for`. Cada proxy delante de este
- * servidor agrega una entrada al final, así que la del cliente es la que está
- * `TRUST_PROXY_HOPS` posiciones desde el final; las anteriores las puede
- * inventar el cliente. Medido en Render QA (PF-69): 3 proxies (Cloudflare y
- * Render). Es la misma regla que aplica la API con su `TRUST_PROXY_HOPS`.
- * Si la cadena es más corta de lo esperado, no se informa nada.
+ * IP de quien navega. Si `CLIENT_IP_HEADER` nombra un encabezado que pone la
+ * plataforma y que el cliente no puede falsificar (en Render, Cloudflare
+ * sobrescribe `cf-connecting-ip`), se usa ese. Si no, `x-forwarded-for`: cada
+ * proxy agrega una entrada al final, así que la del cliente está
+ * `TRUST_PROXY_HOPS` posiciones desde el final y las anteriores las puede
+ * inventar el cliente. En Render QA contar proxies no sirvió: la cadena varía
+ * entre peticiones y el límite de intentos se repartía entre IPs de proxies.
+ * Si no hay una IP válida, no se informa nada.
  */
-function forwardedClientIp(forwardedFor: string | null): string | undefined {
+function clientIp(requestHeaders: Headers): string | undefined {
+  const headerName = process.env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (headerName) {
+    const ip = requestHeaders.get(headerName)?.trim();
+    return ip && isIP(ip) ? ip : undefined;
+  }
+
+  const forwardedFor = requestHeaders.get("x-forwarded-for");
   const hops = Number(process.env.TRUST_PROXY_HOPS || "1");
   if (!forwardedFor || !Number.isInteger(hops) || hops < 1) return undefined;
   const entries = forwardedFor.split(",").map((entry) => entry.trim());
-  return entries.length >= hops ? entries.at(-hops) || undefined : undefined;
+  const ip = entries.length >= hops ? entries.at(-hops) : undefined;
+  return ip && isIP(ip) ? ip : undefined;
 }
 
 /**
@@ -23,8 +34,7 @@ function forwardedClientIp(forwardedFor: string | null): string | undefined {
  */
 export async function clientIpHeaders(): Promise<Record<string, string>> {
   const secret = process.env.PANEL_API_SECRET;
-  const forwardedFor = (await headers()).get("x-forwarded-for");
-  const ip = forwardedClientIp(forwardedFor);
+  const ip = clientIp(await headers());
 
   return secret && ip ? { "x-panel-secret": secret, "x-client-ip": ip } : {};
 }

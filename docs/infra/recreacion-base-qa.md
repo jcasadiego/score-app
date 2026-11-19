@@ -65,9 +65,9 @@ GitHub, por un chat ni por un archivo del repo.
    de prueba publicado.
 8. **Volver a dar de alta al equipo.** Panel → *Usuarios* → crear cada usuario
    con su rol. Cada uno recibe por correo el enlace para elegir su contraseña y
-   configura su MFA al entrar. Mientras QA envíe desde `onboarding@resend.dev`,
-   Resend solo entrega al dueño de la cuenta de Resend: hace falta un dominio
-   verificado para el resto (PF-72).
+   configura su MFA al entrar. QA envía desde
+   `no-reply@qa.notificaciones.musicfinance.pro` (dominio verificado, PF-72),
+   así que el correo llega a cualquier destinatario.
 9. **Anotar el próximo vencimiento** (30 días después de hoy) en PF-70 y en el
    calendario.
 

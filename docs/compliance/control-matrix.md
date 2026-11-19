@@ -44,6 +44,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Control | ISO 27001 | SOC 2 | Estado | Evidencia o qué falta |
 |---|---|---|---|---|
 | Cifrado en tránsito: la API no arranca sin `sslmode` ni con enlaces http | A.8.20, A.8.24 | CC6.7 | Implementado | `validate-env.ts` y su spec. TLS público: HSTS en los dos frontends y el proveedor (PF-30) |
+| Correo saliente autenticado: remitente en un subdominio propio con SPF, DKIM y DMARC, y key de Resend solo de envío limitada a ese dominio | A.5.14, A.8.20 | CC6.7 | **Parcial** | QA: `qa.notificaciones.musicfinance.pro` verificado el 2026-11-19, DMARC `p=none` en el subdominio (PF-72). Falta PROD en la cuenta del cliente y subir DMARC a `quarantine` cuando haya reportes limpios |
 | Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Elegir un proveedor que lo garantice (PF-56) |
 | Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `common/link-token.ts`: recuperación y activación del panel, y enlace del cliente final |
 | Secretos fuera del repo, con longitud mínima | A.8.24 | CC6.1 | Implementado | `validate-env.ts`, gitleaks en CI |

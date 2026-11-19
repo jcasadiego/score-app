@@ -88,7 +88,10 @@ services:
         value: resend
       - key: RESEND_API_KEY
         sync: false
+      # QA: `SCORE <no-reply@qa.notificaciones.musicfinance.pro>` (PF-72).
       - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
         sync: false
       - key: SCORING_ENGINE_DRIVER
         value: stub

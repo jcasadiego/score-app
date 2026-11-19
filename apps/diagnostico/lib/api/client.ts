@@ -15,8 +15,9 @@ function baseUrl(): string {
 
 /**
  * IP de quien navega. Si `CLIENT_IP_HEADER` nombra un encabezado que pone la
- * plataforma y que el cliente no puede falsificar (en Render, Cloudflare
- * sobrescribe `cf-connecting-ip`), se usa ese. Si no, `x-forwarded-for`: cada
+ * plataforma y que el cliente no puede falsificar, se usa ese. En Render,
+ * `cf-connecting-ip`: Cloudflare rechaza con 403 la petición que lo trae del
+ * cliente (verificado en QA, PF-73). Si no, `x-forwarded-for`: cada
  * proxy agrega una entrada al final, así que la del cliente está
  * `TRUST_PROXY_HOPS` posiciones desde el final y las anteriores las puede
  * inventar el cliente. En Render QA contar proxies no sirvió: la cadena varía

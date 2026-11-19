@@ -31,8 +31,8 @@ Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
   cambiarla exige recompilar. `DIAGNOSTIC_API_SECRET` sale del servicio de la
   API.
 - `CLIENT_IP_HEADER=cf-connecting-ip` en Render: la IP del usuario que se le
-  informa a la API sale de ese encabezado, que Cloudflare sobrescribe (el
-  cliente no lo puede falsificar). Contar proxies en `x-forwarded-for` no daba
+  informa a la API sale de ese encabezado: Cloudflare rechaza con 403 la
+  petición que lo trae del cliente (verificado en QA). Contar proxies en `x-forwarded-for` no daba
   una IP estable en Render y el límite de intentos se repartía entre IPs de
   proxies (PF-73). Sin la variable (local) se usa `TRUST_PROXY_HOPS`: la
   entrada de `x-forwarded-for` que está esas posiciones desde el final.

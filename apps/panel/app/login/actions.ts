@@ -28,7 +28,7 @@ export async function loginAction(
     const message =
       error instanceof ApiError
         ? error.message
-        : "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
+        : "Hubo un problema en el servidor y no pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
     return { error: message };
   }
 

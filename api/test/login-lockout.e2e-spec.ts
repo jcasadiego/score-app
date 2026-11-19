@@ -123,6 +123,12 @@ describe('Bloqueo de cuenta por intentos fallidos (e2e)', () => {
     expect(blocked.body.detail).toBe('Credenciales inválidas');
   });
 
+  it('una contraseña corta es un intento fallido más, no un 400', async () => {
+    const response = await login('corta').expect(401);
+    expect(response.body.detail).toBe('Credenciales inválidas');
+    await attempts(1);
+  });
+
   it('avisa una sola vez al dueño, con el enlace para restablecer', async () => {
     await lockAccount();
     await vi.waitFor(() => expect(sentMessages).toHaveLength(1));

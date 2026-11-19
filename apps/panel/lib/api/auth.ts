@@ -3,7 +3,7 @@ import { clientIpHeaders } from "./client-ip";
 import { ApiError } from "./errors";
 
 const GENERIC_ERROR_MESSAGE =
-  "No pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
+  "Hubo un problema en el servidor y no pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
 
 const API_STARTING_MESSAGE =
   "El servidor está iniciando. Intenta de nuevo en un minuto.";
@@ -110,7 +110,8 @@ export async function login(
   const response = await postAuth("login", { email, password });
 
   if (!response.ok) {
-    if (response.status === 401) {
+    // 400: el correo no tiene formato válido. Para quien escribe es lo mismo.
+    if (response.status === 401 || response.status === 400) {
       throw new ApiError(401, "Correo o contraseña incorrectos.");
     }
     throw await authError(response);

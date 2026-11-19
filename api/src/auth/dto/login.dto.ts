@@ -1,14 +1,16 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { PASSWORD_MAX } from '../../users/dto/limits';
 
 export class LoginDto {
   @IsEmail()
   email!: string;
 
-  // El mínimo no sigue a PASSWORD_MIN: una cuenta creada con la política
-  // anterior debe poder entrar hasta que cambie su contraseña.
+  // Sin mínimo de largo: la política es para elegir contraseña, no para entrar.
+  // Una contraseña corta es un intento fallido más (401, cuenta para el
+  // bloqueo); con un 400 el panel no podía decir "correo o contraseña
+  // incorrectos" y el intento no contaba (PF-73).
   @IsString()
-  @MinLength(8)
+  @IsNotEmpty()
   @MaxLength(PASSWORD_MAX)
   password!: string;
 }

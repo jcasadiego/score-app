@@ -23,9 +23,12 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
 - **Arranque:** `pnpm start` (`next start` toma el `PORT` de Render).
 - `NEXT_PUBLIC_API_URL` es la URL pública de la API y queda fija en el build:
   cambiarla exige recompilar. `PANEL_API_SECRET` sale del servicio de la API.
-- `TRUST_PROXY_HOPS=3` en Render (medido en PF-69): la IP del usuario que se le
-  informa a la API es la entrada de `x-forwarded-for` que está esas posiciones
-  desde el final. Debe coincidir con la de la API.
+- `CLIENT_IP_HEADER=cf-connecting-ip` en Render: la IP del usuario que se le
+  informa a la API sale de ese encabezado, que Cloudflare sobrescribe (el
+  cliente no lo puede falsificar). Contar proxies en `x-forwarded-for` no daba
+  una IP estable en Render y el límite de intentos se repartía entre IPs de
+  proxies (PF-73). Sin la variable (local) se usa `TRUST_PROXY_HOPS`: la
+  entrada de `x-forwarded-for` que está esas posiciones desde el final.
 
 ## Autenticación
 

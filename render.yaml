@@ -125,6 +125,9 @@ services:
         sync: false
       - key: TRUST_PROXY_HOPS
         value: "3"
+      # Contar proxies no daba una IP estable en Render; Cloudflare sobrescribe este.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
       - key: PANEL_API_SECRET
         fromService:
           type: web
@@ -148,6 +151,9 @@ services:
         sync: false
       - key: TRUST_PROXY_HOPS
         value: "3"
+      # Contar proxies no daba una IP estable en Render; Cloudflare sobrescribe este.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
       - key: DIAGNOSTIC_API_SECRET
         fromService:
           type: web

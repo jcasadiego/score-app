@@ -9,6 +9,7 @@ import {
   type LeadPaymentSummary,
   type PaginatedPayments,
 } from "@/lib/api/payments";
+import { ForbiddenScreen } from "@/components/forbidden-screen";
 import { PageError } from "@/components/page-error";
 import { PaymentsScreen } from "@/components/payments/payments-screen";
 import {
@@ -34,14 +35,17 @@ function instant(value: string | undefined): string | undefined {
 }
 
 /**
- * Pagos (PF-52), solo del Aprobador: la API responde 403 al Revisor y la
- * pantalla lo muestra como "sin permiso". Con `leadId`, además, el resumen del
+ * Pagos (PF-52), solo del Aprobador. El panel corta antes al Revisor, y la API
+ * igual le responde 403. Con `leadId`, además, el resumen del
  * lead y la activación del diagnóstico.
  */
 export default async function PaymentsPage({
   searchParams,
 }: PageProps<"/payments">) {
-  await verifySession();
+  const session = await verifySession();
+  // Sin pedir nada a la API: un Revisor no debe leer el lead de la URL
+  // (quedaría un `LEAD_VIEWED` en la bitácora) para una pantalla que no ve.
+  if (session.role !== "ADMIN") return <ForbiddenScreen />;
   const params = await searchParams;
 
   const requestedPage = Number(firstValue(params.page));

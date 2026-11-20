@@ -1,6 +1,6 @@
 import "server-only";
 import { clientIpHeaders } from "./client-ip";
-import { ApiError } from "./errors";
+import { ApiError, tooManyRequestsError } from "./errors";
 
 const GENERIC_ERROR_MESSAGE =
   "Ocurrió un error inesperado. Intenta de nuevo en unos minutos.";
@@ -31,12 +31,7 @@ async function postPublic(path: string, body: unknown): Promise<Response> {
     );
   }
 
-  if (response.status === 429) {
-    throw new ApiError(
-      429,
-      "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
-    );
-  }
+  if (response.status === 429) throw await tooManyRequestsError(response);
   return response;
 }
 

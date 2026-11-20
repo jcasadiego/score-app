@@ -57,6 +57,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
       page={result}
       filters={{ q: q ?? "", family, status }}
       canGenerateDiagnostic={session.role === "ADMIN"}
+      canManagePayments={session.role === "ADMIN"}
     />
   );
 }

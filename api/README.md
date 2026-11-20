@@ -528,7 +528,8 @@ En QA y PROD la API no se conecta como dueña del esquema:
   datos (`CHECK`).
   - `POST /payments` (201, `Location`, `ETag`), `GET /payments` (paginado;
     filtros `status`, `method`, `currency`, `leadId`, `paidFrom`, `paidTo`) y
-    `GET /payments/:id` (`ETag` = versión).
+    `GET /payments/:id` (`ETag` = versión; cada pago trae también `version`,
+    para confirmar o anular desde el listado).
   - `POST /payments/:id/confirmation` y `POST /payments/:id/voiding`
     (`{ reason }`), con `If-Match` (428 si falta, 412 si cambió, 409 si ya no
     está pendiente). Confirmar no crea el diagnóstico.

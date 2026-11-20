@@ -261,7 +261,7 @@ describe('Pagos (e2e, base propia)', () => {
         registeredBy: { id: approver.id },
         confirmedBy: null,
       });
-      expect(res.body).not.toHaveProperty('version');
+      expect(res.body.version).toBe(0);
     });
 
     it.each([

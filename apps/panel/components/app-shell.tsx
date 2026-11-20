@@ -42,7 +42,10 @@ function menuItems(role: string) {
       label: <Link href="/questionnaire">Cuestionario</Link>,
     },
     ...(role === "ADMIN"
-      ? [{ key: "/users", label: <Link href="/users">Usuarios</Link> }]
+      ? [
+          { key: "/payments", label: <Link href="/payments">Pagos</Link> },
+          { key: "/users", label: <Link href="/users">Usuarios</Link> },
+        ]
       : []),
   ];
 }

@@ -55,14 +55,11 @@ type PaymentRow = Prisma.PaymentGetPayload<{ select: typeof PAYMENT_SELECT }>;
 
 /**
  * El monto viaja como string con 2 decimales: un número de JSON pierde
- * precisión. La versión no va en el cuerpo: viaja en el `ETag`.
+ * precisión. `version` también viaja en el cuerpo (además del `ETag`): el panel
+ * confirma o anula desde cada fila del listado, que no trae `ETag` por fila.
  */
-function view(row: PaymentRow) {
-  const { amount, ...rest } = row;
-  const body: Omit<PaymentRow, 'amount' | 'version'> &
-    Partial<Pick<PaymentRow, 'version'>> = { ...rest };
-  delete body.version;
-  return { ...body, amount: amount.toFixed(2) };
+function view({ amount, ...row }: PaymentRow) {
+  return { ...row, amount: amount.toFixed(2) };
 }
 
 export type PaymentView = ReturnType<typeof view>;

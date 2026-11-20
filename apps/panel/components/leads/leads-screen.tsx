@@ -31,6 +31,7 @@ import { updateLeadStatusAction } from "@/app/(panel)/leads/actions";
 import { ReactiveSearch } from "@/components/reactive-search";
 import { LocalDate } from "@/components/local-date";
 import { GenerateDiagnosticModal } from "@/components/diagnostics/generate-diagnostic-modal";
+import { RegisterPaymentModal } from "@/components/payments/register-payment-modal";
 
 interface LeadScreenFilters {
   q: string;
@@ -43,6 +44,12 @@ interface LeadsScreenProps {
   filters: LeadScreenFilters;
   /** Generar sin pago es solo del Aprobador; la API lo valida igual. */
   canGenerateDiagnostic: boolean;
+  /** Pagos es solo del Aprobador (CLAUDE.md 5.3); la API lo valida igual. */
+  canManagePayments: boolean;
+}
+
+function paymentsHref(leadId: string) {
+  return `/payments?leadId=${encodeURIComponent(leadId)}`;
 }
 
 const pluralLeads = new Intl.PluralRules("es");
@@ -89,6 +96,7 @@ export function LeadsScreen({
   page,
   filters,
   canGenerateDiagnostic,
+  canManagePayments,
 }: LeadsScreenProps) {
   const { message } = App.useApp();
   const router = useRouter();
@@ -107,6 +115,14 @@ export function LeadsScreen({
   // formulario nuevo en cada apertura.
   const [generateFor, setGenerateFor] = useState<Lead | null>(null);
   const [generateKey, setGenerateKey] = useState(0);
+  // Lead al que se le registra un pago; mismo patrón de `key` por apertura.
+  const [paymentFor, setPaymentFor] = useState<Lead | null>(null);
+  const [paymentKey, setPaymentKey] = useState(0);
+
+  function registerPayment(lead: Lead) {
+    setPaymentKey((k) => k + 1);
+    setPaymentFor(lead);
+  }
   const openLead = lastOpenedLead
     ? (page.data.find((l) => l.id === lastOpenedLead.id) ?? lastOpenedLead)
     : null;
@@ -228,6 +244,27 @@ export function LeadsScreen({
       width: 170,
       render: (createdAt: string) => <LocalDate iso={createdAt} />,
     },
+    ...(canManagePayments
+      ? [
+          {
+            title: "Pagos",
+            key: "payments",
+            width: 190,
+            render: (_: unknown, lead: Lead) => (
+              <Flex gap={8} onClick={(e) => e.stopPropagation()}>
+                <Button size="small" onClick={() => registerPayment(lead)}>
+                  Registrar pago
+                </Button>
+                <Link href={paymentsHref(lead.id)}>
+                  <Button size="small" type="link">
+                    Ver
+                  </Button>
+                </Link>
+              </Flex>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const emptyState = hasFilters ? (
@@ -362,6 +399,25 @@ export function LeadsScreen({
               )}
             </div>
 
+            {canManagePayments && (
+              <div>
+                <Typography.Text
+                  type="secondary"
+                  style={{ display: "block", marginBottom: 8 }}
+                >
+                  Pagos
+                </Typography.Text>
+                <Flex gap={8} wrap>
+                  <Button onClick={() => registerPayment(openLead)}>
+                    Registrar pago
+                  </Button>
+                  <Link href={paymentsHref(openLead.id)}>
+                    <Button>Ver pagos del lead</Button>
+                  </Link>
+                </Flex>
+              </div>
+            )}
+
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Correo">
                 <Typography.Text
@@ -413,6 +469,24 @@ export function LeadsScreen({
             email: generateFor.email,
           }}
           onClose={() => setGenerateFor(null)}
+        />
+      )}
+
+      {canManagePayments && paymentFor && (
+        <RegisterPaymentModal
+          key={paymentKey}
+          lead={{
+            id: paymentFor.id,
+            name: paymentFor.name,
+            email: paymentFor.email,
+          }}
+          onClose={() => setPaymentFor(null)}
+          onRegistered={() => {
+            setPaymentFor(null);
+            message.success(
+              `Pago de ${paymentFor.name} registrado como pendiente.`,
+            );
+          }}
         />
       )}
     </div>

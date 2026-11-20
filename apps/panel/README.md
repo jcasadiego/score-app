@@ -182,6 +182,24 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
     enlace (calculado en el servidor) y descargas.
   - Todo lo que cambia el informe envía `If-Match`; un 412 recarga sin
     perder lo escrito.
+- **Pagos** (PF-52, `/payments`, `components/payments/`), solo Aprobador:
+  - El menú "Pagos" y la columna "Pagos" de Leads (registrar y ver) solo se
+    muestran al Aprobador; al Revisor la API le responde 403 y la pantalla
+    muestra "sin acceso".
+  - Filtros en la URL (`status`, `method`, `currency`, `leadId`, `paidFrom`,
+    `paidTo`) resueltos por la API. Las fechas se eligen en la zona del
+    navegador y viajan como instantes RFC 3339; el filtro de fechas se aplica
+    al salir del campo o con Enter.
+  - Con `leadId`, una tarjeta con el total confirmado por moneda (no se
+    suman USD y VES), "Registrar pago" (deshabilitado si ya hay uno
+    pendiente) y "Activar diagnóstico". Activar advierte que se le envía el
+    enlace al cliente y muestra el enlace una sola vez, con reintento si el
+    correo falló (`components/diagnostics/issued-link.tsx`).
+  - Confirmar aclara que no crea el diagnóstico; anular pide motivo. Los dos
+    envían `If-Match` con la `version` del pago; un 412 avisa, recarga y
+    deja el modal abierto con lo escrito.
+  - El monto se escribe y viaja como texto decimal (acepta coma o punto) y se
+    muestra con `Intl.NumberFormat` según la moneda, sin pasar por `float`.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),

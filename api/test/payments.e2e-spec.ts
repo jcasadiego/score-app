@@ -261,7 +261,7 @@ describe('Pagos (e2e, base propia)', () => {
         registeredBy: { id: approver.id },
         confirmedBy: null,
       });
-      expect(res.body).not.toHaveProperty('version');
+      expect(res.body.version).toBe(0);
     });
 
     it.each([
@@ -482,6 +482,8 @@ describe('Pagos (e2e, base propia)', () => {
         ).body;
 
       expect((await list({})).total).toBe(3);
+      // El panel confirma y anula desde la fila: cada una trae su versión.
+      expect((await list({ status: 'CONFIRMED' })).data[0].version).toBe(1);
       expect((await list({ status: 'CONFIRMED' })).total).toBe(2);
       expect((await list({ method: 'PAYPAL' })).total).toBe(1);
       expect((await list({ currency: 'VES' })).total).toBe(1);

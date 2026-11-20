@@ -7,6 +7,7 @@ import { Prisma } from '../../generated/prisma/client';
 import {
   AccessLinkOrigin,
   AuditActorType,
+  DiagnosticActivationType,
   DiagnosticFamily,
   DiagnosticStatus,
   QuestionnaireVersionStatus,
@@ -33,6 +34,7 @@ import {
 const SUMMARY_SELECT = {
   id: true,
   status: true,
+  activationType: true,
   lastActivityAt: true,
   completedAt: true,
   createdAt: true,
@@ -91,6 +93,14 @@ export interface IssuedLinkResult {
   /** `false` si el correo no salió: el panel avisa para copiar o reenviar. */
   emailSent: boolean;
 }
+
+/**
+ * Cómo se activa un diagnóstico (PF-51): sin pago, con motivo, o con pago, sin
+ * motivo. Quién lo hace queda en `createdById` en los dos casos.
+ */
+export type DiagnosticActivation =
+  | { type: typeof DiagnosticActivationType.WITHOUT_PAYMENT; reason: string }
+  | { type: typeof DiagnosticActivationType.PAID };
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -222,19 +232,38 @@ export class DiagnosticsService {
     };
   }
 
-  /**
-   * Genera el diagnóstico de un lead con la última versión publicada de su
-   * familia, emite el enlace y lo envía por correo. Dos peticiones simultáneas
-   * para el mismo lead chocan con el único de `leadId` antes de enviar nada.
-   */
-  async create(
+  /** Genera el diagnóstico sin pago, con motivo (solo Aprobador). */
+  create(
     leadId: string,
     reason: string,
     requesterId: string,
   ): Promise<DiagnosticSummary & IssuedLinkResult> {
+    return this.activate(
+      leadId,
+      { type: DiagnosticActivationType.WITHOUT_PAYMENT, reason },
+      requesterId,
+    );
+  }
+
+  /**
+   * Genera el diagnóstico de un lead con la última versión publicada de su
+   * familia, emite el enlace y lo envía por correo. Dos peticiones simultáneas
+   * para el mismo lead chocan con el único de `leadId` antes de enviar nada.
+   * `beforeCreate` corre en la misma transacción, antes de crear: ahí valida y
+   * bloquea quien lo llama (Pagos exige un pago confirmado).
+   */
+  async activate(
+    leadId: string,
+    activation: DiagnosticActivation,
+    requesterId: string,
+    beforeCreate?: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<DiagnosticSummary & IssuedLinkResult> {
+    const withoutPayment =
+      activation.type === DiagnosticActivationType.WITHOUT_PAYMENT;
     let created: { id: string; link: IssuedLink };
     try {
       created = await this.prisma.$transaction(async (tx) => {
+        await beforeCreate?.(tx);
         const lead = await tx.lead.findUnique({
           where: { id: leadId },
           select: { family: true },
@@ -260,8 +289,9 @@ export class DiagnosticsService {
           data: {
             leadId,
             questionnaireVersionId: version.id,
+            activationType: activation.type,
             createdById: requesterId,
-            creationReason: reason,
+            creationReason: withoutPayment ? activation.reason : null,
           },
           select: { id: true },
         });
@@ -277,7 +307,8 @@ export class DiagnosticsService {
               leadId,
               questionnaireVersionId: version.id,
               versionNumber: version.versionNumber,
-              withoutPayment: true,
+              activationType: activation.type,
+              withoutPayment,
             },
           },
           tx,

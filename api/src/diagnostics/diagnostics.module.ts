@@ -35,5 +35,6 @@ import { DiagnosticsService } from './diagnostics.service';
     DiagnosticsService,
     DiagnosticSessionsService,
   ],
+  exports: [DiagnosticsService],
 })
 export class DiagnosticsModule {}

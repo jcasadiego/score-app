@@ -1,12 +1,13 @@
 import "server-only";
 import { clientIpHeaders } from "./client-ip";
-import { ApiError } from "./errors";
+import {
+  API_STARTING_MESSAGE,
+  ApiError,
+  tooManyRequestsError,
+} from "./errors";
 
 const GENERIC_ERROR_MESSAGE =
   "Hubo un problema en el servidor y no pudimos iniciar sesión. Intenta de nuevo en unos minutos.";
-
-const API_STARTING_MESSAGE =
-  "El servidor está iniciando. Intenta de nuevo en un minuto.";
 
 export const CHALLENGE_EXPIRED_MESSAGE =
   "Pasó demasiado tiempo. Vuelve a iniciar sesión.";
@@ -207,12 +208,7 @@ async function authError(response: Response): Promise<ApiError> {
     // en despertar; mientras tanto la plataforma responde 502/503.
     return new ApiError(response.status, API_STARTING_MESSAGE);
   }
-  if (response.status === 429) {
-    return new ApiError(
-      429,
-      "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
-    );
-  }
+  if (response.status === 429) return tooManyRequestsError(response);
   const body = await readBody<{ code?: string }>(response);
   if (body?.code === "INVALID_MFA_CODE") {
     return new ApiError(401, "El código no es válido.");

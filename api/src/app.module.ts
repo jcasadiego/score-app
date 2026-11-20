@@ -12,6 +12,7 @@ import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PasswordResetModule } from './password-reset/password-reset.module';
 import { QuestionnaireModule } from './questionnaire/questionnaire.module';
@@ -58,6 +59,7 @@ import { PrismaService } from './prisma/prisma.service';
     QuestionnaireModule,
     MailModule,
     PasswordResetModule,
+    PaymentsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

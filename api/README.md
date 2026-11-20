@@ -506,7 +506,7 @@ En QA y PROD la API no se conecta como dueña del esquema:
     `id` de cada respuesta, que el panel usa para corregir (PF-40); la app
     del cliente no lo recibe. `POST /diagnostics`
     (`{ leadId, reason }`, solo Aprobador: generar sin pago lleva motivo)
-    responde 201 con `Location` y el enlace una sola vez; `POST
+    deja `activationType: WITHOUT_PAYMENT` y responde 201 con `Location` y el enlace una sola vez; `POST
     /diagnostics/:id/access-links` (Revisor y Aprobador) revoca los vigentes
     y envía uno nuevo. Si el correo falla, la operación queda hecha y la
     respuesta trae `emailSent: false` para copiar el enlace.
@@ -518,6 +518,31 @@ En QA y PROD la API no se conecta como dueña del esquema:
     diagnóstico) y el `accessLinkId` usado, sin el token, el motivo ni las
     respuestas. Como el panel puede copiar el enlace del cliente, ese id
     rastrea cada cambio hasta quién emitió el enlace (`ACCESS_LINK_ISSUED`).
+- `src/payments/` — pagos registrados a mano (PF-51), sin pasarela,
+  comprobantes, precios ni conversión. Todo es solo del Aprobador.
+  `Payment` con monto `DECIMAL(14,2)` (string con 2 decimales en el JSON),
+  moneda `USD`/`VES`, método, referencia y fecha del pago (no futura).
+  Estados `PENDING` → `CONFIRMED` o `VOIDED` (con motivo); un confirmado no se
+  toca. La base garantiza un pendiente por lead y la referencia única por
+  método sin contar anulados (índices parciales), y que cada estado lleve sus
+  datos (`CHECK`).
+  - `POST /payments` (201, `Location`, `ETag`), `GET /payments` (paginado;
+    filtros `status`, `method`, `currency`, `leadId`, `paidFrom`, `paidTo`) y
+    `GET /payments/:id` (`ETag` = versión).
+  - `POST /payments/:id/confirmation` y `POST /payments/:id/voiding`
+    (`{ reason }`), con `If-Match` (428 si falta, 412 si cambió, 409 si ya no
+    está pendiente). Confirmar no crea el diagnóstico.
+  - `GET /leads/:id/payment-summary`: total confirmado por moneda (no se
+    suman entre sí), pago pendiente y diagnóstico. Su `ETag` es la cantidad de
+    pagos confirmados. `POST /leads/:id/diagnostic-activation` con ese
+    `If-Match` crea el diagnóstico (`activationType: PAID`, sin motivo, con
+    quién lo activó), emite el enlace y pasa el lead a `CONVERTED` en una
+    transacción; el correo sale después (`emailSent`). 409
+    `NO_CONFIRMED_PAYMENT` sin pagos confirmados, 412 si se confirmó otro
+    desde que se leyó el resumen. Un pago tardío (lead con diagnóstico sin
+    pago) se registra y confirma igual.
+  - La bitácora guarda quién registró, confirmó, anuló o activó y el cambio de
+    estado; nunca el monto, la referencia ni el motivo.
 - `src/leads/` — `POST /api/v1/leads/prequalification`, el endpoint
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un

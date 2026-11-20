@@ -131,6 +131,9 @@ model User {
   reportApprovals                ReportApproval[]        @relation("ReportApprovalApprovedBy")
   voidedReportApprovals          ReportApproval[]        @relation("ReportApprovalVoidedBy")
   reportDeliveries               ReportDelivery[]
+  registeredPayments             Payment[]               @relation("PaymentRegisteredBy")
+  confirmedPayments              Payment[]               @relation("PaymentConfirmedBy")
+  voidedPayments                 Payment[]               @relation("PaymentVoidedBy")
 
   @@map("users")
 }
@@ -191,8 +194,7 @@ enum DiagnosticFamily {
 }
 
 /// Estado comercial de un lead, que el equipo cambia a mano desde el panel
-/// mientras no hay CRM. Los estados de pago y diagnóstico activado los
-/// agrega el módulo de Pagos.
+/// mientras no hay CRM. Activar el diagnóstico con pago lo pasa a `CONVERTED`.
 enum LeadStatus {
   NEW
   CONTACTED
@@ -219,6 +221,7 @@ model Lead {
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   diagnostic Diagnostic?
+  payments   Payment[]
 
   @@index([email])
   @@index([createdAt])
@@ -350,27 +353,41 @@ enum ExternalPlatform {
   @@map("external_platform")
 }
 
+/// Cómo se activó un diagnóstico (PF-51).
+enum DiagnosticActivationType {
+  /// Activado por el Aprobador con al menos un pago confirmado del lead.
+  PAID
+  /// Generado sin pago, con motivo.
+  WITHOUT_PAYMENT
+
+  @@map("diagnostic_activation_type")
+}
+
 /// Diagnóstico de un lead (PF-16). Apunta a la versión publicada del
 /// cuestionario que responde: la familia sale de ella, no se repite aquí.
 model Diagnostic {
-  id                     String               @id @default(cuid())
+  id                     String                   @id @default(cuid())
   /// Único: un diagnóstico por lead.
-  leadId                 String               @unique @map("lead_id")
-  lead                   Lead                 @relation(fields: [leadId], references: [id], onDelete: Restrict)
-  questionnaireVersionId String               @map("questionnaire_version_id")
-  questionnaireVersion   QuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Restrict)
-  status                 DiagnosticStatus     @default(ACTIVE)
-  /// Quién lo generó desde el panel. Nulo cuando lo cree el módulo de Pagos.
-  createdById            String?              @map("created_by_id")
-  createdBy              User?                @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  /// Motivo de generarlo sin pago (CLAUDE.md 5.3). Obligatorio si lo generó el
-  /// panel (CHECK en la migración).
-  creationReason         String?              @map("creation_reason") @db.VarChar(500)
+  leadId                 String                   @unique @map("lead_id")
+  lead                   Lead                     @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  questionnaireVersionId String                   @map("questionnaire_version_id")
+  questionnaireVersion   QuestionnaireVersion     @relation(fields: [questionnaireVersionId], references: [id], onDelete: Restrict)
+  status                 DiagnosticStatus         @default(ACTIVE)
+  /// Con pago o sin pago (PF-51). El valor por defecto solo existe para el
+  /// código que corría durante el despliegue: la API lo envía siempre.
+  activationType         DiagnosticActivationType @default(WITHOUT_PAYMENT) @map("activation_type")
+  /// Quién lo generó o lo activó desde el panel. Obligatorio (CHECK en la
+  /// migración); nulo solo en el esquema, por los datos anteriores a PF-51.
+  createdById            String?                  @map("created_by_id")
+  createdBy              User?                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  /// Motivo de generarlo sin pago (CLAUDE.md 5.3). Obligatorio sin pago y
+  /// prohibido con pago (CHECK en la migración).
+  creationReason         String?                  @map("creation_reason") @db.VarChar(500)
   /// Última escritura del cliente. Base del abandono.
-  lastActivityAt         DateTime             @default(now()) @map("last_activity_at") @db.Timestamptz(3)
-  completedAt            DateTime?            @map("completed_at") @db.Timestamptz(3)
-  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lastActivityAt         DateTime                 @default(now()) @map("last_activity_at") @db.Timestamptz(3)
+  completedAt            DateTime?                @map("completed_at") @db.Timestamptz(3)
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   accessLinks   AccessLink[]
   answers       Answer[]
@@ -1045,4 +1062,74 @@ model ThrottleCounter {
   @@id([key, throttler])
   @@index([windowEndsAt])
   @@map("throttle_counters")
+}
+
+/// Estado de un pago registrado a mano (PF-51).
+enum PaymentStatus {
+  /// Registrado, sin verificar. A lo sumo uno por lead.
+  PENDING
+  /// Cobro verificado por el Aprobador. No se edita ni se anula.
+  CONFIRMED
+  /// Anulado con motivo antes de confirmarse.
+  VOIDED
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  PAYPAL
+  BANK_TRANSFER
+  PAGO_MOVIL
+  OTHER
+
+  @@map("payment_method")
+}
+
+/// Códigos ISO 4217 que acepta el cobro.
+enum CurrencyCode {
+  USD
+  VES
+
+  @@map("currency_code")
+}
+
+/// Pago de un lead, registrado y confirmado a mano por el Aprobador (PF-51).
+/// Sin pasarela, comprobantes, precios ni conversión. No apunta al
+/// diagnóstico: se llega a él por el lead (uno por lead). Confirmar no lo crea;
+/// el Aprobador lo activa aparte, viendo el total confirmado por moneda.
+/// `CHECK` e índices parciales en la migración.
+model Payment {
+  id             String        @id @default(cuid())
+  leadId         String        @map("lead_id")
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  /// Mayor que cero. Nunca `float`; en el JSON viaja como string.
+  amount         Decimal       @db.Decimal(14, 2)
+  currency       CurrencyCode
+  method         PaymentMethod
+  /// Referencia del cobro (número de transferencia, id de PayPal). Única por
+  /// método entre los no anulados, sin distinguir mayúsculas.
+  reference      String        @db.VarChar(100)
+  /// Cuándo pagó el cliente, según el comprobante. No puede ser futura.
+  paidAt         DateTime      @map("paid_at") @db.Timestamptz(3)
+  status         PaymentStatus @default(PENDING)
+  /// ETag de `If-Match`: sube con cada cambio de estado.
+  version        Int           @default(0)
+  registeredById String        @map("registered_by_id")
+  registeredBy   User          @relation("PaymentRegisteredBy", fields: [registeredById], references: [id], onDelete: Restrict)
+  confirmedById  String?       @map("confirmed_by_id")
+  confirmedBy    User?         @relation("PaymentConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmedAt    DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  voidedById     String?       @map("voided_by_id")
+  voidedBy       User?         @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(3)
+  voidReason     String?       @map("void_reason") @db.VarChar(500)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([leadId])
+  @@index([status, paidAt])
+  @@index([registeredById])
+  @@index([confirmedById])
+  @@index([voidedById])
+  @@map("payments")
 }

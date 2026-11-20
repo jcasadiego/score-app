@@ -54,7 +54,7 @@ Un código publicado no cambia de significado.
 | `REVIEW_NOT_APPROVED` | 409 | El caso no tiene una aprobación vigente: se pidió reabrirlo, o redactar, aprobar, entregar o reenviar su informe. |
 | `APPROVAL_REQUIREMENTS_NOT_MET` | 409 | El caso no se puede aprobar; `errors` trae lo que falta (`NO_CALCULATION`, `LATEST_CALCULATION_NOT_SUCCEEDED`, `CORRECTIONS_NOT_CALCULATED`, `FLAG_ANALYSIS_NOT_SUCCEEDED`, `OPEN_FLAGS`, `SIMULATED_RESULT`). |
 | `REVIEW_VERSION_MISMATCH` | 412 | El caso cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |
-| `IF_MATCH_REQUIRED` | 428 | Falta `If-Match` con el ETag del caso (`GET /reviews/:id`) o del informe (`GET /reviews/:id/report`). No se acepta `*` ni un ETag débil. |
+| `IF_MATCH_REQUIRED` | 428 | Falta `If-Match` con el ETag del caso (`GET /reviews/:id`), del informe (`GET /reviews/:id/report`), del pago (`GET /payments/:id`) o del resumen de pagos del lead (`GET /leads/:id/payment-summary`). No se acepta `*` ni un ETag débil. |
 | `REPORT_ALREADY_EXISTS` | 409 | El caso ya tiene un informe: para redactarlo de nuevo, `POST /reviews/:id/report/regenerations`. |
 | `REPORT_APPROVED` | 409 | El informe está aprobado: no admite ediciones, regeneraciones ni otra aprobación hasta que un Aprobador lo reabra. |
 | `REPORT_NOT_APPROVED` | 409 | El informe está en borrador: se pidió reabrirlo o entregarlo. |
@@ -66,6 +66,12 @@ Un código publicado no cambia de significado.
 | `REPORT_OUTDATED` | 409 | El borrador se redactó con una aprobación del caso que ya no es la vigente: hay que regenerarlo completo. |
 | `REPORT_DIMENSIONS_MISSING` | 409 | El resultado aprobado no trae dimensiones con que redactar el informe. |
 | `REPORT_VERSION_MISMATCH` | 412 | El informe cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |
+| `PAYMENT_PENDING_EXISTS` | 409 | El lead ya tiene un pago pendiente: hay que confirmarlo o anularlo antes de registrar otro. |
+| `PAYMENT_REFERENCE_DUPLICATE` | 409 | Ya hay un pago no anulado con ese método y esa referencia (sin distinguir mayúsculas). |
+| `PAYMENT_NOT_PENDING` | 409 | El pago ya está confirmado o anulado: no se confirma, anula ni edita. |
+| `PAYMENT_VERSION_MISMATCH` | 412 | El pago cambió desde que se leyó (`If-Match` con una versión vieja): hay que volver a cargarlo. |
+| `NO_CONFIRMED_PAYMENT` | 409 | Se pidió activar el diagnóstico de un lead sin pagos confirmados. |
+| `LEAD_PAYMENTS_CHANGED` | 412 | Se confirmó otro pago del lead desde que se leyó su resumen: hay que volver a cargarlo antes de activar. |
 | `AI_TASK_FAILED` | 503 | La IA no respondió o respondió algo que no cumple la forma pedida. No se guardó nada; queda en `ai_call_logs` y se puede reintentar. |
 | `SERVICE_UNAVAILABLE` | 503 | La API o una dependencia no está disponible. |
 

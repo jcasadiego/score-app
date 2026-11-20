@@ -44,7 +44,8 @@ const PAYMENT_SELECT = {
   confirmedAt: true,
   voidedAt: true,
   voidReason: true,
-  lead: { select: { id: true, name: true, email: true } },
+  // Sin el correo: la pantalla de pagos no lo necesita (minimización).
+  lead: { select: { id: true, name: true } },
   registeredBy: PERSON,
   confirmedBy: PERSON,
   voidedBy: PERSON,

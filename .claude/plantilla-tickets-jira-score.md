@@ -47,7 +47,9 @@ no se decide sobre la marcha.
 8. Revisión / Aprobación
 9. Delivery / Informe
 10. Pagos
-11. CRM — **bloqueado**, falta que el cliente confirme cuál CRM usa
+11. CRM (Funnel Up) — confirmado el 2026-11-21, épica PF-79. Solo el
+    adaptador real (PF-82) sigue **bloqueado** hasta tener el acceso por API
+    y los términos del proveedor
 12. Voz / Transcripción (P3, opcional) — **bloqueado**, falta que el
     cliente confirme si entra en el alcance final
 13. Adapter real del motor de cálculo — **bloqueado**, falta confirmar en
@@ -91,8 +93,8 @@ los revisa antes de publicarse:
   sección 5.2): acceso, trazabilidad, datos personales y proveedores. Un dato
   personal nuevo dice su finalidad y su plazo de conservación.
 
-**Los módulos bloqueados (11, 12, 13) no se inician** aunque Claude Code
-lo sugiera — primero necesitan respuesta del cliente. Un ticket de estos
+**Los módulos bloqueados (12, 13 y el adaptador real del CRM) no se
+inician** aunque Claude Code lo sugiera — primero necesitan respuesta del cliente. Un ticket de estos
 módulos existe en el tablero para que quede visible, pero permanece en
 "Por hacer" hasta que se desbloquee explícitamente.
 

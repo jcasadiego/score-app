@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import type { CrmSyncErrorCode } from '../../../generated/prisma/enums';
 import {
@@ -10,7 +10,7 @@ import {
 
 /**
  * CRM de mentira (PF-80): no llama a nada externo. Devuelve un id de contacto
- * estable por correo y, si se configura, falla siempre con el código dado para
+ * aleatorio y, si se configura, falla siempre con el código dado para
  * probar los reintentos. El log no lleva datos personales.
  */
 export class SimulatedCrmAdapter implements CrmAdapter {
@@ -25,22 +25,19 @@ export class SimulatedCrmAdapter implements CrmAdapter {
     update: CrmStatusUpdate,
   ): Promise<{ contactId: string }> {
     this.failIfForced();
-    // Estable por correo (como buscar por correo en el CRM real), sin exponerlo.
-    const contactId = `sim_${createHash('sha256')
-      .update(contact.email.trim().toLowerCase())
-      .digest('hex')
-      .slice(0, 24)}`;
+    // Aleatorio: un hash del correo sería un seudónimo que se puede vincular
+    // al lead. El procesador lo guarda en el lead tras el primer envío.
+    const contactId = `sim_${randomBytes(12).toString('hex')}`;
+    // Sin el id de contacto: el log solo dice qué estado habría salido.
     this.logger.log(
-      `CRM simulado: contacto ${contactId} creado o actualizado (estado ${update.status})`,
+      `CRM simulado: contacto creado o actualizado (estado ${update.status})`,
     );
     return Promise.resolve({ contactId });
   }
 
   updateStatus(contactId: string, update: CrmStatusUpdate): Promise<void> {
     this.failIfForced();
-    this.logger.log(
-      `CRM simulado: contacto ${contactId} pasa a ${update.status}`,
-    );
+    this.logger.log(`CRM simulado: contacto pasa a ${update.status}`);
     return Promise.resolve();
   }
 

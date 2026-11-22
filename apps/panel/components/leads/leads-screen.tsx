@@ -103,8 +103,8 @@ export function LeadsScreen({
   const [navigating, startNavigation] = useTransition();
 
   // Último lead abierto, solo por si deja de estar en la página actual
-  // (p. ej. al cambiarle el estado con un filtro por estado activo). Si
-  // sigue en la página, manda la versión del servidor.
+  // (p. ej. al cambiar de página con el detalle abierto). Si sigue en la
+  // página, manda la versión del servidor.
   const [lastOpenedLead, setLastOpenedLead] = useState<Lead | null>(null);
   // Vacía el buscador al limpiar los filtros.
   const [searchReset, setSearchReset] = useState(0);

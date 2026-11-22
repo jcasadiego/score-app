@@ -553,11 +553,41 @@ En QA y PROD la API no se conecta como dueña del esquema:
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):
-  `GET /leads` (paginado, filtros `family`/`status` y búsqueda `search`
-  por nombre/email, en la base; más recientes primero), `GET /leads/:id`
-  (con `diagnostic: { id } | null`, para que el panel ofrezca abrirlo)
-  y `PATCH /leads/:id/status` (`NEW`/`CONTACTED`/`CONVERTED`). El resto
-  de los datos del lead no se edita desde el panel.
+  `GET /leads` (paginado, filtros `family`/`status`/`crmSyncStatus` y
+  búsqueda `search` por nombre/email, en la base; más recientes primero) y
+  `GET /leads/:id` (con `diagnostic: { id } | null`, para que el panel
+  ofrezca abrirlo). Los dos traen `crmSyncStatus` (`SYNCED`, `PENDING`,
+  `FAILED` o `null` sin envíos), calculado en una consulta por página. El
+  estado (`NEW`/`CONVERTED`) lo cambia SCORE al activar el diagnóstico: desde
+  PF-80 no se edita a mano, el seguimiento comercial vive en el CRM.
+- `src/crm/` — sincronización SCORE → CRM, en una sola dirección (PF-80).
+  Puerto `CrmAdapter` (`crm.port.ts`) con el adaptador elegido por
+  `CRM_PROVIDER`: hoy solo `simulated`, que no llama a nada externo (el de
+  Funnel Up es PF-82). Al CRM solo van contacto, familia, UTM y el estado
+  SCORE con sus etiquetas (`crm.types.ts`); nunca respuestas, resultados, el
+  informe ni su enlace.
+  - Bandeja de salida `crm_sync_events`: lead creado, diagnóstico activado
+    (con o sin pago), primera respuesta, diagnóstico enviado y primera
+    entrega del informe dejan un evento en la misma transacción que el
+    cambio. El evento guarda solo ids y el tipo: los datos se leen del lead al
+    enviar.
+  - `CrmSyncService` los envía de a uno, en orden por lead (un evento fallido
+    detiene los siguientes de ese lead) y con `FOR UPDATE SKIP LOCKED`, para
+    que dos procesos nunca envíen el mismo. Sale tras cada cambio (`kick`, sin
+    esperar) y en una pasada cada `CRM_SYNC_INTERVAL_MS` (`@nestjs/schedule`;
+    0 la apaga). Reintenta con espera creciente (1 min a 12 h, o lo que pida
+    el proveedor ante un 429) y tras 6 intentos, o con un error de datos o de
+    autenticación, queda `FAILED`. Del error solo se guarda un código
+    (`CrmSyncErrorCode`) y el estado HTTP. En Render free la API se duerme:
+    los eventos esperan en la base y salen al despertar.
+  - `GET /leads/:id/crm-sync-events` (paginado), `POST
+    /leads/:id/crm-sync-events/:eventId/retry` (202; 409
+    `CRM_SYNC_EVENT_NOT_FAILED` si no está fallido) y `GET /crm/status`
+    (`{ provider, simulated }`). Ambos roles.
+  - Bitácora: `CRM_SYNC_SENT` y `CRM_SYNC_FAILED` con actor `SYSTEM`, y
+    `CRM_SYNC_RETRIED` con quien lo pidió; solo ids, tipo y código.
+  - `CRM_SIMULATED_FAILURE` hace fallar al simulado con un código, para
+    probar reintentos y el panel (no con `APP_ENV=production`).
 - `src/mail/` — correo transaccional. Los módulos llaman a
   `MailService` (`sendDiagnosticLink`, `sendLinkRecovery`, `sendPasswordReset`, `sendPasswordSetup`),
   nunca al proveedor: detrás está `MailPort` (`mail.port.ts`), con

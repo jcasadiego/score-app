@@ -38,6 +38,7 @@ Un código publicado no cambia de significado.
 | `NO_PUBLISHED_QUESTIONNAIRE` | 409 | La familia del lead no tiene una versión publicada del cuestionario. |
 | `DIAGNOSTIC_COMPLETED` | 409 | El diagnóstico ya fue enviado: no admite cambios ni enlaces nuevos, y su enlace no vencido ya no abre sesión. |
 | `DIAGNOSTIC_INCOMPLETE` | 409 | Faltan obligatorias por responder; `errors` trae cada una (`field` = id de la pregunta, `code` = `REQUIRED_QUESTION_UNANSWERED`). |
+| `CRM_SYNC_EVENT_NOT_FAILED` | 409 | Se pidió reintentar un envío al CRM que no está fallido: ya está en cola o ya salió. |
 | `TOO_MANY_REQUESTS` | 429 | Se pasó un límite de intentos. |
 | `INTERNAL_ERROR` | 500 | Error no controlado; la causa queda en el log. |
 | `DIAGNOSTIC_NOT_COMPLETED` | 409 | Se pidió calcular un diagnóstico que el cliente todavía no envió. |

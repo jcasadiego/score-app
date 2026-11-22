@@ -7,9 +7,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CrmSyncService } from '../crm/crm-sync.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
   AuditActorType,
+  CrmSyncEventType,
   DiagnosticFamily,
   ReportPart,
   ReportStatus,
@@ -101,6 +103,7 @@ export class ReportDeliveriesService {
     private readonly mail: MailService,
     private readonly reviews: ReviewsService,
     private readonly config: ConfigService<ValidatedEnv, true>,
+    private readonly crm: CrmSyncService,
   ) {}
 
   /**
@@ -115,7 +118,7 @@ export class ReportDeliveriesService {
    * que no sirve y el Aprobador un error: al reintentar llega uno válido.)
    */
   async deliver(reviewId: string, expectedVersion: number, actor: Actor) {
-    return this.prisma.$transaction(
+    const result = await this.prisma.$transaction(
       async (tx) => {
         await lockReview(tx, reviewId);
         const report = await lockReport(tx, reviewId);
@@ -257,6 +260,15 @@ export class ReportDeliveriesService {
             code: REPORT_EMAIL_FAILED,
           });
         }
+        // Solo la primera entrega: un reenvío o una versión actualizada no
+        // cambian el estado en el CRM.
+        if (!resend && !updatedReport) {
+          await this.crm.enqueue(
+            tx,
+            lead.id,
+            CrmSyncEventType.REPORT_DELIVERED,
+          );
+        }
         return {
           id: delivery.id,
           resend,
@@ -268,6 +280,8 @@ export class ReportDeliveriesService {
       },
       { timeout: DELIVERY_TX_TIMEOUT_MS },
     );
+    this.crm.kick();
+    return result;
   }
 
   /** Cada envío del informe, del más reciente al más antiguo. */
@@ -459,7 +473,7 @@ export class ReportDeliveriesService {
       select: {
         diagnostic: {
           select: {
-            lead: { select: { name: true, email: true } },
+            lead: { select: { id: true, name: true, email: true } },
             questionnaireVersion: { select: { family: true } },
           },
         },

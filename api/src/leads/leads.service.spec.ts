@@ -1,17 +1,14 @@
 import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client';
-import { LeadStatus, DiagnosticFamily } from '../../generated/prisma/enums';
+import {
+  CrmSyncEventType,
+  LeadStatus,
+  DiagnosticFamily,
+} from '../../generated/prisma/enums';
+import { CrmSyncService } from '../crm/crm-sync.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadsService } from './leads.service';
-
-function createPrismaError(code: string) {
-  return new Prisma.PrismaClientKnownRequestError('error de prueba', {
-    code,
-    clientVersion: '7.10.0',
-  });
-}
 
 describe('LeadsService', () => {
   let prisma: {
@@ -21,30 +18,40 @@ describe('LeadsService', () => {
       create: Mock;
       findMany: Mock;
       findUnique: Mock;
-      update: Mock;
     };
   };
   let notifications: { notifyNewLead: Mock };
+  let crm: { enqueue: Mock; kick: Mock; syncStatusByLead: Mock };
   let service: LeadsService;
 
   beforeEach(() => {
     prisma = {
-      // El servicio usa la forma de arreglo: resuelve las promesas en orden.
-      $transaction: vi.fn((queries: Promise<unknown>[]) =>
-        Promise.all(queries),
+      // Arreglo: resuelve las promesas en orden. Función: la corre con el
+      // mismo cliente como `tx`.
+      $transaction: vi.fn(
+        (arg: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
+          typeof arg === 'function' ? arg(prisma) : Promise.all(arg),
       ),
       lead: {
         count: vi.fn(),
         create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
-        update: vi.fn(),
       },
     };
     notifications = { notifyNewLead: vi.fn() };
+    crm = {
+      enqueue: vi.fn().mockResolvedValue(undefined),
+      kick: vi.fn(),
+      syncStatusByLead: vi.fn(
+        (ids: string[]) =>
+          new Map(ids.map((id) => [id, id === 'lead-1' ? 'FAILED' : null])),
+      ),
+    };
     service = new LeadsService(
       prisma as unknown as PrismaService,
       notifications as unknown as NotificationsService,
+      crm as unknown as CrmSyncService,
     );
   });
 
@@ -81,7 +88,25 @@ describe('LeadsService', () => {
     );
   });
 
-  it('si no se pudo crear el lead, no avisa al equipo', async () => {
+  it('deja el evento del CRM en la misma transacción y avisa tras el commit', async () => {
+    prisma.lead.create.mockResolvedValue({ id: 'lead-1', status: 'NEW' });
+
+    await service.create({
+      name: 'Ana Pérez',
+      email: 'ana@example.com',
+      family: DiagnosticFamily.B2B,
+    });
+
+    // `tx` es el mismo cliente que recibió la transacción.
+    expect(crm.enqueue).toHaveBeenCalledWith(
+      prisma,
+      'lead-1',
+      CrmSyncEventType.LEAD_CREATED,
+    );
+    expect(crm.kick).toHaveBeenCalled();
+  });
+
+  it('si no se pudo crear el lead, no avisa al equipo ni al CRM', async () => {
     prisma.lead.create.mockRejectedValue(new Error('db caída'));
 
     await expect(
@@ -92,6 +117,8 @@ describe('LeadsService', () => {
       }),
     ).rejects.toThrow('db caída');
     expect(notifications.notifyNewLead).not.toHaveBeenCalled();
+    expect(crm.enqueue).not.toHaveBeenCalled();
+    expect(crm.kick).not.toHaveBeenCalled();
   });
 
   describe('list', () => {
@@ -104,12 +131,12 @@ describe('LeadsService', () => {
         pageSize: 20,
         search: 'ana',
         family: DiagnosticFamily.CATALOG,
-        status: LeadStatus.CONTACTED,
+        status: LeadStatus.NEW,
       });
 
       const where = {
         family: DiagnosticFamily.CATALOG,
-        status: LeadStatus.CONTACTED,
+        status: LeadStatus.NEW,
         OR: [
           { name: { contains: 'ana', mode: 'insensitive' } },
           { email: { contains: 'ana', mode: 'insensitive' } },
@@ -124,8 +151,10 @@ describe('LeadsService', () => {
         }),
       );
       expect(prisma.lead.count).toHaveBeenCalledWith({ where });
+      // El estado del CRM de toda la página sale de una sola consulta.
+      expect(crm.syncStatusByLead).toHaveBeenCalledTimes(1);
       expect(result).toEqual({
-        data: [{ id: 'lead-1' }],
+        data: [{ id: 'lead-1', crmSyncStatus: 'FAILED' }],
         total: 41,
         page: 3,
         pageSize: 20,
@@ -142,6 +171,21 @@ describe('LeadsService', () => {
         where: { family: undefined, status: undefined },
       });
     });
+
+    it('filtra por envío fallido al CRM en la base', async () => {
+      prisma.lead.findMany.mockResolvedValue([]);
+      prisma.lead.count.mockResolvedValue(0);
+
+      await service.list({ page: 1, pageSize: 20, crmSyncStatus: 'FAILED' });
+
+      expect(prisma.lead.count).toHaveBeenCalledWith({
+        where: {
+          family: undefined,
+          status: undefined,
+          crmSyncEvents: { some: { status: 'FAILED' } },
+        },
+      });
+    });
   });
 
   describe('findOne', () => {
@@ -152,31 +196,14 @@ describe('LeadsService', () => {
         NotFoundException,
       );
     });
-  });
 
-  describe('updateStatus', () => {
-    it('actualiza solo el estado', async () => {
-      prisma.lead.update.mockResolvedValue({
-        id: 'lead-1',
-        status: 'CONVERTED',
+    it('incluye el estado del envío al CRM', async () => {
+      prisma.lead.findUnique.mockResolvedValue({ id: 'lead-2' });
+
+      await expect(service.findOne('lead-2')).resolves.toEqual({
+        id: 'lead-2',
+        crmSyncStatus: null,
       });
-
-      await service.updateStatus('lead-1', LeadStatus.CONVERTED);
-
-      expect(prisma.lead.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'lead-1' },
-          data: { status: LeadStatus.CONVERTED },
-        }),
-      );
-    });
-
-    it('traduce P2025 a NotFound', async () => {
-      prisma.lead.update.mockRejectedValue(createPrismaError('P2025'));
-
-      await expect(
-        service.updateStatus('nope', LeadStatus.CONTACTED),
-      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

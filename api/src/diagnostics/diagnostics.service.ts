@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CrmSyncService } from '../crm/crm-sync.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
   AccessLinkOrigin,
   AuditActorType,
+  CrmSyncEventType,
   DiagnosticActivationType,
   DiagnosticFamily,
   DiagnosticStatus,
@@ -122,6 +124,7 @@ export class DiagnosticsService {
     private readonly audit: AuditService,
     private readonly accessLinks: AccessLinksService,
     private readonly flags: FlagsService,
+    private readonly crm: CrmSyncService,
   ) {}
 
   async list({
@@ -319,6 +322,12 @@ export class DiagnosticsService {
           AccessLinkOrigin.PANEL,
           requesterId,
         );
+        // Con pago o sin pago, el lead pasa a cliente en el CRM.
+        await this.crm.enqueue(
+          tx,
+          leadId,
+          CrmSyncEventType.DIAGNOSTIC_ACTIVATED,
+        );
         return { id: diagnostic.id, link };
       });
     } catch (error) {
@@ -331,6 +340,7 @@ export class DiagnosticsService {
       throw error;
     }
 
+    this.crm.kick();
     const row = await this.prisma.diagnostic.findUniqueOrThrow({
       where: { id: created.id },
       select: SUMMARY_SELECT,

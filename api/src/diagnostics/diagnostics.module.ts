@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalculationsModule } from '../calculations/calculations.module';
+import { CrmModule } from '../crm/crm.module';
 import { FlagsModule } from '../flags/flags.module';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -19,6 +20,7 @@ import { DiagnosticsService } from './diagnostics.service';
     AuditModule,
     AuthModule,
     CalculationsModule,
+    CrmModule,
     FlagsModule,
     MailModule,
     NotificationsModule,

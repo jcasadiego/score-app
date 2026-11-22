@@ -11,6 +11,7 @@ import { AUDIT_ROUTE } from './../src/audit/audit-route.decorator';
 import { AuditService } from './../src/audit/audit.service';
 import { configureApp } from './../src/bootstrap';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { deleteLeads } from './helpers/leads';
 
 const LOGIN_PATH = '/api/v1/auth/login';
 
@@ -120,7 +121,7 @@ describe('Bitácora de auditoría (e2e)', () => {
       data: { body: { family: 'B2B' } },
     });
     expect(JSON.stringify(log.data)).not.toMatch(/Privado|privado|8888/);
-    await prisma.lead.delete({ where: { id: response.body.id } });
+    await deleteLeads(prisma, { id: response.body.id });
   });
 
   it('registra un intento denegado sin guardar el body', async () => {
@@ -207,7 +208,7 @@ describe('Bitácora de auditoría (e2e)', () => {
       family: 'B2B' as const,
     };
 
-    afterEach(() => prisma.lead.deleteMany({ where: { email: lead.email } }));
+    afterEach(() => deleteLeads(prisma, { email: lead.email }));
 
     it('si falla la operación, no queda el registro', async () => {
       const entityId = `falla-operacion-${Date.now()}`;

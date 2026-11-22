@@ -7,9 +7,11 @@ import {
 import { Prisma } from '../../generated/prisma/client';
 import {
   AuditActorType,
+  CrmSyncEventType,
   DiagnosticStatus,
   ExternalPlatform,
 } from '../../generated/prisma/enums';
+import { CrmSyncService } from '../crm/crm-sync.service';
 import { AuditService } from '../audit/audit.service';
 import { CalculationsService } from '../calculations/calculations.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
@@ -48,6 +50,7 @@ export class DiagnosticSessionsService {
     private readonly accessLinks: AccessLinksService,
     private readonly notifications: NotificationsService,
     private readonly calculations: CalculationsService,
+    private readonly crm: CrmSyncService,
   ) {}
 
   /** Cuestionario con las respuestas guardadas, enlaces externos y progreso. */
@@ -82,7 +85,7 @@ export class DiagnosticSessionsService {
     input: AnswerInput,
   ): Promise<AnswerView & { questionId: string }> {
     const diagnosticId = session.sub;
-    return this.prisma.$transaction(async (tx) => {
+    const saved = await this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       const question = await this.findQuestion(tx, diagnostic, questionId);
 
@@ -125,6 +128,9 @@ export class DiagnosticSessionsService {
       });
       return { questionId, ...answerView(saved) };
     });
+    // La primera respuesta deja un evento para el CRM (`DIAGNOSTIC_STARTED`).
+    this.crm.kick();
+    return saved;
   }
 
   async deleteAnswer(
@@ -238,6 +244,7 @@ export class DiagnosticSessionsService {
           id: true,
           status: true,
           completedAt: true,
+          leadId: true,
           lead: { select: { name: true } },
           questionnaireVersion: { select: { family: true } },
         },
@@ -248,11 +255,17 @@ export class DiagnosticSessionsService {
       });
       // En la misma transacción: un reinicio no puede perder el cálculo.
       const calculation = await this.calculations.enqueue(tx, diagnosticId);
+      await this.crm.enqueue(
+        tx,
+        result.leadId,
+        CrmSyncEventType.DIAGNOSTIC_COMPLETED,
+      );
       return { ...result, calculationId: calculation.id };
     });
 
-    // El cliente no espera al motor: se procesa en segundo plano.
+    // El cliente no espera al motor ni al CRM: se procesan en segundo plano.
     this.calculations.dispatch(completed.calculationId);
+    this.crm.kick();
     this.notifications.notifyDiagnosticCompleted({
       diagnosticId,
       leadName: completed.lead.name,
@@ -307,23 +320,28 @@ export class DiagnosticSessionsService {
     return question;
   }
 
-  /** Registra actividad; la primera respuesta lo pasa a `IN_PROGRESS`. */
-  private touch(
+  /**
+   * Registra actividad; la primera respuesta lo pasa a `IN_PROGRESS` y deja el
+   * evento para el CRM en la misma transacción.
+   */
+  private async touch(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
     diagnostic: WritableDiagnostic,
     answered: boolean,
   ) {
-    return tx.diagnostic.update({
+    const started = answered && diagnostic.status === DiagnosticStatus.ACTIVE;
+    const { leadId } = await tx.diagnostic.update({
       where: { id: diagnosticId },
       data: {
         lastActivityAt: new Date(),
-        ...(answered &&
-          diagnostic.status === DiagnosticStatus.ACTIVE && {
-            status: DiagnosticStatus.IN_PROGRESS,
-          }),
+        ...(started && { status: DiagnosticStatus.IN_PROGRESS }),
       },
+      select: { leadId: true },
     });
+    if (started) {
+      await this.crm.enqueue(tx, leadId, CrmSyncEventType.DIAGNOSTIC_STARTED);
+    }
   }
 
   /**

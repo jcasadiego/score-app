@@ -97,6 +97,9 @@ services:
         value: stub
       - key: AI_PROVIDER
         value: stub
+      # CRM simulado (PF-80): los datos no salen de SCORE hasta el real (PF-82).
+      - key: CRM_PROVIDER
+        value: simulated
       # Primer Aprobador que crea la siembra. Si ya existe, no se toca su
       # contraseña: cambiarla en el panel tras el primer ingreso.
       - key: ADMIN_EMAIL

@@ -168,7 +168,8 @@ matriz. Un rol nuevo o un permiso por caso se confirma antes con José.
 | Área | Revisor | Aprobador |
 |---|---|---|
 | Usuarios: crear, editar, activar/desactivar, cambiar rol | — | ✅ |
-| Leads: ver y cambiar estado | ✅ | ✅ |
+| Leads: ver (el estado lo cambia SCORE; el seguimiento comercial vive en el CRM) | ✅ | ✅ |
+| CRM: ver la sincronización de un lead y reintentar un envío fallido | ✅ | ✅ |
 | Cuestionario: ver | ✅ | ✅ |
 | Cuestionario: crear, editar, publicar | — | ✅ |
 | Diagnósticos: ver y reenviar el enlace al cliente | ✅ | ✅ |
@@ -216,7 +217,8 @@ terminó):
 | Sesión del panel | UserSession |
 | Segundo factor / Código de recuperación | MFA / UserRecoveryCode |
 | FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
-| EstadoLead | LeadStatus (`NEW`, `CONTACTED`, `CONVERTED`) |
+| EstadoLead | LeadStatus (`NEW`, `CONVERTED`) |
+| Envío al CRM / Estado de sincronización | CrmSyncEvent / CrmSyncStatus (`SYNCED`, `PENDING`, `FAILED`) |
 | Diagnóstico / enlace | Diagnostic / AccessLink |
 | Revisión (el "caso" del revisor; "caso" solo en textos de pantalla) | Review |
 | Versión de cuestionario / Pregunta / Opción / Respuesta | QuestionnaireVersion / Question / AnswerOption / Answer |

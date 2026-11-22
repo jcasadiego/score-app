@@ -12,6 +12,8 @@ import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
+import { CrmModule } from './crm/crm.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PasswordResetModule } from './password-reset/password-reset.module';
@@ -46,6 +48,8 @@ import { PrismaService } from './prisma/prisma.service';
       }),
     }),
     PrismaModule,
+    ScheduleModule.forRoot(),
+    CrmModule,
     AuditModule,
     AiModule,
     FlagsModule,

@@ -17,6 +17,10 @@ export default defineConfig({
       // El almacenamiento en Postgres tiene su propio e2e.
       BREACHED_PASSWORDS_PROVIDER: 'local',
       THROTTLE_STORAGE: 'memory',
+      // Sin pasada periódica de la bandeja del CRM: un intervalo vivo tras
+      // `app.close()` dejaría conexiones abiertas (#58). Los eventos salen con
+      // el aviso tras cada cambio, y la app espera esa pasada al cerrar.
+      CRM_SYNC_INTERVAL_MS: '0',
     },
   },
 });

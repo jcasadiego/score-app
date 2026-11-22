@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { CrmSyncErrorCode } from '../../generated/prisma/enums';
+import { CRM_PROVIDERS } from '../crm/crm.port';
 import { hasEncryptedConnection } from '../prisma/database-roles';
 import { isSecureOrigin, parseCorsOrigins } from './cors';
 
@@ -101,6 +103,14 @@ const EnvSchema = z
     // Contadores del límite de peticiones (PF-60): `postgres` los comparte entre
     // instancias; `memory` es por proceso (tests).
     THROTTLE_STORAGE: z.enum(['postgres', 'memory']).default('postgres'),
+    // CRM (PF-80): `simulated` no llama a nada externo (el real llega con
+    // PF-82). Obligatorio con NODE_ENV=production.
+    CRM_PROVIDER: optional(z.enum(CRM_PROVIDERS)),
+    // Solo desarrollo y QA: el CRM simulado falla siempre con este código, para
+    // probar los reintentos y el panel.
+    CRM_SIMULATED_FAILURE: optional(z.enum(CrmSyncErrorCode)),
+    // Cada cuánto revisa la bandeja de salida; 0 la apaga (tests).
+    CRM_SYNC_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
   })
   .superRefine((env, ctx) => {
     // Con el mismo secreto, un token del panel serviría como enlace de cliente.
@@ -197,6 +207,21 @@ const EnvSchema = z
           });
         }
       }
+    }
+    if (env.NODE_ENV === 'production' && !env.CRM_PROVIDER) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CRM_PROVIDER'],
+        message: 'obligatoria con NODE_ENV=production',
+      });
+    }
+    // Un fallo inventado nunca puede frenar los envíos reales.
+    if (env.APP_ENV === 'production' && env.CRM_SIMULATED_FAILURE) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CRM_SIMULATED_FAILURE'],
+        message: 'no se admite con APP_ENV=production',
+      });
     }
     if (env.NODE_ENV === 'production' && !env.AI_PROVIDER) {
       ctx.addIssue({

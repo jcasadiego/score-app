@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   Query,
   UseFilters,
@@ -18,7 +17,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../../generated/prisma/enums';
-import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { ListLeadsDto } from './dto/list-leads.dto';
 import { LeadsService } from './leads.service';
@@ -68,18 +66,5 @@ export class LeadsController {
   @AuditRoute({ action: 'LEAD_VIEWED', entity: 'Lead' })
   findOne(@Param('id') id: string) {
     return this.leads.findOne(id);
-  }
-
-  @Patch(':id/status')
-  @AuditRoute({
-    action: 'LEAD_STATUS_CHANGED',
-    entity: 'Lead',
-    fields: ['status'],
-  })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
-    return this.leads.updateStatus(id, dto.status);
   }
 }

@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { DiagnosticFamily, LeadStatus } from '../../generated/prisma/enums';
+import {
+  CrmSyncEventType,
+  DiagnosticFamily,
+  LeadStatus,
+} from '../../generated/prisma/enums';
+import { CrmSyncService, leadSyncStatusWhere } from '../crm/crm-sync.service';
+import type { CrmSyncStatus } from '../crm/crm.types';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
@@ -36,9 +42,10 @@ const PANEL_SELECT = {
   diagnostic: { select: { id: true } },
 } satisfies Prisma.LeadSelect;
 
+/** Con el estado general del envío al CRM (PF-80), calculado de sus eventos. */
 export type PanelLead = Prisma.LeadGetPayload<{
   select: typeof PANEL_SELECT;
-}>;
+}> & { crmSyncStatus: CrmSyncStatus | null };
 
 interface ListLeadsParams {
   page: number;
@@ -46,6 +53,7 @@ interface ListLeadsParams {
   search?: string;
   family?: DiagnosticFamily;
   status?: LeadStatus;
+  crmSyncStatus?: CrmSyncStatus;
 }
 
 export interface LeadsPage {
@@ -60,22 +68,30 @@ export class LeadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly crm: CrmSyncService,
   ) {}
 
+  /** El lead y su evento para el CRM en la misma transacción (PF-80). */
   async create(dto: CreateLeadDto): Promise<CreatedLead> {
-    const lead = await this.prisma.lead.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-        family: dto.family,
-        utmSource: dto.utmSource,
-        utmMedium: dto.utmMedium,
-        utmCampaign: dto.utmCampaign,
-      },
-      select: PUBLIC_SELECT,
+    const lead = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.lead.create({
+        data: {
+          name: dto.name,
+          email: dto.email,
+          phone: dto.phone,
+          family: dto.family,
+          utmSource: dto.utmSource,
+          utmMedium: dto.utmMedium,
+          utmCampaign: dto.utmCampaign,
+        },
+        select: PUBLIC_SELECT,
+      });
+      await this.crm.enqueue(tx, created.id, CrmSyncEventType.LEAD_CREATED);
+      return created;
     });
 
+    // Ni el CRM ni el correo hacen esperar al formulario.
+    this.crm.kick();
     this.notifications.notifyNewLead({ ...dto, id: lead.id });
 
     return lead;
@@ -92,10 +108,12 @@ export class LeadsService {
     search,
     family,
     status,
+    crmSyncStatus,
   }: ListLeadsParams): Promise<LeadsPage> {
     const where: Prisma.LeadWhereInput = {
       family,
       status,
+      ...(crmSyncStatus && leadSyncStatusWhere(crmSyncStatus)),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -115,7 +133,7 @@ export class LeadsService {
       this.prisma.lead.count({ where }),
     ]);
 
-    return { data, total, page, pageSize };
+    return { data: await this.withSyncStatus(data), total, page, pageSize };
   }
 
   async findOne(id: string): Promise<PanelLead> {
@@ -128,24 +146,18 @@ export class LeadsService {
       throw new NotFoundException(`Lead ${id} no encontrado`);
     }
 
-    return lead;
+    const [withStatus] = await this.withSyncStatus([lead]);
+    return withStatus;
   }
 
-  async updateStatus(id: string, status: LeadStatus): Promise<PanelLead> {
-    try {
-      return await this.prisma.lead.update({
-        where: { id },
-        data: { status },
-        select: PANEL_SELECT,
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException(`Lead ${id} no encontrado`);
-      }
-      throw error;
-    }
+  /** Una sola consulta más para toda la página, no una por lead. */
+  private async withSyncStatus(
+    leads: Omit<PanelLead, 'crmSyncStatus'>[],
+  ): Promise<PanelLead[]> {
+    const statuses = await this.crm.syncStatusByLead(leads.map((l) => l.id));
+    return leads.map((lead) => ({
+      ...lead,
+      crmSyncStatus: statuses.get(lead.id) ?? null,
+    }));
   }
 }

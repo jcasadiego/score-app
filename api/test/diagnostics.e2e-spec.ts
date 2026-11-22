@@ -591,6 +591,16 @@ describe('Diagnósticos (e2e, base propia)', () => {
         .set(as(session))
         .expect(201);
       expect(body).toMatchObject({ id, status: 'COMPLETED' });
+      // Cada paso del recorrido deja su evento para el CRM, en orden (PF-80).
+      const events = await prisma.crmSyncEvent.findMany({
+        where: { leadId: lead.id },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      expect(events.map((e) => e.type)).toEqual([
+        'DIAGNOSTIC_ACTIVATED',
+        'DIAGNOSTIC_STARTED',
+        'DIAGNOSTIC_COMPLETED',
+      ]);
 
       await answer(session, questions.story.id, { text: 'Otro' }).expect(401);
       // Con el enlace del correo, el cliente sabe que ya lo envió.

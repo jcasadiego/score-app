@@ -5,7 +5,7 @@
 export const FAMILIES = ["PROJECT", "B2B", "PROFESSIONAL", "CATALOG"] as const;
 export type DiagnosticFamily = (typeof FAMILIES)[number];
 
-export const LEAD_STATUSES = ["NEW", "CONTACTED", "CONVERTED"] as const;
+export const LEAD_STATUSES = ["NEW", "CONVERTED"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const FAMILY_LABELS: Record<DiagnosticFamily, string> = {
@@ -17,14 +17,12 @@ export const FAMILY_LABELS: Record<DiagnosticFamily, string> = {
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: "Nuevo",
-  CONTACTED: "Contactado",
   CONVERTED: "Convertido",
 };
 
 /** Colores preset de `Tag` de Ant Design (no hex: salen del tema). */
 export const LEAD_STATUS_COLORS: Record<LeadStatus, string> = {
   NEW: "blue",
-  CONTACTED: "gold",
   CONVERTED: "green",
 };
 

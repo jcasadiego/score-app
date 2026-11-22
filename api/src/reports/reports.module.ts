@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { CrmModule } from '../crm/crm.module';
 import { MailModule } from '../mail/mail.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { ReportDeliveriesService } from './report-deliveries.service';
@@ -10,7 +11,14 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 
 @Module({
-  imports: [AuditModule, AuthModule, AiModule, MailModule, ReviewsModule],
+  imports: [
+    AuditModule,
+    AuthModule,
+    AiModule,
+    CrmModule,
+    MailModule,
+    ReviewsModule,
+  ],
   controllers: [ReportsController, ReportDownloadsController],
   providers: [ReportsService, ReportDeliveriesService],
   exports: [ReportsService],

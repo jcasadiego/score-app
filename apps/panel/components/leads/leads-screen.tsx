@@ -10,7 +10,6 @@ import {
   Drawer,
   Empty,
   Flex,
-  Segmented,
   Select,
   Table,
   Tag,
@@ -27,7 +26,6 @@ import {
   type LeadStatus,
   type DiagnosticFamily,
 } from "@/lib/leads/labels";
-import { updateLeadStatusAction } from "@/app/(panel)/leads/actions";
 import { ReactiveSearch } from "@/components/reactive-search";
 import { LocalDate } from "@/components/local-date";
 import { GenerateDiagnosticModal } from "@/components/diagnostics/generate-diagnostic-modal";
@@ -103,11 +101,10 @@ export function LeadsScreen({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [navigating, startNavigation] = useTransition();
-  const [saving, startSaving] = useTransition();
 
   // Último lead abierto, solo por si deja de estar en la página actual
-  // (p. ej. al cambiarle el estado con un filtro por estado activo). Si
-  // sigue en la página, manda la versión del servidor.
+  // (p. ej. al cambiar de página con el detalle abierto). Si sigue en la
+  // página, manda la versión del servidor.
   const [lastOpenedLead, setLastOpenedLead] = useState<Lead | null>(null);
   // Vacía el buscador al limpiar los filtros.
   const [searchReset, setSearchReset] = useState(0);
@@ -160,20 +157,6 @@ export function LeadsScreen({
   function clearFilters() {
     setSearchReset((n) => n + 1);
     navigate({ q: "", family: undefined, status: undefined });
-  }
-
-  function changeStatus(lead: Lead, status: LeadStatus) {
-    startSaving(async () => {
-      const result = await updateLeadStatusAction(lead.id, status);
-      if (!result.ok) {
-        message.error(result.error ?? "No pudimos cambiar el estado.");
-        return;
-      }
-      if (result.lead) setLastOpenedLead(result.lead);
-      message.success(
-        `${lead.name} quedó como ${LEAD_STATUS_LABELS[status].toLowerCase()}.`,
-      );
-    });
   }
 
   const columns: TableColumnsType<Lead> = [
@@ -359,14 +342,9 @@ export function LeadsScreen({
               >
                 Estado
               </Typography.Text>
-              <Segmented<LeadStatus>
-                value={openLead.status}
-                options={STATUS_OPTIONS.map((o) => ({
-                  ...o,
-                  disabled: saving,
-                }))}
-                onChange={(status) => changeStatus(openLead, status)}
-              />
+              {/* Lo cambia SCORE al activar el diagnóstico; el seguimiento
+                  comercial vive en el CRM (PF-80). */}
+              <StatusTag status={openLead.status} />
             </div>
 
             <div>

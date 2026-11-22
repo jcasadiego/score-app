@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum, IsIn, IsOptional } from 'class-validator';
 import { DiagnosticFamily, LeadStatus } from '../../../generated/prisma/enums';
+import { CRM_SYNC_STATUSES, type CrmSyncStatus } from '../../crm/crm.types';
 import { ListUsersDto } from '../../users/dto/list-users.dto';
 
 /** Paginación y búsqueda de siempre, más los filtros propios de leads. */
@@ -14,4 +15,10 @@ export class ListLeadsDto extends ListUsersDto {
   @IsOptional()
   @IsEnum(LeadStatus)
   status?: LeadStatus;
+
+  /** Estado general del envío al CRM (PF-80), filtrado en la base. */
+  @ApiPropertyOptional({ enum: CRM_SYNC_STATUSES, enumName: 'CrmSyncStatus' })
+  @IsOptional()
+  @IsIn(CRM_SYNC_STATUSES)
+  crmSyncStatus?: CrmSyncStatus;
 }

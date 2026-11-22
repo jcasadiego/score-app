@@ -92,11 +92,17 @@ describe('Roles Revisor y Aprobador (e2e)', () => {
       await server().get(LEADS).set(bearer(reviewer.token)).expect(200);
     });
 
-    it('Revisor puede cambiar el estado de un lead: llega a la lógica de la ruta', async () => {
+    it('Revisor ve los envíos al CRM de un lead: llega a la lógica de la ruta', async () => {
       await server()
-        .patch(`${LEADS}/no-existe/status`)
+        .get(`${LEADS}/no-existe/crm-sync-events`)
         .set(bearer(reviewer.token))
-        .send({ status: 'CONTACTED' })
+        .expect(404);
+    });
+
+    it('Revisor puede reintentar un envío al CRM: llega a la lógica de la ruta', async () => {
+      await server()
+        .post(`${LEADS}/no-existe/crm-sync-events/no-existe/retry`)
+        .set(bearer(reviewer.token))
         .expect(404);
     });
 

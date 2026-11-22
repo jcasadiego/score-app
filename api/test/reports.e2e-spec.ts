@@ -848,7 +848,7 @@ describe('Informe (e2e, base propia)', () => {
     });
 
     it('reenviar revoca el enlace anterior y solo queda uno vigente; con la versión vieja, 412', async () => {
-      const { reviewId, report, etag } = await approvedCase();
+      const { reviewId, report, etag, lead } = await approvedCase();
       const first = await deliver(reviewId, etag).expect(201);
       const oldToken = mailedToken();
 
@@ -878,6 +878,12 @@ describe('Informe (e2e, base propia)', () => {
       });
       expect(links).toHaveLength(2);
       expect(links.filter((l) => l.revokedAt === null)).toHaveLength(1);
+      // Al CRM solo va la primera entrega: el reenvío no cambia el estado.
+      expect(
+        await prisma.crmSyncEvent.count({
+          where: { leadId: lead.id, type: 'REPORT_DELIVERED' },
+        }),
+      ).toBe(1);
       expect((await read(reviewId)).body.status).toBe('DELIVERED');
     });
 

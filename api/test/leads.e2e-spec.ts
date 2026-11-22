@@ -8,6 +8,7 @@ import { configureApp } from './../src/bootstrap';
 import { MAIL_PORT, MailMessage, SendResult } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { UsersService } from './../src/users/users.service';
+import { deleteLeads } from './helpers/leads';
 
 const PATH = '/api/v1/leads/prequalification';
 
@@ -41,7 +42,7 @@ describe('LeadsController (e2e)', () => {
 
   afterEach(async () => {
     if (createdIds.length > 0) {
-      await prisma.lead.deleteMany({ where: { id: { in: createdIds } } });
+      await deleteLeads(prisma, { id: { in: createdIds } });
       createdIds.length = 0;
     }
     await app.close();
@@ -192,7 +193,7 @@ describe('Leads del panel (e2e)', () => {
           name: `Caro ${marker}`,
           email: `caro.${marker}@example.com`,
           family: 'B2B',
-          status: 'CONTACTED',
+          status: 'CONVERTED',
         },
       ],
       select: { id: true },
@@ -201,7 +202,7 @@ describe('Leads del panel (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.lead.deleteMany({ where: { id: { in: leadIds } } });
+    await deleteLeads(prisma, { id: { in: leadIds } });
     await prisma.user.delete({ where: { id: userId } });
     await app.close();
   });
@@ -209,12 +210,8 @@ describe('Leads del panel (e2e)', () => {
   it.each([
     ['GET', '/api/v1/leads'],
     ['GET', '/api/v1/leads/cualquiera'],
-    ['PATCH', '/api/v1/leads/cualquiera/status'],
-  ])('%s %s responde 401 sin token', async (method, path) => {
-    const server = request(app.getHttpServer());
-    await (method === 'GET' ? server.get(path) : server.patch(path))
-      .send({ status: 'CONVERTED' })
-      .expect(401);
+  ])('%s %s responde 401 sin token', async (_method, path) => {
+    await request(app.getHttpServer()).get(path).expect(401);
   });
 
   it('lista filtrando por familia, estado y búsqueda en la base', async () => {
@@ -240,43 +237,17 @@ describe('Leads del panel (e2e)', () => {
   it('responde 400 con un filtro desconocido', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/leads')
-      .query({ status: 'PAGADO' })
+      .query({ status: 'CONTACTED' })
       .set('Authorization', `Bearer ${token}`)
       .expect(400);
   });
 
-  it('cambia el estado y deja al usuario como actor en la bitácora', async () => {
-    const path = `/api/v1/leads/${leadIds[1]}/status`;
-    const response = await request(app.getHttpServer())
-      .patch(path)
-      .send({ status: 'CONVERTED' })
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-
-    expect(response.body).toMatchObject({
-      id: leadIds[1],
-      status: 'CONVERTED',
-    });
-
-    const auditEntry = await vi.waitFor(() =>
-      prisma.auditLog
-        .findFirst({
-          where: { action: 'LEAD_STATUS_CHANGED', entityId: leadIds[1] },
-        })
-        .then((r) => r ?? Promise.reject(new Error('sin registro aún'))),
-    );
-    expect(auditEntry).toMatchObject({
-      actorType: 'PANEL_USER',
-      actorId: userId,
-    });
-  });
-
-  it('no deja cambiar otros datos del lead', async () => {
+  it('ya no deja cambiar el estado a mano (PF-80)', async () => {
     await request(app.getHttpServer())
       .patch(`/api/v1/leads/${leadIds[0]}/status`)
-      .send({ status: 'CONTACTED', email: 'otro@example.com' })
+      .send({ status: 'CONVERTED' })
       .set('Authorization', `Bearer ${token}`)
-      .expect(400);
+      .expect(404);
   });
 
   it('responde 404 si el lead no existe', async () => {
@@ -381,7 +352,7 @@ describe('Aviso al equipo por lead nuevo (e2e)', () => {
   afterEach(async () => {
     await prisma.user.deleteMany({ where: { email: { in: EMAILS } } });
     if (leadId) {
-      await prisma.lead.delete({ where: { id: leadId } });
+      await deleteLeads(prisma, { id: leadId });
       leadId = undefined;
     }
     await app.close();

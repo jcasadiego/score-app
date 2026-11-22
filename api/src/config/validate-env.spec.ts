@@ -28,6 +28,7 @@ const PRODUCTION = {
   APP_ENV: 'production',
   SCORING_ENGINE_DRIVER: 'disabled',
   AI_PROVIDER: 'disabled',
+  CRM_PROVIDER: 'simulated',
   PANEL_URL: 'https://panel.example.com',
   DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
@@ -268,6 +269,42 @@ describe('validateEnv · IA', () => {
     expect(() => validateEnv({ ...BASE, AI_PROVIDER: 'openai' })).toThrow(
       /AI_PROVIDER/,
     );
+  });
+});
+
+describe('validateEnv · CRM', () => {
+  it('en desarrollo, el proveedor es opcional y la bandeja corre cada 30 s', () => {
+    const env = validateEnv(BASE);
+    expect(env.CRM_PROVIDER).toBeUndefined();
+    expect(env.CRM_SYNC_INTERVAL_MS).toBe(30_000);
+  });
+
+  it('con NODE_ENV=production no arranca sin CRM_PROVIDER', () => {
+    expect(() => validateEnv({ ...PRODUCTION, CRM_PROVIDER: '' })).toThrow(
+      /CRM_PROVIDER: obligatoria con NODE_ENV=production/,
+    );
+  });
+
+  it('el fallo forzado del simulado sirve en QA pero no en producción', () => {
+    expect(
+      validateEnv({
+        ...PRODUCTION,
+        APP_ENV: 'qa',
+        CRM_SIMULATED_FAILURE: 'PROVIDER_ERROR',
+      }).CRM_SIMULATED_FAILURE,
+    ).toBe('PROVIDER_ERROR');
+    expect(() =>
+      validateEnv({ ...PRODUCTION, CRM_SIMULATED_FAILURE: 'PROVIDER_ERROR' }),
+    ).toThrow(/CRM_SIMULATED_FAILURE: no se admite con APP_ENV=production/);
+  });
+
+  it('rechaza un proveedor o un código de fallo desconocidos', () => {
+    expect(() => validateEnv({ ...BASE, CRM_PROVIDER: 'hubspot' })).toThrow(
+      /CRM_PROVIDER/,
+    );
+    expect(() =>
+      validateEnv({ ...BASE, CRM_SIMULATED_FAILURE: 'BOOM' }),
+    ).toThrow(/CRM_SIMULATED_FAILURE/);
   });
 });
 

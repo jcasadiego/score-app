@@ -9,7 +9,12 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SimulatedCrmAdapter } from './adapters/simulated-crm.adapter';
-import { BACKOFF_MS, CrmSyncService, MAX_ATTEMPTS } from './crm-sync.service';
+import {
+  BACKOFF_MS,
+  CrmSyncService,
+  MAX_ATTEMPTS,
+  MAX_RETRY_AFTER_MS,
+} from './crm-sync.service';
 import { CrmAdapterError } from './crm.port';
 import { syncStatusOf } from './crm.types';
 
@@ -175,6 +180,44 @@ describe('CrmSyncService', () => {
     expect(data.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(
       before + 3 * 60 * 60_000,
     );
+  });
+
+  it('acota la espera que pide el proveedor y descarta un estado HTTP inválido', async () => {
+    const service = build();
+    const adapter = (service as unknown as { adapter: SimulatedCrmAdapter })
+      .adapter;
+    vi.spyOn(adapter, 'upsertContact').mockRejectedValue(
+      new CrmAdapterError(CrmSyncErrorCode.RATE_LIMITED, 999, 1e15),
+    );
+    const before = Date.now();
+
+    await sendOne(service, event(CrmSyncEventType.LEAD_CREATED));
+
+    const { data } = tx.crmSyncEvent.update.mock.calls[0][0];
+    expect(data.lastHttpStatus).toBeNull();
+    expect(data.nextAttemptAt.getTime()).toBeLessThanOrEqual(
+      Date.now() + MAX_RETRY_AFTER_MS,
+    );
+    expect(data.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(
+      before + MAX_RETRY_AFTER_MS,
+    );
+  });
+
+  it('un id de contacto que no cabe en la base cuenta como error del proveedor, sin escribir el lead', async () => {
+    const service = build();
+    const adapter = (service as unknown as { adapter: SimulatedCrmAdapter })
+      .adapter;
+    vi.spyOn(adapter, 'upsertContact').mockResolvedValue({
+      contactId: 'x'.repeat(101),
+    });
+
+    await sendOne(service, event(CrmSyncEventType.LEAD_CREATED));
+
+    expect(tx.lead.update).not.toHaveBeenCalled();
+    expect(tx.crmSyncEvent.update.mock.calls[0][0].data).toMatchObject({
+      status: CrmSyncEventStatus.PENDING,
+      lastErrorCode: CrmSyncErrorCode.PROVIDER_ERROR,
+    });
   });
 
   it('en el último intento queda fallido y se registra en la bitácora', async () => {

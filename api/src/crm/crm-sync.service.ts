@@ -31,6 +31,10 @@ export const BACKOFF_MS = [
   2 * 60 * 60_000, // 2 h
   12 * 60 * 60_000, // 12 h
 ];
+/** Tope a la espera que pide el proveedor (429): un valor absurdo no congela el evento. */
+export const MAX_RETRY_AFTER_MS = 24 * 60 * 60_000;
+/** Largo de `leads.crm_contact_id`. */
+const MAX_CONTACT_ID_LENGTH = 100;
 /** Eventos por pasada del procesador: el resto queda para la siguiente. */
 export const BATCH_SIZE = 50;
 /**
@@ -224,6 +228,11 @@ export class CrmSyncService implements OnModuleDestroy {
       } else {
         await this.adapter.updateStatus(contactId, update);
       }
+      // Antes de escribir: un error de la base aborta la transacción y el
+      // evento quedaría reintentándose en cada pasada sin contar intentos.
+      if (!contactId || contactId.length > MAX_CONTACT_ID_LENGTH) {
+        throw new CrmAdapterError(CrmSyncErrorCode.PROVIDER_ERROR);
+      }
 
       await tx.crmSyncEvent.update({
         where: { id: event.id },
@@ -259,8 +268,17 @@ export class CrmSyncService implements OnModuleDestroy {
     let retryAfterMs = 0;
     if (error instanceof CrmAdapterError) {
       code = error.code;
-      httpStatus = error.httpStatus ?? null;
-      retryAfterMs = error.retryAfterMs ?? 0;
+      // Lo que no cabe en el CHECK de la base no se guarda (ver `contactId`).
+      httpStatus =
+        Number.isInteger(error.httpStatus) &&
+        error.httpStatus! >= 100 &&
+        error.httpStatus! <= 599
+          ? error.httpStatus!
+          : null;
+      retryAfterMs = Math.min(
+        Math.max(error.retryAfterMs ?? 0, 0),
+        MAX_RETRY_AFTER_MS,
+      );
     } else {
       // Un error inesperado (de código, no del CRM): solo el nombre, nunca el
       // mensaje, que podría traer datos del lead.

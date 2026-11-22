@@ -193,11 +193,11 @@ enum DiagnosticFamily {
   @@map("diagnostic_family")
 }
 
-/// Estado comercial de un lead, que el equipo cambia a mano desde el panel
-/// mientras no hay CRM. Activar el diagnóstico con pago lo pasa a `CONVERTED`.
+/// Estado de un lead que controla SCORE. Activar el diagnóstico con pago lo
+/// pasa a `CONVERTED`. El seguimiento comercial (contactado, etc.) vive en el
+/// CRM (PF-80): ya no se cambia a mano.
 enum LeadStatus {
   NEW
-  CONTACTED
   CONVERTED
 
   @@map("lead_status")
@@ -208,20 +208,23 @@ enum LeadStatus {
 /// CLAUDE.md sección 7). `email` no es único a propósito: la misma
 /// persona puede precalificar más de una vez.
 model Lead {
-  id          String           @id @default(cuid())
-  name        String
-  email       String
-  phone       String?
-  family      DiagnosticFamily
-  utmSource   String?          @map("utm_source")
-  utmMedium   String?          @map("utm_medium")
-  utmCampaign String?          @map("utm_campaign")
-  status      LeadStatus       @default(NEW)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String           @id @default(cuid())
+  name         String
+  email        String
+  phone        String?
+  family       DiagnosticFamily
+  utmSource    String?          @map("utm_source")
+  utmMedium    String?          @map("utm_medium")
+  utmCampaign  String?          @map("utm_campaign")
+  status       LeadStatus       @default(NEW)
+  /// Id del contacto en el CRM, guardado tras el primer envío exitoso (PF-80).
+  crmContactId String?          @map("crm_contact_id") @db.VarChar(100)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  diagnostic Diagnostic?
-  payments   Payment[]
+  diagnostic    Diagnostic?
+  payments      Payment[]
+  crmSyncEvents CrmSyncEvent[]
 
   @@index([email])
   @@index([createdAt])
@@ -1132,4 +1135,64 @@ model Payment {
   @@index([confirmedById])
   @@index([voidedById])
   @@map("payments")
+}
+
+/// Qué cambio del recorrido de un lead se avisa al CRM (PF-80).
+enum CrmSyncEventType {
+  /// Lead nuevo: crear o actualizar el contacto.
+  LEAD_CREATED
+  /// Diagnóstico activado, con pago o sin pago: se envió el enlace.
+  DIAGNOSTIC_ACTIVATED
+  /// La primera respuesta del cliente.
+  DIAGNOSTIC_STARTED
+  /// El cliente envió el diagnóstico.
+  DIAGNOSTIC_COMPLETED
+  /// Primera entrega del informe (los reenvíos no cambian el estado).
+  REPORT_DELIVERED
+
+  @@map("crm_sync_event_type")
+}
+
+enum CrmSyncEventStatus {
+  /// En cola: lo toma el procesador cuando llega `nextAttemptAt`.
+  PENDING
+  SENT
+  /// Agotó los intentos o el error no se reintenta: espera un reintento manual.
+  FAILED
+
+  @@map("crm_sync_event_status")
+}
+
+/// Por qué falló el último envío. Nunca se guarda la respuesta del proveedor:
+/// puede traer el correo o el teléfono del lead.
+enum CrmSyncErrorCode {
+  TIMEOUT
+  RATE_LIMITED
+  PROVIDER_ERROR
+  INVALID_DATA
+  AUTH_FAILED
+
+  @@map("crm_sync_error_code")
+}
+
+/// Bandeja de salida hacia el CRM (PF-80): se crea en la misma transacción
+/// que el cambio que la origina y la envía un proceso en segundo plano. Solo
+/// guarda ids y el tipo: los datos se leen del lead al enviar.
+model CrmSyncEvent {
+  id             String             @id @default(cuid())
+  leadId         String             @map("lead_id")
+  lead           Lead               @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  type           CrmSyncEventType
+  status         CrmSyncEventStatus @default(PENDING)
+  attempts       Int                @default(0)
+  nextAttemptAt  DateTime           @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastErrorCode  CrmSyncErrorCode?  @map("last_error_code")
+  /// Estado HTTP de la última respuesta del proveedor, si la hubo.
+  lastHttpStatus Int?               @map("last_http_status")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  sentAt         DateTime?          @map("sent_at") @db.Timestamptz(3)
+
+  @@index([leadId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@map("crm_sync_events")
 }

@@ -52,19 +52,6 @@ export function listLeads(
   return callApi<PaginatedLeads>(token, `/leads?${params}`, MESSAGES);
 }
 
-export function updateLeadStatus(
-  token: string,
-  id: string,
-  status: LeadStatus,
-): Promise<Lead> {
-  return callApi<Lead>(
-    token,
-    `/leads/${encodeURIComponent(id)}/status`,
-    MESSAGES,
-    { method: "PATCH", body: JSON.stringify({ status }) },
-  );
-}
-
 export function getLead(token: string, id: string): Promise<Lead> {
   return callApi<Lead>(token, `/leads/${encodeURIComponent(id)}`, MESSAGES);
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Alert,
   App,
   Button,
   Descriptions,
@@ -11,12 +12,19 @@ import {
   Empty,
   Flex,
   Select,
+  Skeleton,
   Table,
   Tag,
   Typography,
   type TableColumnsType,
 } from "antd";
 import type { Lead, PaginatedLeads } from "@/lib/api/leads";
+import type { CrmStatus, PaginatedCrmSyncEvents } from "@/lib/api/crm";
+import {
+  CRM_SYNC_STATUSES,
+  CRM_SYNC_STATUS_LABELS,
+  type CrmSyncStatus,
+} from "@/lib/crm/labels";
 import {
   LEAD_STATUS_COLORS,
   LEAD_STATUSES,
@@ -30,16 +38,31 @@ import { ReactiveSearch } from "@/components/reactive-search";
 import { LocalDate } from "@/components/local-date";
 import { GenerateDiagnosticModal } from "@/components/diagnostics/generate-diagnostic-modal";
 import { RegisterPaymentModal } from "@/components/payments/register-payment-modal";
+import { CrmSection, CrmSyncStatusTag } from "./crm-section";
 
 interface LeadScreenFilters {
   q: string;
   family?: DiagnosticFamily;
   status?: LeadStatus;
+  crm?: CrmSyncStatus;
+}
+
+/** El lead abierto (`?lead=` en la URL) y sus envíos al CRM. */
+export interface LeadDetail {
+  leadId: string;
+  /** `null` si no se pudo cargar (`error` dice por qué). */
+  lead: Lead | null;
+  error?: string;
+  events: PaginatedCrmSyncEvents | null;
+  eventsError?: string;
 }
 
 interface LeadsScreenProps {
   page: PaginatedLeads;
   filters: LeadScreenFilters;
+  detail: LeadDetail | null;
+  /** `null` si no se pudo saber qué CRM está configurado. */
+  crm: CrmStatus | null;
   /** Generar sin pago es solo del Aprobador; la API lo valida igual. */
   canGenerateDiagnostic: boolean;
   /** Pagos es solo del Aprobador (CLAUDE.md 5.3); la API lo valida igual. */
@@ -67,6 +90,11 @@ const STATUS_OPTIONS = LEAD_STATUSES.map((e) => ({
   label: LEAD_STATUS_LABELS[e],
 }));
 
+const CRM_OPTIONS = CRM_SYNC_STATUSES.map((s) => ({
+  value: s,
+  label: `CRM: ${CRM_SYNC_STATUS_LABELS[s].toLowerCase()}`,
+}));
+
 /** "instagram · lanzamiento-2026", o null si el lead no trae UTM. */
 function leadSource(lead: Lead): string | null {
   const parts = [lead.utmSource, lead.utmCampaign].filter(Boolean);
@@ -86,13 +114,15 @@ function StatusTag({ status }: { status: LeadStatus }) {
 }
 
 /**
- * Los datos llegan del Server Component; filtros y página viven en la URL.
- * El cambio de estado es una Server Action con `revalidatePath`, que trae
- * la lista actualizada en la misma respuesta — no hay copia local.
+ * Los datos llegan del Server Component; filtros, página y lead abierto viven
+ * en la URL. Reintentar un envío al CRM es una Server Action con
+ * `revalidatePath`, que trae los datos actualizados — no hay copia local.
  */
 export function LeadsScreen({
   page,
   filters,
+  detail,
+  crm,
   canGenerateDiagnostic,
   canManagePayments,
 }: LeadsScreenProps) {
@@ -101,11 +131,9 @@ export function LeadsScreen({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [navigating, startNavigation] = useTransition();
-
-  // Último lead abierto, solo por si deja de estar en la página actual
-  // (p. ej. al cambiar de página con el detalle abierto). Si sigue en la
-  // página, manda la versión del servidor.
-  const [lastOpenedLead, setLastOpenedLead] = useState<Lead | null>(null);
+  const [loadingDetail, startDetail] = useTransition();
+  // El drawer se abre al instante; la URL (y los envíos al CRM) llegan después.
+  const [openLeadId, setOpenLeadId] = useOptimistic(detail?.leadId ?? null);
   // Vacía el buscador al limpiar los filtros.
   const [searchReset, setSearchReset] = useState(0);
   // Lead para el que se genera el diagnóstico; `generateKey` monta un
@@ -120,11 +148,33 @@ export function LeadsScreen({
     setPaymentKey((k) => k + 1);
     setPaymentFor(lead);
   }
-  const openLead = lastOpenedLead
-    ? (page.data.find((l) => l.id === lastOpenedLead.id) ?? lastOpenedLead)
+  // Lo que mandó el servidor si ya llegó; mientras, la fila de la tabla.
+  const detailReady = detail !== null && detail.leadId === openLeadId;
+  const openLead = openLeadId
+    ? ((detailReady ? detail.lead : null) ??
+      page.data.find((l) => l.id === openLeadId) ??
+      null)
     : null;
 
-  const hasFilters = Boolean(filters.q || filters.family || filters.status);
+  /** Abre o cierra el detalle; el historial no guarda cada apertura. */
+  function showLead(leadId: string | null, crmPage = 1) {
+    const params = new URLSearchParams(searchParams);
+    if (leadId) params.set("lead", leadId);
+    else params.delete("lead");
+    if (leadId && crmPage > 1) params.set("crmPage", String(crmPage));
+    else params.delete("crmPage");
+    const query = params.toString();
+    startDetail(() => {
+      setOpenLeadId(leadId);
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    });
+  }
+
+  const hasFilters = Boolean(
+    filters.q || filters.family || filters.status || filters.crm,
+  );
 
   /**
    * Cambia filtros/página en la URL; cualquier filtro nuevo vuelve a la
@@ -136,7 +186,7 @@ export function LeadsScreen({
     { replace = false } = {},
   ) {
     const params = new URLSearchParams(searchParams);
-    for (const key of ["q", "family", "status"] as const) {
+    for (const key of ["q", "family", "status", "crm"] as const) {
       if (!(key in changes)) continue;
       const value = changes[key];
       if (value) params.set(key, value);
@@ -156,7 +206,7 @@ export function LeadsScreen({
 
   function clearFilters() {
     setSearchReset((n) => n + 1);
-    navigate({ q: "", family: undefined, status: undefined });
+    navigate({ q: "", family: undefined, status: undefined, crm: undefined });
   }
 
   const columns: TableColumnsType<Lead> = [
@@ -168,7 +218,7 @@ export function LeadsScreen({
         <Typography.Link
           onClick={(e) => {
             e.stopPropagation();
-            setLastOpenedLead(lead);
+            showLead(lead.id);
           }}
           style={{ overflowWrap: "anywhere" }}
         >
@@ -219,6 +269,15 @@ export function LeadsScreen({
       key: "status",
       width: 120,
       render: (status: LeadStatus) => <StatusTag status={status} />,
+    },
+    {
+      // Discreto: solo se marca lo que pide atención.
+      title: "CRM",
+      dataIndex: "crmSyncStatus",
+      key: "crmSyncStatus",
+      width: 100,
+      render: (status: CrmSyncStatus | null) =>
+        status === "FAILED" ? <CrmSyncStatusTag status={status} /> : null,
     },
     {
       title: "Fecha",
@@ -273,6 +332,15 @@ export function LeadsScreen({
         Leads
       </Typography.Title>
 
+      {crm?.simulated && (
+        <Alert
+          type="info"
+          showIcon
+          title="CRM en modo simulado: los datos no salen de SCORE."
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       <Flex gap={12} wrap style={{ marginBottom: 16 }}>
         <ReactiveSearch
           resetKey={searchReset}
@@ -301,6 +369,15 @@ export function LeadsScreen({
           onChange={(status) => navigate({ status })}
           style={{ width: 200 }}
         />
+        <Select<CrmSyncStatus>
+          value={filters.crm}
+          placeholder="Todos los envíos al CRM"
+          aria-label="Filtrar por envío al CRM"
+          allowClear
+          options={CRM_OPTIONS}
+          onChange={(crm) => navigate({ crm })}
+          style={{ width: 220 }}
+        />
       </Flex>
 
       <Table<Lead>
@@ -312,7 +389,7 @@ export function LeadsScreen({
         scroll={{ x: 960 }}
         locale={{ emptyText: emptyState }}
         onRow={(lead) => ({
-          onClick: () => setLastOpenedLead(lead),
+          onClick: () => showLead(lead.id),
           style: { cursor: "pointer" },
         })}
         pagination={{
@@ -328,11 +405,18 @@ export function LeadsScreen({
 
       <Drawer
         title={openLead?.name}
-        open={openLead !== null}
-        onClose={() => setLastOpenedLead(null)}
+        open={openLeadId !== null}
+        onClose={() => showLead(null)}
         size="large"
         destroyOnHidden
       >
+        {openLeadId &&
+          !openLead &&
+          (detailReady && detail.error ? (
+            <Alert type="error" showIcon title={detail.error} />
+          ) : (
+            <Skeleton active />
+          ))}
         {openLead && (
           <Flex vertical gap={24}>
             <div>
@@ -395,6 +479,17 @@ export function LeadsScreen({
                 </Flex>
               </div>
             )}
+
+            <CrmSection
+              key={openLead.id}
+              leadId={openLead.id}
+              syncStatus={openLead.crmSyncStatus}
+              events={detailReady ? detail.events : null}
+              eventsError={detailReady ? detail.eventsError : undefined}
+              simulated={crm?.simulated ?? null}
+              loading={loadingDetail}
+              onPageChange={(p) => showLead(openLead.id, p)}
+            />
 
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Correo">

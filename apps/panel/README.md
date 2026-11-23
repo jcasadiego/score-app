@@ -87,7 +87,7 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
   que arma el layout con Ant Design (`components/app-shell.tsx`). Las
   pantallas de cada módulo se agregan ahí: Usuarios
   (`app/(panel)/users/`), Leads (`app/(panel)/leads/`, lista con
-  filtros, detalle en un `Drawer` y cambio de estado), Diagnósticos
+  filtros y detalle en un `Drawer`), Diagnósticos
   (`app/(panel)/diagnostics/`, PF-18) y Cuestionario
   (`app/(panel)/questionnaire/`, PF-14). Las llamadas a la api pasan por
   `lib/api/client.ts`; un 400 o 409 conserva el `code` y la lista `errors`
@@ -200,6 +200,18 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
     deja el modal abierto con lo escrito.
   - El monto se escribe y viaja como texto decimal (acepta coma o punto) y se
     muestra con `Intl.NumberFormat` según la moneda, sin pasar por `float`.
+- **CRM** (PF-81, `components/leads/crm-section.tsx`), ambos roles:
+  - El lead abierto vive en la URL (`?lead=`, y `crmPage` para sus envíos):
+    la página pide los envíos y `GET /crm/status` en paralelo con la lista, y
+    el lead aparte solo si no está en la página. El `Drawer` se abre al
+    instante con `useOptimistic` mientras llega el servidor.
+  - Estado general, envíos paginados y, en uno fallido, el mensaje traducido
+    del código de error (`lib/crm/labels.ts`), si detiene los siguientes y
+    "Reintentar" (Server Action + `revalidatePath`; 404 y 409 recargan y
+    avisan). Nunca se muestra el estado HTTP ni nada del proveedor.
+  - En la lista, columna "CRM" (solo marca los que tienen error) y filtro
+    `crm` que resuelve la API (`crmSyncStatus`). Con el adaptador simulado,
+    aviso en la lista y en el detalle.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),

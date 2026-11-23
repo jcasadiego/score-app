@@ -1,6 +1,7 @@
 import "server-only";
 import { callApi, type ResourceMessages } from "./client";
 import type { LeadStatus, DiagnosticFamily } from "@/lib/leads/labels";
+import type { CrmSyncStatus } from "@/lib/crm/labels";
 
 export interface Lead {
   id: string;
@@ -14,6 +15,8 @@ export interface Lead {
   status: LeadStatus;
   /** El diagnóstico del lead, si ya se generó (uno por lead). */
   diagnostic: { id: string } | null;
+  /** Estado general de sus envíos al CRM; `null` si nunca tuvo (PF-80). */
+  crmSyncStatus: CrmSyncStatus | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +34,7 @@ export interface LeadFilters {
   search?: string;
   family?: DiagnosticFamily;
   status?: LeadStatus;
+  crmSyncStatus?: CrmSyncStatus;
 }
 
 const MESSAGES: ResourceMessages = {
@@ -40,7 +44,7 @@ const MESSAGES: ResourceMessages = {
 /** Una página de leads; filtros, búsqueda y conteo los resuelve la API. */
 export function listLeads(
   token: string,
-  { page, pageSize, search, family, status }: LeadFilters,
+  { page, pageSize, search, family, status, crmSyncStatus }: LeadFilters,
 ): Promise<PaginatedLeads> {
   const params = new URLSearchParams({
     page: String(page),
@@ -49,6 +53,7 @@ export function listLeads(
   if (search) params.set("search", search);
   if (family) params.set("family", family);
   if (status) params.set("status", status);
+  if (crmSyncStatus) params.set("crmSyncStatus", crmSyncStatus);
   return callApi<PaginatedLeads>(token, `/leads?${params}`, MESSAGES);
 }
 

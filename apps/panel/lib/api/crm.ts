@@ -43,8 +43,12 @@ const RETRY_MESSAGES: ResourceMessages = {
   conflict: "Este envío ya se está procesando.",
 };
 
+const STATUS_MESSAGES: ResourceMessages = {
+  notFound: "No pudimos consultar el estado del CRM.",
+};
+
 export function getCrmStatus(token: string): Promise<CrmStatus> {
-  return callApi<CrmStatus>(token, "/crm/status", LEAD_MESSAGES);
+  return callApi<CrmStatus>(token, "/crm/status", STATUS_MESSAGES);
 }
 
 /** Envíos de un lead, del más reciente al más antiguo. */

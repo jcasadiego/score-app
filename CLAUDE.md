@@ -307,6 +307,12 @@ revisar la regla correspondiente.
 - CI usa **Node 22** (Node 20 ya no recibe parches de seguridad, #17).
 - No marcar un PR como listo con la prueba manual sin hacer (#10): probar
   contra la api local o en el navegador y anotarlo en el test plan.
+- **Una variable nueva en `render.yaml` no llega sola al servicio:** el
+  deploy no sincroniza el Blueprint, así que ni los `value:` ni las
+  `sync: false` existen hasta cargarlas. Si la API las exige al arrancar, QA
+  no levanta (#94 con `CRM_PROVIDER`, #96 con `STORAGE_DRIVER`). Antes de
+  mergear, cargarlas a mano en Render (o *Manual sync* del Blueprint,
+  revisando el diff) y anotarlo en el PR.
 
 Las lecciones propias de cada pieza viven junto a su código y se cargan al
 trabajar en ella: `api/CLAUDE.md` y `apps/panel/CLAUDE.md`.

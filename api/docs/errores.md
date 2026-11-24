@@ -43,6 +43,12 @@ Un código publicado no cambia de significado.
 | `INTERNAL_ERROR` | 500 | Error no controlado; la causa queda en el log. |
 | `DIAGNOSTIC_NOT_COMPLETED` | 409 | Se pidió calcular un diagnóstico que el cliente todavía no envió. |
 | `CALCULATION_IN_PROGRESS` | 409 | El diagnóstico ya tiene un cálculo pendiente o en curso. |
+| `VOICE_NOT_ALLOWED` | 409 | La pregunta no acepta respuestas por voz (PF-86). Al crear o editar una pregunta de selección con `allowsVoice`, llega como `errors[].code` de un `VALIDATION_FAILED`. |
+| `VOICE_CONSENT_REQUIRED` | 409 | El cliente todavía no aceptó el uso de su voz (`POST /diagnostic-sessions/current/voice-consent`). |
+| `RECORDING_TOO_LARGE` | 413 | La grabación supera los 5 MB. |
+| `RECORDING_UNSUPPORTED_TYPE` | 415 | El audio no es WebM (Opus) ni MP4 (AAC), o su contenido no coincide con el tipo declarado. |
+| `RECORDING_NOT_FOUND` | 404 | La respuesta no tiene grabación, o el audio ya no está disponible. |
+| `STORAGE_UNAVAILABLE` | 503 | El almacenamiento de audios no responde; no se guardó nada y se puede reintentar. Las respuestas escritas siguen funcionando. |
 | `NO_CURRENT_CALCULATION` | 404 | El diagnóstico todavía no tiene un cálculo exitoso. |
 | `SCORING_ENGINE_DISABLED` | 503 | El motor está desactivado (`SCORING_ENGINE_DRIVER=disabled`): los cálculos quedan pendientes. |
 | `CALCULATION_NOT_SUCCEEDED` | 409 | Se pidió el análisis de flags de un cálculo que no terminó bien. |

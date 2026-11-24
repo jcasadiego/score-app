@@ -173,6 +173,7 @@ matriz. Un rol nuevo o un permiso por caso se confirma antes con José.
 | Cuestionario: ver | ✅ | ✅ |
 | Cuestionario: crear, editar, publicar | — | ✅ |
 | Diagnósticos: ver y reenviar el enlace al cliente | ✅ | ✅ |
+| Diagnósticos: escuchar las grabaciones de voz (cada reproducción queda en la bitácora) | ✅ | ✅ |
 | Diagnósticos: generar sin pago (con motivo) | — | ✅ |
 | Resultado del motor: ver y recalcular | ✅ | ✅ |
 | Alertas: ver y marcar revisada/descartada | ✅ | ✅ |

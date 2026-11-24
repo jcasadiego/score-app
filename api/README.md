@@ -523,7 +523,7 @@ En QA y PROD la API no se conecta como dueña del esquema:
     también la grabación. El objeto se sube antes de la transacción y se borra
     si falla; el que se reemplaza o borra se elimina tras el commit (si falla,
     queda huérfano para PF-90). `GET .../recording` da al cliente una URL
-    firmada para escuchar la suya, y `GET /diagnostics/:id/answers/:questionId/recording`
+    firmada para escuchar la suya (auditado como `END_CLIENT`), y `GET /diagnostics/:id/answers/:questionId/recording`
     al panel (ambos roles, auditado `ANSWER_RECORDING_PLAYED`). La clave del
     objeto solo sale dentro de esa URL firmada, nunca en la vista de la
     respuesta ni en la bitácora.

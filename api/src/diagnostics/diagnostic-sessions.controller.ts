@@ -163,10 +163,11 @@ export class DiagnosticSessionsController {
     return this.recordings.remove(req.accessLink, questionId);
   }
 
-  /** URL firmada de vida corta para escuchar la propia grabación. */
+  /** URL firmada de vida corta para escuchar la propia grabación (auditado). */
   @Get('current/answers/:questionId/recording')
   @ApiBearerAuth()
   @UseGuards(AccessLinkGuard)
+  @AuditRoute({ byService: true })
   playRecording(
     @Req() req: RequestWithAccessLink,
     @Param('questionId') questionId: string,

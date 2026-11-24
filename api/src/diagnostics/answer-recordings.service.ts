@@ -173,12 +173,24 @@ export class AnswerRecordingsService {
     if (objectKey) await this.storage.deleteQuietly(objectKey);
   }
 
-  /** El cliente escucha su propia grabación (antes de enviar el diagnóstico). */
+  /**
+   * El cliente escucha su propia grabación (antes de enviar el diagnóstico).
+   * Se audita igual que en el panel: la voz es un dato personal sensible.
+   */
   async clientPlayback(
     session: ClientSession,
     questionId: string,
   ): Promise<RecordingPlayback> {
-    return this.playback(session.sub, questionId);
+    const playback = await this.playback(session.sub, questionId);
+    await this.audit.record({
+      actorType: AuditActorType.END_CLIENT,
+      actorId: session.sub,
+      action: 'ANSWER_RECORDING_PLAYED',
+      entity: 'Diagnostic',
+      entityId: session.sub,
+      data: { questionId, accessLinkId: session.linkId },
+    });
+    return playback;
   }
 
   /** El panel escucha la grabación; queda en la bitácora quién y cuál. */

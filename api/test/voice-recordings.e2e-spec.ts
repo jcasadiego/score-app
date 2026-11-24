@@ -479,6 +479,12 @@ describe('Grabaciones de voz (e2e, base propia)', () => {
         durationMs: 12_000,
       });
       expect(body.url).toMatch(/^memory:\/\/voice\//);
+      const played = await prisma.auditLog.findFirstOrThrow({
+        where: { entityId: owner.id, action: 'ANSWER_RECORDING_PLAYED' },
+        select: { actorType: true, data: true },
+      });
+      expect(played.actorType).toBe('END_CLIENT');
+      expect(played.data).toMatchObject({ questionId: voice.id });
 
       const { body: notFound } = await server()
         .get(`${CURRENT}/answers/${voice.id}/recording`)

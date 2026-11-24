@@ -560,6 +560,16 @@ En QA y PROD la API no se conecta como dueña del esquema:
   `FAILED` o `null` sin envíos), calculado en una consulta por página. El
   estado (`NEW`/`CONVERTED`) lo cambia SCORE al activar el diagnóstico: desde
   PF-80 no se edita a mano, el seguimiento comercial vive en el CRM.
+- `src/storage/` — almacenamiento de objetos para los audios de voz (PF-85).
+  Puerto `StoragePort` con el adaptador elegido por `STORAGE_DRIVER`:
+  `memory` (desarrollo y tests, vacío = memory), `s3` (bucket privado de
+  Cloudflare R2, `docs/infra/almacenamiento.md`) o `disabled`. Los módulos usan
+  `StorageService`, que solo acepta claves de `newObjectKey` (`voice/<uuid>`,
+  sin datos personales) y firma URLs de lectura de
+  `STORAGE_SIGNED_URL_TTL_SECONDS` (máx. 15 minutos) con tipo y disposición
+  forzados. Un fallo llega como `StorageError` (`unavailable` → 503,
+  `not_found` → 404) y el log solo lleva el nombre del error. Sin rutas: las
+  grabaciones llegan con PF-86.
 - `src/crm/` — sincronización SCORE → CRM, en una sola dirección (PF-80).
   Puerto `CrmAdapter` (`crm.port.ts`) con el adaptador elegido por
   `CRM_PROVIDER`: hoy solo `simulated`, que no llama a nada externo (el de

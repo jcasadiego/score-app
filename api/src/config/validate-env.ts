@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CrmSyncErrorCode } from '../../generated/prisma/enums';
 import { CRM_PROVIDERS } from '../crm/crm.port';
+import { STORAGE_DRIVERS } from '../storage/storage.port';
 import { hasEncryptedConnection } from '../prisma/database-roles';
 import { isSecureOrigin, parseCorsOrigins } from './cors';
 
@@ -111,6 +112,24 @@ const EnvSchema = z
     CRM_SIMULATED_FAILURE: optional(z.enum(CrmSyncErrorCode)),
     // Cada cuánto revisa la bandeja de salida; 0 la apaga (tests).
     CRM_SYNC_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
+    // Almacenamiento de objetos (PF-85): audios de voz. `memory` solo en
+    // desarrollo y tests; `s3`, un bucket compatible con S3 (Cloudflare R2);
+    // `disabled`, nada se guarda. Vacío en desarrollo = memory; obligatoria
+    // con NODE_ENV=production.
+    STORAGE_DRIVER: optional(z.enum(STORAGE_DRIVERS)),
+    STORAGE_S3_ENDPOINT: optional(z.url()),
+    // R2 usa `auto`.
+    STORAGE_S3_REGION: z.string().min(1).default('auto'),
+    STORAGE_S3_BUCKET: optional(z.string().min(3).max(63)),
+    STORAGE_S3_ACCESS_KEY_ID: optional(z.string().min(1)),
+    STORAGE_S3_SECRET_ACCESS_KEY: optional(z.string().min(1)),
+    // Vida de las URLs firmadas de lectura, en segundos (máx. 15 minutos).
+    STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(30)
+      .max(900)
+      .default(300),
   })
   .superRefine((env, ctx) => {
     // Con el mismo secreto, un token del panel serviría como enlace de cliente.
@@ -222,6 +241,51 @@ const EnvSchema = z
         path: ['CRM_SIMULATED_FAILURE'],
         message: 'no se admite con APP_ENV=production',
       });
+    }
+    if (env.NODE_ENV === 'production') {
+      if (!env.STORAGE_DRIVER) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['STORAGE_DRIVER'],
+          message: 'obligatoria con NODE_ENV=production',
+        });
+      }
+      // En memoria, los audios se pierden en cada reinicio o despliegue.
+      if (env.STORAGE_DRIVER === 'memory') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['STORAGE_DRIVER'],
+          message: "en producción no admite 'memory' (se pierde al reiniciar)",
+        });
+      }
+    }
+    if (env.STORAGE_DRIVER === 's3') {
+      for (const key of [
+        'STORAGE_S3_ENDPOINT',
+        'STORAGE_S3_BUCKET',
+        'STORAGE_S3_ACCESS_KEY_ID',
+        'STORAGE_S3_SECRET_ACCESS_KEY',
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'obligatoria con STORAGE_DRIVER=s3',
+          });
+        }
+      }
+      // Las llaves y los audios no pueden viajar sin cifrar.
+      if (
+        env.NODE_ENV === 'production' &&
+        env.STORAGE_S3_ENDPOINT &&
+        !env.STORAGE_S3_ENDPOINT.startsWith('https://')
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['STORAGE_S3_ENDPOINT'],
+          message: 'en producción debe usar https',
+        });
+      }
     }
     if (env.NODE_ENV === 'production' && !env.AI_PROVIDER) {
       ctx.addIssue({

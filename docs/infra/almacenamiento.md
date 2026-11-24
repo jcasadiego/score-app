@@ -53,10 +53,9 @@ desplegar** el cambio que las exige.
 
 - **Sin acceso anónimo:** `curl -I https://<account-id>.r2.cloudflarestorage.com/score-voice-qa/`
   debe responder `400` o `403`, nunca un listado ni `200`.
-- **Con la llave:** lo prueba la API al guardar y reproducir una grabación
-  (PF-86). Mientras tanto, con la AWS CLI y la llave en variables de la
-  terminal (no en archivos del repo):
-  `aws s3 ls s3://score-voice-qa --endpoint-url <endpoint>`.
+- **Con la llave:** en local, con las variables en `api/.env` (no se sube al
+  repo), `pnpm storage:test` guarda, lee, firma, descarga y borra un objeto de
+  prueba, y comprueba que sin firma el bucket rechaza leer y listar.
 
 ## Al recrear la base de QA (PF-70)
 

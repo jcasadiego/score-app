@@ -570,6 +570,9 @@ En QA y PROD la API no se conecta como dueña del esquema:
   forzados. Un fallo llega como `StorageError` (`unavailable` → 503,
   `not_found` → 404) y el log solo lleva el nombre del error. Sin rutas: las
   grabaciones llegan con PF-86.
+  - **Prueba:** `pnpm storage:test` guarda, lee, firma, descarga y borra un
+    objeto de prueba con la configuración de `.env`, y con `s3` comprueba que
+    el bucket rechaza el acceso sin firma. No necesita Postgres.
 - `src/crm/` — sincronización SCORE → CRM, en una sola dirección (PF-80).
   Puerto `CrmAdapter` (`crm.port.ts`) con el adaptador elegido por
   `CRM_PROVIDER`: hoy solo `simulated`, que no llama a nada externo (el de

@@ -26,6 +26,10 @@ QA solo tiene datos de prueba. **Nunca se carga una copia de PROD** (PF-56).
 | Leads, diagnósticos, revisiones, informes y bitácora | Los tres servicios, sus deploy hooks y el ambiente `qa` de GitHub |
 | Cuestionarios (el de prueba se vuelve a sembrar) | El código: el arranque migra y siembra solo |
 
+Los audios de voz viven en el bucket de R2, no en la base: sobreviven a la
+recreación sin registro que los apunte. Vaciar el bucket de QA en el mismo paso
+(`almacenamiento.md`).
+
 ## Pasos
 
 Los pasos en Render los hace el dueño de la cuenta. Ninguna credencial pasa por

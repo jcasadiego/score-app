@@ -29,6 +29,7 @@ const PRODUCTION = {
   SCORING_ENGINE_DRIVER: 'disabled',
   AI_PROVIDER: 'disabled',
   CRM_PROVIDER: 'simulated',
+  STORAGE_DRIVER: 'disabled',
   PANEL_URL: 'https://panel.example.com',
   DIAGNOSTIC_URL: 'https://diagnostico.example.com',
 };
@@ -343,5 +344,67 @@ describe('validateEnv · despliegue', () => {
     expect(() =>
       validateEnv({ ...BASE, ACCESS_LINK_JWT_SECRET: BASE.JWT_SECRET }),
     ).toThrow(/ACCESS_LINK_JWT_SECRET: debe ser distinto/);
+  });
+});
+
+describe('validateEnv · almacenamiento', () => {
+  const S3 = {
+    STORAGE_DRIVER: 's3',
+    STORAGE_S3_ENDPOINT: 'https://cuenta.r2.cloudflarestorage.com',
+    STORAGE_S3_BUCKET: 'score-voice-qa',
+    STORAGE_S3_ACCESS_KEY_ID: 'id',
+    STORAGE_S3_SECRET_ACCESS_KEY: 'secreto',
+  };
+
+  it('en desarrollo es opcional, con región auto y URLs de 5 minutos', () => {
+    const env = validateEnv({ ...BASE, STORAGE_DRIVER: '' });
+    expect(env.STORAGE_DRIVER).toBeUndefined();
+    expect(env.STORAGE_S3_REGION).toBe('auto');
+    expect(env.STORAGE_SIGNED_URL_TTL_SECONDS).toBe(300);
+  });
+
+  it('en producción no arranca sin él', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, STORAGE_DRIVER: undefined }),
+    ).toThrow(/STORAGE_DRIVER: obligatoria/);
+  });
+
+  it('en producción no admite memory', () => {
+    expect(() =>
+      validateEnv({ ...PRODUCTION, STORAGE_DRIVER: 'memory' }),
+    ).toThrow(/STORAGE_DRIVER: en producción no admite 'memory'/);
+  });
+
+  it('con s3 exige endpoint, bucket y llaves, y dice cuál falta', () => {
+    for (const key of [
+      'STORAGE_S3_ENDPOINT',
+      'STORAGE_S3_BUCKET',
+      'STORAGE_S3_ACCESS_KEY_ID',
+      'STORAGE_S3_SECRET_ACCESS_KEY',
+    ]) {
+      expect(() => validateEnv({ ...BASE, ...S3, [key]: '' })).toThrow(
+        new RegExp(`${key}: obligatoria con STORAGE_DRIVER=s3`),
+      );
+    }
+  });
+
+  it('con s3 completo arranca también en producción', () => {
+    expect(validateEnv({ ...PRODUCTION, ...S3 }).STORAGE_DRIVER).toBe('s3');
+  });
+
+  it('en producción exige https en el endpoint', () => {
+    expect(() =>
+      validateEnv({
+        ...PRODUCTION,
+        ...S3,
+        STORAGE_S3_ENDPOINT: 'http://localhost:9000',
+      }),
+    ).toThrow(/STORAGE_S3_ENDPOINT: en producción debe usar https/);
+  });
+
+  it('rechaza URLs firmadas de más de 15 minutos', () => {
+    expect(() =>
+      validateEnv({ ...BASE, STORAGE_SIGNED_URL_TTL_SECONDS: '901' }),
+    ).toThrow(/STORAGE_SIGNED_URL_TTL_SECONDS/);
   });
 });

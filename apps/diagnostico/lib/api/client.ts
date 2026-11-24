@@ -91,6 +91,32 @@ export async function callApi<T>(
 }
 
 /**
+ * Como `callApi`, con un cuerpo multipart (la grabación de voz). `fetch` pone
+ * el `Content-Type` con su `boundary`.
+ */
+export async function callApiForm<T>(
+  path: string,
+  { method = "PUT", session, form }: CallOptions & { form: FormData },
+): Promise<ActionResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl()}/api/v1${path}`, {
+      method,
+      headers: {
+        ...(session && { Authorization: `Bearer ${session}` }),
+        ...(await clientIpHeaders()),
+      },
+      body: form,
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_ERROR };
+  }
+  if (response.ok) return { ok: true, data: (await response.json()) as T };
+  return problemResult(response);
+}
+
+/**
  * Como `callApi`, para una respuesta binaria (el PDF del informe). Solo acepta
  * el tipo esperado: cualquier otra cosa cuenta como error.
  */

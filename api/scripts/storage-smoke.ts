@@ -48,7 +48,7 @@ async function main() {
     const object = await storage.get(key);
     check((await text(object.stream)) === BODY, 'Leer (mismo contenido)');
 
-    const signed = await storage.getSignedReadUrl(key, {
+    const { url: signed } = await storage.getSignedReadUrl(key, {
       expiresInSeconds: 60,
       contentType: 'text/plain',
       contentDisposition: 'inline',

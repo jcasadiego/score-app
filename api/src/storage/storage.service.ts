@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ValidatedEnv } from '../config/validate-env';
 import { isObjectKey } from './object-key';
@@ -7,9 +7,15 @@ import {
   STORAGE_PORT,
   SignedReadUrlOptions,
   StorageDriver,
+  StorageError,
   StoragePort,
   StoredObject,
 } from './storage.port';
+
+export interface SignedReadUrl {
+  url: string;
+  expiresAt: Date;
+}
 
 /** Tope de una URL firmada, aunque el llamador o la variable pidan más. */
 export const MAX_SIGNED_URL_TTL_SECONDS = 900;
@@ -23,6 +29,7 @@ export const MAX_SIGNED_URL_TTL_SECONDS = 900;
 @Injectable()
 export class StorageService {
   private readonly signedUrlTtlSeconds: number;
+  private readonly logger = new Logger(StorageService.name);
 
   constructor(
     @Inject(STORAGE_PORT) private readonly port: StoragePort,
@@ -52,19 +59,37 @@ export class StorageService {
     return this.port.delete(key);
   }
 
-  getSignedReadUrl(
+  async getSignedReadUrl(
     key: string,
     options: Omit<SignedReadUrlOptions, 'expiresInSeconds'> & {
       expiresInSeconds?: number;
     },
-  ): Promise<string> {
+  ): Promise<SignedReadUrl> {
     assertObjectKey(key);
     const requested = options.expiresInSeconds ?? this.signedUrlTtlSeconds;
     const expiresInSeconds = Math.max(
       1,
       Math.min(requested, MAX_SIGNED_URL_TTL_SECONDS),
     );
-    return this.port.getSignedReadUrl(key, { ...options, expiresInSeconds });
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+    const url = await this.port.getSignedReadUrl(key, {
+      ...options,
+      expiresInSeconds,
+    });
+    return { url, expiresAt };
+  }
+
+  /**
+   * Borra sin lanzar: para limpiar un objeto que ya no apunta ningún registro.
+   * Si falla, queda huérfano y lo borra la limpieza de PF-90.
+   */
+  async deleteQuietly(key: string): Promise<void> {
+    try {
+      await this.delete(key);
+    } catch (error) {
+      const reason = error instanceof StorageError ? error.reason : 'unknown';
+      this.logger.warn(`No se pudo borrar un objeto huérfano (${reason})`);
+    }
   }
 }
 

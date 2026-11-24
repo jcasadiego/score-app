@@ -63,6 +63,13 @@ describe('StorageService con el adaptador en memoria', () => {
     );
   });
 
+  it('deleteQuietly no lanza si el almacenamiento falla', async () => {
+    const quiet = serviceWith(new DisabledStorageAdapter());
+    await expect(
+      quiet.deleteQuietly(newObjectKey('voice')),
+    ).resolves.toBeUndefined();
+  });
+
   it('borrar una clave que no existe no falla', async () => {
     await expect(
       service.delete(newObjectKey('voice')),
@@ -86,13 +93,13 @@ describe('StorageService con el adaptador en memoria', () => {
     });
 
     const before = Date.now();
-    const url = new URL(
-      await service.getSignedReadUrl(key, {
-        contentType: 'audio/webm',
-        contentDisposition: 'inline',
-      }),
-    );
+    const signed = await service.getSignedReadUrl(key, {
+      contentType: 'audio/webm',
+      contentDisposition: 'inline',
+    });
+    const url = new URL(signed.url);
     const expires = Date.parse(url.searchParams.get('expires')!);
+    expect(Math.abs(signed.expiresAt.getTime() - expires)).toBeLessThan(1_000);
     expect(expires - before).toBeGreaterThanOrEqual(299_000);
     expect(expires - before).toBeLessThanOrEqual(301_000);
     expect(url.searchParams.get('contentType')).toBe('audio/webm');

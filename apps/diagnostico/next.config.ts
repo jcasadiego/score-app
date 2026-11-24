@@ -14,10 +14,10 @@ const SECURITY_HEADERS = [
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains",
   },
-  // `microphone` se habilitará solo cuando exista el modo de voz (P3).
+  // Micrófono solo para este origen: responder por voz (P3, PF-87).
   {
     key: "Permissions-Policy",
-    value: "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
+    value: "camera=(), geolocation=(), microphone=(self), payment=(), usb=()",
   },
 ];
 

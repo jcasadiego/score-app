@@ -2,7 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { callApi } from "@/lib/api/client";
-import type { ActionResult, ExternalPlatform } from "@/lib/api/types";
+import type {
+  ActionResult,
+  ExternalPlatform,
+  RecordingPlayback,
+} from "@/lib/api/types";
 import { ROUTES } from "@/lib/routes";
 import { deleteSession, getSession } from "@/lib/session/cookie";
 import { PLATFORMS } from "./platforms";
@@ -92,4 +96,35 @@ export async function submitDiagnostic(): Promise<ActionResult> {
 export async function leave(): Promise<void> {
   await deleteSession();
   redirect(`${ROUTES.home}?left=1`);
+}
+
+/** El cliente acepta el uso de su voz (PF-87), con la versión del texto que vio. */
+export async function giveVoiceConsent(version: string): Promise<ActionResult> {
+  const result = await withSession<unknown>("/voice-consent", "POST", {
+    version: String(version),
+  });
+  return result.ok ? { ok: true, data: undefined } : result;
+}
+
+export async function deleteRecording(
+  questionId: string,
+): Promise<ActionResult> {
+  if (!ID_PATTERN.test(questionId)) return INVALID_ID;
+  return withSession(
+    `/answers/${encodeURIComponent(questionId)}/recording`,
+    "DELETE",
+  );
+}
+
+/** URL firmada de vida corta para escuchar la grabación ya guardada. */
+export async function getRecordingUrl(
+  questionId: string,
+): Promise<ActionResult<RecordingPlayback>> {
+  if (!ID_PATTERN.test(questionId)) return INVALID_ID;
+  const session = await getSession();
+  if (!session) return NO_SESSION;
+  return callApi<RecordingPlayback>(
+    `/diagnostic-sessions/current/answers/${encodeURIComponent(questionId)}/recording`,
+    { session },
+  );
 }

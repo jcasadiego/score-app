@@ -1,11 +1,12 @@
 "use client";
 
 import type { RefObject } from "react";
-import type { Question } from "@/lib/api/types";
+import type { Question, SavedRecording } from "@/lib/api/types";
 import { Card } from "@/components/ui";
 import type { Draft } from "./questionnaire";
 import { SaveStatusLine } from "./save-status";
 import type { SaveStatus } from "./use-autosave";
+import { VoiceRecorder } from "./voice-recorder";
 
 const OPTION_CLASS =
   "flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-line-strong bg-surface px-4 py-3 text-base has-[:checked]:border-brand has-[:checked]:bg-canvas has-[:checked]:font-medium";
@@ -29,6 +30,7 @@ export function QuestionStep({
   onChange,
   onBlur,
   onRetry,
+  voice,
 }: {
   headingRef: RefObject<HTMLHeadingElement | null>;
   question: Question;
@@ -38,6 +40,14 @@ export function QuestionStep({
   onChange: (draft: Draft, isText: boolean) => void;
   onBlur: () => void;
   onRetry: () => void;
+  /** Solo en preguntas que aceptan voz (PF-87). */
+  voice?: {
+    recording: SavedRecording | null;
+    consentGiven: boolean;
+    onConsent: () => void;
+    onSaved: (recording: SavedRecording) => void;
+    onDeleted: () => void;
+  };
 }) {
   const base = `q-${question.id}`;
   const helpId = question.helpText ? `${base}-help` : undefined;
@@ -65,7 +75,9 @@ export function QuestionStep({
   );
   const missingNotice = missing && (
     <p id={missingId} className="mt-3 text-sm font-medium text-danger">
-      Esta pregunta es obligatoria: respóndela para poder enviar.
+      {question.allowsVoice
+        ? "Esta pregunta es obligatoria: respóndela por escrito o con tu voz para poder enviar."
+        : "Esta pregunta es obligatoria: respóndela para poder enviar."}
     </p>
   );
 
@@ -95,6 +107,9 @@ export function QuestionStep({
             {draft.text.length} / {max}
           </p>
         </div>
+        {question.allowsVoice && voice && (
+          <VoiceRecorder questionId={question.id} {...voice} />
+        )}
       </Card>
     );
   }

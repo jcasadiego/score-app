@@ -2,14 +2,24 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { Alert, Card, buttonClass } from "@/components/ui";
-import type { Question } from "@/lib/api/types";
+import type { Question, SavedRecording } from "@/lib/api/types";
 import { PLATFORMS } from "./platforms";
 import { isEmptyDraft, type Draft } from "./questionnaire";
 import { RequiredTag } from "./question-step";
+import { formatDuration } from "./voice-consent";
 
-function answerSummary(question: Question, draft: Draft | undefined): string {
-  if (isEmptyDraft(draft)) return "";
-  if (question.type === "FREE_TEXT") return draft!.text.trim();
+function answerSummary(
+  question: Question,
+  draft: Draft | undefined,
+  recording: SavedRecording | null | undefined,
+): string {
+  const voice = recording
+    ? `Respuesta por voz (${formatDuration(recording.durationMs)})`
+    : "";
+  if (isEmptyDraft(draft)) return voice;
+  if (question.type === "FREE_TEXT") {
+    return [draft!.text.trim(), voice].filter(Boolean).join("\n");
+  }
   return question.options
     .filter((o) => draft!.optionIds.includes(o.id))
     .map((o) => o.text)
@@ -21,6 +31,7 @@ export function ReviewStep({
   headingRef,
   questions,
   drafts,
+  recordings,
   links,
   missingIds,
   submitting,
@@ -31,6 +42,7 @@ export function ReviewStep({
   headingRef: RefObject<HTMLHeadingElement | null>;
   questions: Question[];
   drafts: Record<string, Draft>;
+  recordings: Record<string, SavedRecording | null>;
   links: Record<string, string>;
   missingIds: string[];
   submitting: boolean;
@@ -87,7 +99,11 @@ export function ReviewStep({
       <Card>
         <ol className="flex flex-col divide-y divide-line">
           {questions.map((question, index) => {
-            const summary = answerSummary(question, drafts[question.id]);
+            const summary = answerSummary(
+              question,
+              drafts[question.id],
+              recordings[question.id],
+            );
             const isMissing = missingIds.includes(question.id);
             return (
               <li key={question.id} className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0">

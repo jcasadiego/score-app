@@ -15,9 +15,26 @@ export interface AnswerOption {
   position: number;
 }
 
+/** Grabación de voz guardada de una respuesta (PF-86). */
+export interface SavedRecording {
+  contentType: string;
+  sizeBytes: number;
+  durationMs: number;
+  updatedAt: string;
+}
+
 export interface SavedAnswer {
   text: string | null;
   optionIds: string[];
+  recording: SavedRecording | null;
+}
+
+/** URL firmada de vida corta para escuchar una grabación. */
+export interface RecordingPlayback {
+  url: string;
+  expiresAt: string;
+  contentType: string;
+  durationMs: number;
 }
 
 export interface Question {
@@ -27,6 +44,8 @@ export interface Question {
   helpText: string | null;
   required: boolean;
   maxLength: number | null;
+  /** Acepta también una respuesta por voz (solo texto libre). */
+  allowsVoice: boolean;
   options: AnswerOption[];
   answer: SavedAnswer | null;
 }
@@ -42,6 +61,8 @@ export interface CurrentDiagnostic {
   questions: Question[];
   externalLinks: ExternalLink[];
   progress: { answered: number; total: number };
+  /** Versión del texto de consentimiento de voz que aceptó, o `null`. */
+  voiceConsentVersion: string | null;
 }
 
 /** Error de una pregunta o campo, de `errors` en RFC 9457. */

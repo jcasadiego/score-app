@@ -7,6 +7,7 @@ import type {
   CurrentDiagnostic,
   ExternalPlatform,
   Question,
+  SavedRecording,
 } from "@/lib/api/types";
 import { ROUTES } from "@/lib/routes";
 import {
@@ -22,6 +23,7 @@ import { PLATFORMS } from "./platforms";
 import { QuestionStep } from "./question-step";
 import { ReviewStep } from "./review-step";
 import { useAutosave } from "./use-autosave";
+import { VOICE_CONSENT_VERSION } from "./voice-consent";
 
 export interface Draft {
   text: string;
@@ -73,6 +75,22 @@ export function Questionnaire({
     const firstOpen = questions.findIndex((q) => !q.answer);
     return firstOpen === -1 ? reviewStep : firstOpen;
   });
+  // Grabaciones guardadas por pregunta (PF-87). Se guardan aparte del borrador:
+  // no pasan por el guardado automático.
+  const [recordings, setRecordings] = useState<
+    Record<string, SavedRecording | null>
+  >(() =>
+    Object.fromEntries(questions.map((q) => [q.id, q.answer?.recording ?? null])),
+  );
+  // El guardado automático lo lee al guardar, fuera del render.
+  const recordingsRef = useRef(recordings);
+  useEffect(() => {
+    recordingsRef.current = recordings;
+  }, [recordings]);
+  // Un texto de consentimiento nuevo pide volver a aceptar.
+  const [voiceConsent, setVoiceConsent] = useState(
+    diagnostic.voiceConsentVersion === VOICE_CONSENT_VERSION,
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [missingIds, setMissingIds] = useState<string[]>([]);
   const [submitting, startSubmit] = useTransition();
@@ -83,7 +101,12 @@ export function Questionnaire({
     fingerprint: draftPrint,
     persist: (questionId, draft) => {
       const question = questions.find((q) => q.id === questionId);
-      if (isEmptyDraft(draft)) return deleteAnswer(questionId);
+      if (isEmptyDraft(draft)) {
+        // Con grabación, vaciar el texto deja la respuesta solo con la voz.
+        return recordingsRef.current[questionId]
+          ? saveAnswer(questionId, { text: "" })
+          : deleteAnswer(questionId);
+      }
       return saveAnswer(
         questionId,
         question?.type === "FREE_TEXT"
@@ -126,7 +149,14 @@ export function Questionnaire({
     return () => window.removeEventListener("beforeunload", warn);
   }, [answerQueue, linkQueue]);
 
-  const answered = questions.filter((q) => !isEmptyDraft(drafts[q.id])).length;
+  const isAnswered = (q: Question) =>
+    !isEmptyDraft(drafts[q.id]) || recordings[q.id] != null;
+  const answered = questions.filter(isAnswered).length;
+
+  function setRecording(questionId: string, recording: SavedRecording | null) {
+    setRecordings((current) => ({ ...current, [questionId]: recording }));
+    if (recording) setMissingIds((ids) => ids.filter((id) => id !== questionId));
+  }
 
   function changeDraft(questionId: string, draft: Draft, delayMs = 0) {
     setDrafts((current) => ({ ...current, [questionId]: draft }));
@@ -150,7 +180,7 @@ export function Questionnaire({
   function submit() {
     setSubmitError(null);
     const missing = questions
-      .filter((q) => q.required && isEmptyDraft(drafts[q.id]))
+      .filter((q) => q.required && !isAnswered(q))
       .map((q) => q.id);
     setMissingIds(missing);
     if (missing.length > 0) return;
@@ -235,6 +265,14 @@ export function Questionnaire({
           }
           onBlur={() => void answers.queue.flush(questions[step].id)}
           onRetry={() => void answers.queue.flush(questions[step].id)}
+          voice={{
+            recording: recordings[questions[step].id],
+            consentGiven: voiceConsent,
+            onConsent: () => setVoiceConsent(true),
+            onSaved: (recording) =>
+              setRecording(questions[step].id, recording),
+            onDeleted: () => setRecording(questions[step].id, null),
+          }}
         />
       )}
       {step === linksStep && (
@@ -251,6 +289,7 @@ export function Questionnaire({
           headingRef={headingRef}
           questions={questions}
           drafts={drafts}
+          recordings={recordings}
           links={links}
           missingIds={missingIds}
           submitting={submitting}

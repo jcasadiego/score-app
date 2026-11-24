@@ -6,6 +6,9 @@ import { NextResponse, type NextRequest } from "next/server";
  * desde el navegador (todo pasa por su servidor), por eso `connect-src 'self'`.
  * El modo de desarrollo de Next necesita `eval`, estilos en línea y websocket.
  */
+/** Endpoint S3 de Cloudflare R2: `https://<cuenta>.r2.cloudflarestorage.com`. */
+const R2_ORIGIN = "https://*.r2.cloudflarestorage.com";
+
 function contentSecurityPolicy(nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
   return [
@@ -13,6 +16,9 @@ function contentSecurityPolicy(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' ${isDev ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
     "img-src 'self' data:",
+    // Escuchar la voz: la grabación recién hecha (`blob:`) y la guardada, con
+    // una URL firmada de vida corta del bucket privado de R2 (PF-87).
+    `media-src 'self' blob: ${R2_ORIGIN}`,
     "font-src 'self'",
     `connect-src 'self'${isDev ? " ws:" : ""}`,
     "object-src 'none'",

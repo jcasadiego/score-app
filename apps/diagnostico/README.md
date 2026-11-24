@@ -47,6 +47,40 @@ Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
 | `/submitted` | Confirmación tras enviar, o aviso de que ya se había enviado (`?state=already`). |
 | `/session-ended` | Borra la cookie cuando la API rechaza la sesión y lleva a `/recover`. |
 
+## Responder por voz (PF-87)
+
+En las preguntas de texto libre con `allowsVoice`, bajo el campo de texto:
+grabar, detener, escuchar, volver a grabar y borrar (`voice-recorder.tsx`). La
+voz es opcional y basta sola para responder; vaciar el texto deja la
+respuesta solo con la voz.
+
+- **Consentimiento:** antes de la primera grabación se muestra el texto de
+  `voice-consent.ts` y se guarda su versión en la API. Un texto nuevo lleva
+  versión nueva (y se agrega en la API): pide aceptar otra vez.
+- **Micrófono:** el permiso se pide al tocar "Grabar". Si se niega o el
+  navegador no puede grabar, se explica y el texto sigue disponible.
+  `Permissions-Policy: microphone=(self)`.
+- **Grabar:** WebM/Opus (Chrome, Firefox) o MP4 (Safari), con contador y corte a
+  los 3 minutos. Al detener se sube sola; si falla, la grabación queda en
+  memoria y se puede reintentar. Si el cliente pasa a otra pregunta mientras
+  graba, se detiene y se guarda igual. El audio nunca se guarda en el
+  navegador.
+- **Subida:** por el Route Handler `PUT /diagnostic/recording/[questionId]`,
+  porque las Server Actions aceptan 1 MB. Exige la cookie de sesión y que la
+  petición venga del mismo origen (`Sec-Fetch-Site`, o `Origin` en Safari
+  anterior a 16.4), y reenvía el audio a la API.
+- **Escuchar:** la grabación recién hecha, desde memoria (`blob:`); la ya
+  guardada, con una URL firmada de vida corta del bucket privado de R2 que se
+  pide al tocar "Escuchar". Por eso `media-src 'self' blob:
+  https://*.r2.cloudflarestorage.com`.
+- **Accesibilidad:** botones nativos, el estado (grabando, guardando,
+  guardado, borrado) en una región `aria-live` y la grabación indicada con
+  texto, no solo con color. El foco va al texto de consentimiento al abrirlo.
+- Para probarla en local hace falta una versión publicada con una pregunta que
+  acepte voz (en el panel llega con PF-89; mientras tanto, por la API) y, para
+  escuchar lo guardado, la api con `STORAGE_DRIVER=s3` (con `memory` la URL no
+  se puede reproducir).
+
 ## Descarga del informe (PF-44)
 
 | Ruta | Qué hace |
@@ -66,8 +100,10 @@ Definido en `../../render.yaml`. Node 22, desde `apps/diagnostico/`:
 - **Los tokens de los enlaces** (diagnóstico e informe) llegan en el fragmento
   (`#token=…`): nunca llegan a este servidor ni a sus logs, y viajan a la API
   en el cuerpo de un POST, nunca en una URL.
-- **El navegador nunca habla con la API.** Todo pasa por Server Actions y
-  Server Components (`lib/api/client.ts`), así que `connect-src 'self'`.
+- **El navegador nunca habla con la API.** Todo pasa por Server Actions,
+  Server Components y el Route Handler de la voz (`lib/api/client.ts`), así
+  que `connect-src 'self'`. Solo el audio guardado se lee directo del bucket,
+  con una URL firmada (`media-src`).
 - **Sesión:** cookie `score_diagnostic_session`, `httpOnly`, `Secure` en
   producción y `SameSite=Strict` (`lib/session/cookie.ts`). Ni la sesión ni
   las respuestas van a `localStorage`. "Salir" borra la cookie del dispositivo.

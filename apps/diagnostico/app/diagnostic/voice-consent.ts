@@ -2,7 +2,8 @@
  * Texto de consentimiento para responder por voz (PF-87). Si cambia el texto,
  * cambia la versión, y la versión nueva se agrega también en la API
  * (`VOICE_CONSENT_VERSIONS` en `api/src/diagnostics/recording-rules.ts`).
- * Revisado con José antes de producción (PF-90).
+ * Pendiente: José lo revisa antes de producción (PF-90). Si la transcripción
+ * la hace un proveedor externo, el texto y su versión cambian.
  */
 export const VOICE_CONSENT_VERSION = "2026-11-24";
 

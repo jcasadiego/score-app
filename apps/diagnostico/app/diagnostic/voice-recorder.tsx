@@ -83,6 +83,11 @@ export function VoiceRecorder({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const takeUrlRef = useRef<string | null>(null);
   const consentHeadingRef = useRef<HTMLHeadingElement>(null);
+  // El foco no puede quedar en un botón que desaparece (WCAG 2.4.3).
+  const sectionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const stopButtonRef = useRef<HTMLButtonElement>(null);
+  const focusSection = () =>
+    requestAnimationFrame(() => sectionHeadingRef.current?.focus());
   const unmountedRef = useRef(false);
 
   // Al salir de la pregunta: detiene la grabación (se guarda igual, ver
@@ -139,6 +144,7 @@ export function VoiceRecorder({
     if (!result.ok) {
       setPhase({ name: "consent" });
       setError(result.message);
+      focusSection();
       return;
     }
     onConsent();
@@ -199,6 +205,7 @@ export function VoiceRecorder({
     setElapsedMs(0);
     setPhase({ name: "recording", startedAt });
     setNotice("Grabando. Toca Detener cuando termines.");
+    requestAnimationFrame(() => stopButtonRef.current?.focus());
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - startedAt;
       setElapsedMs(elapsed);
@@ -214,6 +221,7 @@ export function VoiceRecorder({
   function stopRecording() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    focusSection();
   }
 
   async function upload(current: LocalTake) {
@@ -269,6 +277,7 @@ export function VoiceRecorder({
     onDeleted();
     setPhase({ name: "idle" });
     setNotice("Grabación borrada.");
+    focusSection();
   }
 
   async function loadSaved() {
@@ -295,6 +304,8 @@ export function VoiceRecorder({
       className="mt-5 rounded-lg border border-line bg-canvas p-4"
     >
       <h2
+        ref={sectionHeadingRef}
+        tabIndex={-1}
         id={`${questionId}-voice-title`}
         className="text-base font-semibold"
       >
@@ -326,7 +337,10 @@ export function VoiceRecorder({
             </button>
             <button
               type="button"
-              onClick={() => setPhase({ name: "idle" })}
+              onClick={() => {
+                setPhase({ name: "idle" });
+                focusSection();
+              }}
               className={buttonClass.secondary}
             >
               Prefiero escribir
@@ -345,6 +359,7 @@ export function VoiceRecorder({
             </span>
           </p>
           <button
+            ref={stopButtonRef}
             type="button"
             onClick={stopRecording}
             className={buttonClass.primary}

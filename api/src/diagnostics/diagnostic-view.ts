@@ -1,4 +1,5 @@
 import { Prisma } from '../../generated/prisma/client';
+import { AUDIO_CONTENT_TYPES } from './recording-rules';
 import { QUESTION_SELECT } from '../questionnaire/questionnaire-versions.service';
 
 /** Preguntas de la versión del diagnóstico, en orden. */
@@ -11,11 +12,20 @@ export const VERSION_QUESTIONS_SELECT = {
   },
 } satisfies Prisma.QuestionnaireVersionSelect;
 
+/** Lo que se muestra de una grabación: nunca su clave en el almacenamiento. */
+export const RECORDING_SELECT = {
+  format: true,
+  sizeBytes: true,
+  durationMs: true,
+  updatedAt: true,
+} satisfies Prisma.AnswerRecordingSelect;
+
 export const ANSWER_SELECT = {
   questionId: true,
   textValue: true,
   updatedAt: true,
   selections: { select: { optionId: true } },
+  recording: { select: RECORDING_SELECT },
 } satisfies Prisma.AnswerSelect;
 
 export const EXTERNAL_LINK_SELECT = {
@@ -29,16 +39,39 @@ type VersionQuestions = Prisma.QuestionnaireVersionGetPayload<{
 }>;
 type StoredAnswer = Prisma.AnswerGetPayload<{ select: typeof ANSWER_SELECT }>;
 
+export interface RecordingView {
+  contentType: string;
+  sizeBytes: number;
+  durationMs: number;
+  updatedAt: Date;
+}
+
 export interface AnswerView {
   text: string | null;
   optionIds: string[];
+  /** Grabación de voz de la respuesta (PF-86), o `null`. */
+  recording: RecordingView | null;
   updatedAt: Date;
+}
+
+type StoredRecording = Prisma.AnswerRecordingGetPayload<{
+  select: typeof RECORDING_SELECT;
+}>;
+
+export function recordingView(recording: StoredRecording): RecordingView {
+  return {
+    contentType: AUDIO_CONTENT_TYPES[recording.format],
+    sizeBytes: recording.sizeBytes,
+    durationMs: recording.durationMs,
+    updatedAt: recording.updatedAt,
+  };
 }
 
 export function answerView(answer: StoredAnswer): AnswerView {
   return {
     text: answer.textValue,
     optionIds: answer.selections.map(({ optionId }) => optionId),
+    recording: answer.recording ? recordingView(answer.recording) : null,
     updatedAt: answer.updatedAt,
   };
 }
@@ -67,3 +100,8 @@ export const DIAGNOSTIC_ALREADY_EXISTS = 'DIAGNOSTIC_ALREADY_EXISTS';
 export const NO_PUBLISHED_QUESTIONNAIRE = 'NO_PUBLISHED_QUESTIONNAIRE';
 export const DIAGNOSTIC_COMPLETED = 'DIAGNOSTIC_COMPLETED';
 export const DIAGNOSTIC_INCOMPLETE = 'DIAGNOSTIC_INCOMPLETE';
+export const VOICE_NOT_ALLOWED = 'VOICE_NOT_ALLOWED';
+export const VOICE_CONSENT_REQUIRED = 'VOICE_CONSENT_REQUIRED';
+export const RECORDING_TOO_LARGE = 'RECORDING_TOO_LARGE';
+export const RECORDING_UNSUPPORTED_TYPE = 'RECORDING_UNSUPPORTED_TYPE';
+export const RECORDING_NOT_FOUND = 'RECORDING_NOT_FOUND';

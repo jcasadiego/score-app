@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateDiagnosticDto } from './dto/create-diagnostic.dto';
 import { ListDiagnosticsDto } from './dto/list-diagnostics.dto';
+import { AnswerRecordingsService } from './answer-recordings.service';
 import { DiagnosticsService } from './diagnostics.service';
 
 interface RequestWithUser extends Request {
@@ -34,7 +35,10 @@ interface RequestWithUser extends Request {
 @Controller('diagnostics')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DiagnosticsController {
-  constructor(private readonly diagnostics: DiagnosticsService) {}
+  constructor(
+    private readonly diagnostics: DiagnosticsService,
+    private readonly recordings: AnswerRecordingsService,
+  ) {}
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.REVIEWER)
@@ -69,6 +73,22 @@ export class DiagnosticsController {
   @AuditRoute({ action: 'DIAGNOSTIC_VIEWED', entity: 'Diagnostic' })
   findOne(@Param('id') id: string) {
     return this.diagnostics.findOne(id);
+  }
+
+  /**
+   * URL firmada de vida corta para escuchar la grabación de una respuesta
+   * (PF-86). Ambos roles (CLAUDE.md 5.3); cada reproducción queda en la
+   * bitácora con la pregunta, sin el audio.
+   */
+  @Get(':id/answers/:questionId/recording')
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
+  @AuditRoute({ byService: true })
+  playRecording(
+    @Param('id') id: string,
+    @Param('questionId') questionId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.recordings.panelPlayback(id, questionId, req.user.id);
   }
 
   /** Revoca los enlaces vigentes y envía uno nuevo por correo. */

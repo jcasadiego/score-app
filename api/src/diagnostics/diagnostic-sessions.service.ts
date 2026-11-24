@@ -17,6 +17,7 @@ import { CalculationsService } from '../calculations/calculations.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { AccessLinksService, ClientSession } from './access-links.service';
 import { AnswerInput, validateAnswer } from './answer-rules';
 import {
@@ -51,6 +52,7 @@ export class DiagnosticSessionsService {
     private readonly notifications: NotificationsService,
     private readonly calculations: CalculationsService,
     private readonly crm: CrmSyncService,
+    private readonly storage: StorageService,
   ) {}
 
   /** Cuestionario con las respuestas guardadas, enlaces externos y progreso. */
@@ -61,6 +63,8 @@ export class DiagnosticSessionsService {
         id: true,
         status: true,
         completedAt: true,
+        voiceConsentAt: true,
+        voiceConsentVersion: true,
         lead: { select: { name: true } },
         questionnaireVersion: { select: VERSION_QUESTIONS_SELECT },
         answers: { select: ANSWER_SELECT },
@@ -89,7 +93,16 @@ export class DiagnosticSessionsService {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       const question = await this.findQuestion(tx, diagnostic, questionId);
 
-      const result = validateAnswer(question, input);
+      // Con voz, borrar el texto deja la grabación como única respuesta.
+      const result = (await this.clearsTextOfVoiceAnswer(
+        tx,
+        diagnosticId,
+        questionId,
+        question,
+        input,
+      ))
+        ? { answer: { textValue: null, optionIds: [] } }
+        : validateAnswer(question, input);
       if ('errors' in result) {
         throw new BadRequestException({
           message: result.errors.map(({ message }) => message),
@@ -138,19 +151,31 @@ export class DiagnosticSessionsService {
     questionId: string,
   ): Promise<void> {
     const diagnosticId = session.sub;
-    await this.prisma.$transaction(async (tx) => {
+    const objectKey = await this.prisma.$transaction(async (tx) => {
       const diagnostic = await this.lockWritable(tx, diagnosticId);
       await this.findQuestion(tx, diagnostic, questionId);
+      // La grabación se borra con la respuesta: su FK no admite cascada.
+      const recording = await tx.answerRecording.findFirst({
+        where: { answer: { diagnosticId, questionId } },
+        select: { id: true, objectKey: true },
+      });
+      if (recording) {
+        await tx.answerRecording.delete({ where: { id: recording.id } });
+      }
       // Las selecciones se borran en cascada con la respuesta.
       const { count } = await tx.answer.deleteMany({
         where: { diagnosticId, questionId },
       });
-      if (count === 0) return;
+      if (count === 0) return null;
       await this.touch(tx, diagnosticId, diagnostic, false);
       await this.recordClientEvent(tx, 'ANSWER_DELETED', session, {
         questionId,
+        recordingDeleted: recording !== null,
       });
+      return recording?.objectKey ?? null;
     });
+    // Después del commit: si falla, el objeto queda huérfano (PF-90).
+    if (objectKey) await this.storage.deleteQuietly(objectKey);
   }
 
   async saveExternalLink(
@@ -278,7 +303,26 @@ export class DiagnosticSessionsService {
     };
   }
 
-  private async lockWritable(
+  /**
+   * `true` si el cliente vacía el texto de una pregunta con voz que ya tiene
+   * grabación: la respuesta sigue, solo con la voz.
+   */
+  private async clearsTextOfVoiceAnswer(
+    tx: Prisma.TransactionClient,
+    diagnosticId: string,
+    questionId: string,
+    question: { allowsVoice: boolean },
+    input: AnswerInput,
+  ): Promise<boolean> {
+    if (!question.allowsVoice || input.optionIds !== undefined) return false;
+    if ((input.text?.trim() ?? '') !== '') return false;
+    const recordings = await tx.answerRecording.count({
+      where: { answer: { diagnosticId, questionId } },
+    });
+    return recordings > 0;
+  }
+
+  async lockWritable(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
   ): Promise<WritableDiagnostic> {
@@ -298,7 +342,7 @@ export class DiagnosticSessionsService {
   }
 
   /** Solo preguntas de la versión del diagnóstico: otro id es un 404. */
-  private async findQuestion(
+  async findQuestion(
     tx: Prisma.TransactionClient,
     diagnostic: WritableDiagnostic,
     questionId: string,
@@ -311,6 +355,7 @@ export class DiagnosticSessionsService {
       select: {
         type: true,
         maxLength: true,
+        allowsVoice: true,
         options: { select: { id: true } },
       },
     });
@@ -324,7 +369,7 @@ export class DiagnosticSessionsService {
    * Registra actividad; la primera respuesta lo pasa a `IN_PROGRESS` y deja el
    * evento para el CRM en la misma transacción.
    */
-  private async touch(
+  async touch(
     tx: Prisma.TransactionClient,
     diagnosticId: string,
     diagnostic: WritableDiagnostic,
@@ -348,7 +393,7 @@ export class DiagnosticSessionsService {
    * Con el enlace usado: el panel puede copiar el enlace del cliente, y así cada
    * cambio se rastrea hasta quién emitió ese enlace (`ACCESS_LINK_ISSUED`).
    */
-  private recordClientEvent(
+  recordClientEvent(
     tx: Prisma.TransactionClient,
     action: string,
     session: ClientSession,

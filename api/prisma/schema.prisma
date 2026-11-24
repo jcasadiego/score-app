@@ -292,6 +292,9 @@ model Question {
   required               Boolean
   /// Solo en `FREE_TEXT`, y ahí obligatorio (CHECK en la migración).
   maxLength              Int?                 @map("max_length")
+  /// El cliente puede responder también con su voz (PF-86). Solo en
+  /// `FREE_TEXT` (CHECK en la migración). Queda fijo al publicar.
+  allowsVoice            Boolean              @default(false) @map("allows_voice")
   position               Int
 
   options       AnswerOption[]
@@ -389,6 +392,10 @@ model Diagnostic {
   /// Última escritura del cliente. Base del abandono.
   lastActivityAt         DateTime                 @default(now()) @map("last_activity_at") @db.Timestamptz(3)
   completedAt            DateTime?                @map("completed_at") @db.Timestamptz(3)
+  /// Cuándo aceptó el cliente el uso de su voz y con qué versión del texto
+  /// (PF-86). Los dos o ninguno (CHECK en la migración).
+  voiceConsentAt         DateTime?                @map("voice_consent_at") @db.Timestamptz(3)
+  voiceConsentVersion    String?                  @map("voice_consent_version") @db.VarChar(32)
   createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -447,6 +454,7 @@ model Answer {
 
   selections  AnswerSelection[]
   corrections AnswerCorrection[]
+  recording   AnswerRecording?
 
   @@unique([diagnosticId, questionId])
   /// Para la FK compuesta de las selecciones.
@@ -472,6 +480,35 @@ model AnswerSelection {
 }
 
 /// Perfil público del cliente en una plataforma: uno por plataforma, solo https.
+/// Formato real del audio, detectado por su contenido (no por lo que declara
+/// el navegador): Chrome graba WebM/Opus y Safari MP4/AAC.
+enum AudioFormat {
+  WEBM
+  MP4
+
+  @@map("audio_format")
+}
+
+/// Grabación de voz de una respuesta (PF-86). Una por respuesta; reemplazarla
+/// cambia la clave del objeto. El audio vive en el almacenamiento
+/// (`src/storage`), nunca en la base.
+model AnswerRecording {
+  id          String      @id @default(cuid())
+  answerId    String      @unique @map("answer_id")
+  answer      Answer      @relation(fields: [answerId], references: [id], onDelete: Restrict)
+  /// Clave opaca del objeto (`voice/<uuid>`), sin datos personales.
+  objectKey   String      @unique @map("object_key") @db.VarChar(64)
+  format      AudioFormat
+  /// De 1 byte a 5 MB (CHECK en la migración).
+  sizeBytes   Int         @map("size_bytes")
+  /// Declarada por el navegador; de 1 ms a 3 minutos (CHECK en la migración).
+  durationMs  Int         @map("duration_ms")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("answer_recordings")
+}
+
 model ExternalLink {
   id           String           @id @default(cuid())
   diagnosticId String           @map("diagnostic_id")

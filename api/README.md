@@ -510,6 +510,23 @@ En QA y PROD la API no se conecta como dueña del esquema:
     /diagnostics/:id/access-links` (Revisor y Aprobador) revoca los vigentes
     y envía uno nuevo. Si el correo falla, la operación queda hecha y la
     respuesta trae `emailSent: false` para copiar el enlace.
+  - **Voz** (PF-86, `answer-recordings.service.ts`): las preguntas
+    `FREE_TEXT` con `allowsVoice` aceptan una grabación por respuesta. El
+    cliente acepta antes el uso de su voz con `POST current/voice-consent`
+    (`{ version }`, de `VOICE_CONSENT_VERSIONS`; sin eso, 409
+    `VOICE_CONSENT_REQUIRED`). `PUT current/answers/:questionId/recording`
+    (multipart: archivo `audio` y `durationMs`; 20/min) crea o reemplaza;
+    el tipo se comprueba por el contenido (WebM/Opus o MP4/AAC, si no 415) y
+    el límite es 5 MB (413) y 3 minutos declarados. La voz sola cuenta como
+    respuesta; vaciar el texto la deja solo con voz, y borrar la voz sin texto
+    (`DELETE .../recording`) la deja sin responder. Borrar la respuesta borra
+    también la grabación. El objeto se sube antes de la transacción y se borra
+    si falla; el que se reemplaza o borra se elimina tras el commit (si falla,
+    queda huérfano para PF-90). `GET .../recording` da al cliente una URL
+    firmada para escuchar la suya (auditado como `END_CLIENT`), y `GET /diagnostics/:id/answers/:questionId/recording`
+    al panel (ambos roles, auditado `ANSWER_RECORDING_PLAYED`). La clave del
+    objeto solo sale dentro de esa URL firmada, nunca en la vista de la
+    respuesta ni en la bitácora.
   - **Recuperación** (pública): `POST /access-link-recoveries` (`{ email }`)
     responde siempre 202 y envía en segundo plano un enlace nuevo para el
     diagnóstico sin completar más reciente de ese correo, sin revocar el
@@ -568,8 +585,8 @@ En QA y PROD la API no se conecta como dueña del esquema:
   sin datos personales) y firma URLs de lectura de
   `STORAGE_SIGNED_URL_TTL_SECONDS` (máx. 15 minutos) con tipo y disposición
   forzados. Un fallo llega como `StorageError` (`unavailable` → 503,
-  `not_found` → 404) y el log solo lleva el nombre del error. Sin rutas: las
-  grabaciones llegan con PF-86.
+  `not_found` → 404, con `storageHttpError`) y el log solo lleva el nombre del
+  error. `deleteQuietly` borra sin lanzar lo que ya no apunta ningún registro.
   - **Prueba:** `pnpm storage:test` guarda, lee, firma, descarga y borra un
     objeto de prueba con la configuración de `.env`, y con `s3` comprueba que
     el bucket rechaza el acceso sin firma. No necesita Postgres.

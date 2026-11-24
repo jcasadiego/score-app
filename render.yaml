@@ -100,6 +100,18 @@ services:
       # CRM simulado (PF-80): los datos no salen de SCORE hasta el real (PF-82).
       - key: CRM_PROVIDER
         value: simulated
+      # Almacenamiento (PF-85): bucket privado de R2 en la cuenta de QA, solo
+      # datos de prueba (docs/infra/almacenamiento.md). Llave limitada al bucket.
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: STORAGE_S3_ENDPOINT
+        sync: false
+      - key: STORAGE_S3_BUCKET
+        value: score-voice-qa
+      - key: STORAGE_S3_ACCESS_KEY_ID
+        sync: false
+      - key: STORAGE_S3_SECRET_ACCESS_KEY
+        sync: false
       # Primer Aprobador que crea la siembra. Si ya existe, no se toca su
       # contraseña: cambiarla en el panel tras el primer ingreso.
       - key: ADMIN_EMAIL

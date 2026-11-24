@@ -44,6 +44,7 @@ export const QUESTION_SELECT = {
   helpText: true,
   required: true,
   maxLength: true,
+  allowsVoice: true,
   position: true,
   options: {
     select: { id: true, text: true, value: true, position: true },
@@ -93,6 +94,7 @@ function questionData(dto: QuestionDto) {
     helpText: dto.helpText || null,
     required: dto.required,
     maxLength: dto.maxLength ?? null,
+    allowsVoice: dto.allowsVoice ?? false,
     options: {
       create: dto.options.map((option, position) => ({
         text: option.text,
@@ -203,6 +205,7 @@ export class QuestionnaireVersionsService {
                 helpText: question.helpText,
                 required: question.required,
                 maxLength: question.maxLength,
+                allowsVoice: question.allowsVoice,
                 position: question.position,
                 options: {
                   create: question.options.map(({ text, value, position }) => ({
@@ -382,6 +385,7 @@ export class QuestionnaireVersionsService {
           code: true,
           type: true,
           maxLength: true,
+          allowsVoice: true,
           options: { select: { value: true } },
         },
         orderBy: [{ position: 'asc' }, { id: 'asc' }],

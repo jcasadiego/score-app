@@ -87,6 +87,14 @@ export class QuestionDto {
   @Max(FREE_TEXT_MAX_LENGTH)
   maxLength?: number;
 
+  /**
+   * El cliente puede responder también con su voz (PF-86). Solo en
+   * `FREE_TEXT`; por defecto no.
+   */
+  @IsOptional()
+  @IsBoolean()
+  allowsVoice?: boolean;
+
   /** Al menos 2 en las de selección; ninguna en `FREE_TEXT`. */
   @ApiProperty({ type: [AnswerOptionDto] })
   @IsArray()

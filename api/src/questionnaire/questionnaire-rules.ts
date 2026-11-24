@@ -6,6 +6,7 @@ export interface QuestionShape {
   code: string;
   type: QuestionType;
   maxLength?: number | null;
+  allowsVoice?: boolean;
   options: { value: string }[];
 }
 
@@ -50,6 +51,13 @@ export function questionIssues(
         field: at('maxLength'),
         code: 'MAX_LENGTH_NOT_ALLOWED',
         message: `La pregunta ${question.code} es de selección: el largo máximo solo aplica a texto libre.`,
+      });
+    }
+    if (question.allowsVoice) {
+      issues.push({
+        field: at('allowsVoice'),
+        code: 'VOICE_NOT_ALLOWED',
+        message: `La pregunta ${question.code} es de selección: solo las de texto libre aceptan voz.`,
       });
     }
   }

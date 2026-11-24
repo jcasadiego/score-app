@@ -33,6 +33,21 @@ describe('questionIssues', () => {
     ).toEqual(['MAX_LENGTH_NOT_ALLOWED']);
   });
 
+  it('solo el texto libre acepta voz', () => {
+    expect(
+      codes(questionIssues({ ...choice(['a', 'b']), allowsVoice: true })),
+    ).toEqual(['VOICE_NOT_ALLOWED']);
+    expect(
+      questionIssues({
+        code: 'f',
+        type: QuestionType.FREE_TEXT,
+        maxLength: 100,
+        allowsVoice: true,
+        options: [],
+      }),
+    ).toEqual([]);
+  });
+
   it('detecta valores repetidos', () => {
     expect(codes(questionIssues(choice(['a', 'b', 'a'])))).toEqual([
       'DUPLICATE_OPTION_VALUE',

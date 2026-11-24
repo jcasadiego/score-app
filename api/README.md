@@ -525,7 +525,8 @@ En QA y PROD la API no se conecta como dueña del esquema:
     queda huérfano para PF-90). `GET .../recording` da al cliente una URL
     firmada para escuchar la suya, y `GET /diagnostics/:id/answers/:questionId/recording`
     al panel (ambos roles, auditado `ANSWER_RECORDING_PLAYED`). La clave del
-    objeto nunca sale de la API.
+    objeto solo sale dentro de esa URL firmada, nunca en la vista de la
+    respuesta ni en la bitácora.
   - **Recuperación** (pública): `POST /access-link-recoveries` (`{ email }`)
     responde siempre 202 y envía en segundo plano un enlace nuevo para el
     diagnóstico sin completar más reciente de ese correo, sin revocar el

@@ -35,6 +35,9 @@ function contentSecurityPolicy(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
+    // Escuchar la voz (PF-89): URL firmada de vida corta del bucket privado de
+    // R2 (`https://<cuenta>.r2.cloudflarestorage.com`).
+    "media-src 'self' https://*.r2.cloudflarestorage.com",
     "font-src 'self'",
     `connect-src 'self'${isDev ? " ws:" : ""}`,
     "object-src 'none'",

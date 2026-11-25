@@ -34,6 +34,7 @@ import {
   type CalculationData,
 } from "./calculation-section";
 import { FlagsSection, questionAnchor, type FlagsData } from "./flags-section";
+import { VoiceAnswer } from "./voice-answer";
 
 type AccessLinkRow = Diagnostic["accessLinks"][number];
 
@@ -138,6 +139,14 @@ export function AnswerValue({
 export function AnswerView({ question }: { question: DiagnosticQuestion }) {
   if (!question.answer) {
     return <Typography.Text type="secondary">Sin responder</Typography.Text>;
+  }
+  // Solo con voz: la grabación y su transcripción se muestran aparte.
+  if (question.type === "FREE_TEXT" && !question.answer.text) {
+    return (
+      <Typography.Text type="secondary">
+        {question.answer.recording ? "Sin texto: respondió por voz" : "Sin texto"}
+      </Typography.Text>
+    );
   }
   const chosen = new Set(question.answer.optionIds);
   return (
@@ -321,6 +330,13 @@ export function DiagnosticDetail({
                     renderAnswer(question)
                   ) : (
                     <AnswerView question={question} />
+                  )}
+                  {question.answer?.recording && (
+                    <VoiceAnswer
+                      diagnosticId={diagnostic.id}
+                      questionId={question.id}
+                      recording={question.answer.recording}
+                    />
                   )}
                 </Flex>
               </li>

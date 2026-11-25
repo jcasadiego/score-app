@@ -21,6 +21,37 @@ export interface DiagnosticSummary {
   createdAt: string;
 }
 
+export type TranscriptionStatus = "PENDING" | "COMPLETED" | "FAILED";
+
+/** Transcripción automática de una grabación (PF-88). Texto solo si terminó. */
+export interface Transcription {
+  status: TranscriptionStatus;
+  text: string | null;
+  attempts: number;
+  provider: string | null;
+  model: string | null;
+  lastErrorCode: string | null;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
+/** La grabación de una respuesta, sin el audio ni su clave (PF-86). */
+export interface AnswerRecording {
+  contentType: string;
+  sizeBytes: number;
+  durationMs: number;
+  updatedAt: string;
+  transcription: Transcription | null;
+}
+
+/** URL firmada de vida corta para escuchar; se pide al reproducir. */
+export interface RecordingPlayback {
+  url: string;
+  expiresAt: string;
+  contentType: string;
+  durationMs: number;
+}
+
 export interface DiagnosticQuestion {
   id: string;
   code: string;
@@ -29,12 +60,15 @@ export interface DiagnosticQuestion {
   helpText: string | null;
   required: boolean;
   position: number;
+  allowsVoice: boolean;
   options: { id: string; text: string; value: string }[];
   answer: {
     /** Solo para corregir desde la revisión (PF-40). */
     id: string;
     text: string | null;
     optionIds: string[];
+    /** Respuesta por voz; puede ser la única respuesta (sin texto). */
+    recording: AnswerRecording | null;
     updatedAt: string;
   } | null;
 }
@@ -136,6 +170,35 @@ export function resendAccessLink(
     token,
     `/diagnostics/${encodeURIComponent(id)}/access-links`,
     MESSAGES,
+    { method: "POST" },
+  );
+}
+
+const answerPath = (id: string, questionId: string) =>
+  `/diagnostics/${encodeURIComponent(id)}/answers/${encodeURIComponent(questionId)}`;
+
+/** Cada llamada queda en la bitácora de la API (`ANSWER_RECORDING_PLAYED`). */
+export function getRecordingPlayback(
+  token: string,
+  id: string,
+  questionId: string,
+): Promise<RecordingPlayback> {
+  return callApi<RecordingPlayback>(
+    token,
+    `${answerPath(id, questionId)}/recording`,
+    { notFound: "Este audio ya no está disponible." },
+  );
+}
+
+export function retryTranscription(
+  token: string,
+  id: string,
+  questionId: string,
+): Promise<Transcription> {
+  return callApi<Transcription>(
+    token,
+    `${answerPath(id, questionId)}/transcription/retry`,
+    { notFound: "Esta respuesta ya no tiene una grabación." },
     { method: "POST" },
   );
 }

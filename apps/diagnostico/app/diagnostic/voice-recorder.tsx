@@ -297,6 +297,8 @@ export function VoiceRecorder({
     phase.name === "deleting";
   const playbackUrl = take?.url ?? remoteUrl;
   const hasSaved = recording !== null;
+  // Un diagnóstico retomado tras 90 días sin actividad (PF-90).
+  const audioDeleted = !!recording?.audioDeletedAt && !take;
 
   return (
     <section
@@ -377,11 +379,13 @@ export function VoiceRecorder({
                 ? "Guardando tu grabación…"
                 : phase.name === "deleting"
                   ? "Borrando la grabación…"
-                  : hasSaved
-                    ? `Grabación guardada (${formatDuration(recording.durationMs)}).`
-                    : take
-                      ? "Grabación sin guardar."
-                      : null}
+                  : audioDeleted
+                    ? "El audio de tu respuesta se borró por plazo. Si quieres, puedes volver a grabarla."
+                    : hasSaved
+                      ? `Grabación guardada (${formatDuration(recording.durationMs)}).`
+                      : take
+                        ? "Grabación sin guardar."
+                        : null}
             </p>
           )}
           {playbackUrl ? (
@@ -393,7 +397,8 @@ export function VoiceRecorder({
               className="w-full"
             />
           ) : (
-            hasSaved && (
+            hasSaved &&
+            !audioDeleted && (
               <button
                 type="button"
                 onClick={() => void loadSaved()}

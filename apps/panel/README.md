@@ -224,6 +224,9 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
     La CSP de `proxy.ts` admite `media-src https://*.r2.cloudflarestorage.com`.
   - Una transcripción fallida tiene "Reintentar transcripción"; un 409
     recarga y avisa.
+  - Con el audio borrado por plazo (PF-90, `audioDeletedAt`) no hay
+    "Escuchar" ni reintento: se muestra "Audio borrado por plazo el …" y la
+    transcripción, que se conserva. Un 410 al escuchar recarga la pantalla.
   - Corregir una respuesta solo por voz (en la revisión) precarga el texto
     con la transcripción completada; la corrección sigue el flujo de PF-39,
     con motivo, quién y cuándo.

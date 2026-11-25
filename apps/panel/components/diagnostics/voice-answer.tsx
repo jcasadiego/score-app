@@ -10,6 +10,7 @@ import {
   recordingPlaybackAction,
   retryTranscriptionAction,
 } from "@/app/(panel)/diagnostics/actions";
+import { LocalDate } from "@/components/local-date";
 
 const STATUS: Record<TranscriptionStatus, { label: string; color: string }> = {
   PENDING: { label: "Transcripción pendiente", color: "gold" },
@@ -48,6 +49,9 @@ export function VoiceAnswer({
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
   const transcription = recording.transcription;
+  const audioDeleted = recording.audioDeletedAt !== null;
+  // Sin audio no se puede volver a transcribir.
+  const canRetry = transcription?.status === "FAILED" && !audioDeleted;
 
   function listen() {
     setError(null);
@@ -103,12 +107,18 @@ export function VoiceAnswer({
         <Tag style={{ marginInlineEnd: 0 }}>
           Respuesta por voz · {formatDuration(recording.durationMs)}
         </Tag>
-        {!src && !gone && (
+        {!src && !gone && !audioDeleted && (
           <Button size="small" onClick={listen} loading={loading}>
             Escuchar
           </Button>
         )}
       </Flex>
+      {audioDeleted && recording.audioDeletedAt && (
+        <Typography.Text type="secondary">
+          Audio borrado por plazo el <LocalDate iso={recording.audioDeletedAt} />.
+          La transcripción se conserva.
+        </Typography.Text>
+      )}
       {src && (
         <audio
           ref={audioRef}
@@ -139,7 +149,7 @@ export function VoiceAnswer({
             <Tag color={status.color} style={{ marginInlineEnd: 0 }}>
               {status.label}
             </Tag>
-            {transcription.status === "FAILED" && (
+            {canRetry && (
               <Button size="small" onClick={retry} loading={retrying}>
                 Reintentar transcripción
               </Button>
@@ -169,7 +179,9 @@ export function VoiceAnswer({
           )}
           {transcription.status === "FAILED" && (
             <Typography.Text type="secondary">
-              No pudimos transcribir este audio. Puedes escucharlo o reintentar.
+              {audioDeleted
+                ? "No se transcribió: el audio se borró por plazo."
+                : "No pudimos transcribir este audio. Puedes escucharlo o reintentar."}
             </Typography.Text>
           )}
         </Flex>

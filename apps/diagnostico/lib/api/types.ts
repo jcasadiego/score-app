@@ -21,6 +21,8 @@ export interface SavedRecording {
   sizeBytes: number;
   durationMs: number;
   updatedAt: string;
+  /** El audio se borró por plazo (PF-90): queda el registro, no se escucha. */
+  audioDeletedAt?: string | null;
 }
 
 export interface SavedAnswer {

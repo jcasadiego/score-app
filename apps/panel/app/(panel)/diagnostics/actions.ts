@@ -352,6 +352,12 @@ export async function recordingPlaybackAction(
     };
   } catch (error) {
     await redirectIfSessionExpired(error);
+    // 410: se borró por plazo (PF-90); 404: la grabación ya no existe.
+    if (error instanceof ApiError && error.status === 410) {
+      revalidatePath(`/diagnostics/${diagnosticId}`);
+      revalidatePath("/reviews", "layout");
+      return { ok: false, gone: true, error: "El audio se borró por plazo." };
+    }
     if (error instanceof ApiError && error.status === 404) {
       return { ok: false, gone: true, error: "Este audio ya no está disponible." };
     }

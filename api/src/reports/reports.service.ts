@@ -21,6 +21,7 @@ import {
   REPORT_SECTION_SCHEMA,
   reportDraftSchema,
 } from '../ai/prompts/report-draft.prompt';
+import { loadVoiceTranscripts } from '../transcription/voice-transcripts';
 import { AuditService } from '../audit/audit.service';
 import { AI_DISABLED } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -557,6 +558,10 @@ export class ReportsService {
         result: resultForAi(calculation.output),
         questionnaire: version.questions,
         answers: input.answers ?? {},
+        voiceTranscripts: await loadVoiceTranscripts(
+          this.prisma,
+          diagnostic.id,
+        ),
         reviewerNotes: notes,
       },
     };

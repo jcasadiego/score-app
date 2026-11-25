@@ -16,6 +16,7 @@ import { AppThrottlerGuard } from './../src/common/app-throttler.guard';
 import { FlagsService } from './../src/flags/flags.service';
 import { MAIL_PORT } from './../src/mail/mail.port';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { FLAGS_CONTRADICTIONS_PROMPT } from './../src/ai/prompts/flags-contradictions.prompt';
 import {
   SCORING_ENGINE_PORT,
   type ScoringInput,
@@ -307,7 +308,7 @@ describe('Flags (e2e, base propia)', () => {
       status: 'SUCCEEDED',
       provider: 'stub',
       promptId: 'flags.contradictions',
-      promptVersion: 'v1',
+      promptVersion: FLAGS_CONTRADICTIONS_PROMPT.version,
       isSimulated: true,
     });
 

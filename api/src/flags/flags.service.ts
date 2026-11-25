@@ -24,6 +24,7 @@ import {
   FLAGS_CONTRADICTIONS_SCHEMA,
   type FlagsContradictionsOutput,
 } from '../ai/prompts/flags-contradictions.prompt';
+import { loadVoiceTranscripts } from '../transcription/voice-transcripts';
 import { AuditService } from '../audit/audit.service';
 import { VALIDATION_FAILED_CODE } from '../common/problem-details';
 import type { ValidatedEnv } from '../config/validate-env';
@@ -234,6 +235,10 @@ export class FlagsService implements OnApplicationBootstrap {
             options,
           })),
           answers: input.answers ?? {},
+          voiceTranscripts: await loadVoiceTranscripts(
+            this.prisma,
+            diagnostic.id,
+          ),
         },
         // El nombre del lead nunca sale, aunque lo haya escrito en un texto.
         redact: [diagnostic.lead.name],

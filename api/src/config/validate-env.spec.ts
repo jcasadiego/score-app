@@ -309,6 +309,50 @@ describe('validateEnv · CRM', () => {
   });
 });
 
+describe('validateEnv · transcripción', () => {
+  it('sin proveedor arranca, con el modelo y el intervalo por defecto', () => {
+    const env = validateEnv(PRODUCTION);
+    expect(env.TRANSCRIPTION_PROVIDER).toBeUndefined();
+    expect(env.TRANSCRIPTION_MODEL).toBe('gpt-4o-mini-transcribe');
+    expect(env.TRANSCRIPTION_INTERVAL_MS).toBe(30_000);
+  });
+
+  it('con openai exige la llave', () => {
+    expect(() =>
+      validateEnv({ ...BASE, TRANSCRIPTION_PROVIDER: 'openai' }),
+    ).toThrow(/OPENAI_API_KEY: obligatoria con TRANSCRIPTION_PROVIDER=openai/);
+    expect(
+      validateEnv({
+        ...BASE,
+        TRANSCRIPTION_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+      }).TRANSCRIPTION_PROVIDER,
+    ).toBe('openai');
+  });
+
+  it('el fallo forzado del simulado sirve en QA pero no en producción', () => {
+    expect(
+      validateEnv({
+        ...PRODUCTION,
+        APP_ENV: 'qa',
+        TRANSCRIPTION_SIMULATED_FAILURE: 'TIMEOUT',
+      }).TRANSCRIPTION_SIMULATED_FAILURE,
+    ).toBe('TIMEOUT');
+    expect(() =>
+      validateEnv({
+        ...PRODUCTION,
+        TRANSCRIPTION_SIMULATED_FAILURE: 'TIMEOUT',
+      }),
+    ).toThrow(/TRANSCRIPTION_SIMULATED_FAILURE: no se admite/);
+  });
+
+  it('rechaza un proveedor desconocido', () => {
+    expect(() =>
+      validateEnv({ ...BASE, TRANSCRIPTION_PROVIDER: 'deepgram' }),
+    ).toThrow(/TRANSCRIPTION_PROVIDER/);
+  });
+});
+
 describe('validateEnv · despliegue', () => {
   it('no arranca sin NODE_ENV', () => {
     expect(() => validateEnv({ ...BASE, NODE_ENV: undefined })).toThrow(

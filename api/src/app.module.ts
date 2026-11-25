@@ -13,6 +13,7 @@ import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { LeadsModule } from './leads/leads.module';
 import { CrmModule } from './crm/crm.module';
+import { TranscriptionModule } from './transcription/transcription.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -50,6 +51,7 @@ import { PrismaService } from './prisma/prisma.service';
     PrismaModule,
     ScheduleModule.forRoot(),
     CrmModule,
+    TranscriptionModule,
     AuditModule,
     AiModule,
     FlagsModule,

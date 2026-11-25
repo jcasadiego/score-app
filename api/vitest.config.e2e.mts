@@ -21,6 +21,8 @@ export default defineConfig({
       // `app.close()` dejaría conexiones abiertas (#58). Los eventos salen con
       // el aviso tras cada cambio, y la app espera esa pasada al cerrar.
       CRM_SYNC_INTERVAL_MS: '0',
+      // Igual con las transcripciones (PF-88).
+      TRANSCRIPTION_INTERVAL_MS: '0',
     },
   },
 });

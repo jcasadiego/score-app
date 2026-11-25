@@ -685,7 +685,10 @@ describe('Pagos (e2e, base propia)', () => {
       const everything = JSON.stringify(
         await prisma.auditLog.findMany({ where: { entity: 'Payment' } }),
       );
-      expect(everything).not.toContain('4321');
+      // El monto completo: "4321" solo podía aparecer al azar dentro de un id o
+      // un UUID de la bitácora y hacía fallar el test sin motivo.
+      expect(everything).not.toContain('4321.09');
+      expect(everything).not.toMatch(/"amount"/);
       expect(everything).not.toContain('SECRETO-REF-99');
     });
 

@@ -527,6 +527,26 @@ En QA y PROD la API no se conecta como dueña del esquema:
     al panel (ambos roles, auditado `ANSWER_RECORDING_PLAYED`). La clave del
     objeto solo sale dentro de esa URL firmada, nunca en la vista de la
     respuesta ni en la bitácora.
+  - **Transcripción** (PF-88, `src/transcription`): cada grabación nueva o
+    reemplazada deja una transcripción `PENDING` en la misma transacción
+    (reemplazar descarta el texto anterior; borrar la grabación la borra en
+    cascada). Un procesador en segundo plano (aviso tras subir y pasada cada
+    `TRANSCRIPTION_INTERVAL_MS`) la reserva 10 minutos con `SKIP LOCKED`,
+    descarga el audio y llama al proveedor fuera de la transacción; si el
+    audio cambió mientras tanto, descarta el resultado. Reintenta los errores
+    temporales (1 min, 5 min, 30 min, 2 h; 5 intentos) y al final queda
+    `FAILED`. Proveedor por `TRANSCRIPTION_PROVIDER`: `simulated` (texto fijo,
+    por defecto en desarrollo), `disabled` (por defecto en servidores: las
+    pendientes esperan) u `openai` (`gpt-4o-mini-transcribe`, español fijo;
+    sin activar hasta el DPA). El detalle del diagnóstico del panel trae
+    `answer.recording.transcription` (estado, texto, intentos, proveedor,
+    error); la app del cliente no. `POST
+    /diagnostics/:id/answers/:questionId/transcription/retry` (ambos roles,
+    202) vuelve a poner en cola una fallida (409 `TRANSCRIPTION_NOT_FAILED`
+    si no lo está), y `GET /transcription/status` dice qué proveedor está
+    activo. Las alertas y el borrador del informe reciben las completadas en
+    `voiceTranscripts`, por `code`, marcadas `automatic_transcription`: no
+    reemplazan la respuesta escrita y viajan como dato no confiable.
   - **Recuperación** (pública): `POST /access-link-recoveries` (`{ email }`)
     responde siempre 202 y envía en segundo plano un enlace nuevo para el
     diagnóstico sin completar más reciente de ese correo, sin revocar el

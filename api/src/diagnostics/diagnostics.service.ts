@@ -14,6 +14,7 @@ import {
   DiagnosticStatus,
   QuestionnaireVersionStatus,
 } from '../../generated/prisma/enums';
+import { TRANSCRIPTION_SELECT } from '../transcription/transcription.service';
 import { AuditService } from '../audit/audit.service';
 import { FlagsService } from '../flags/flags.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +31,7 @@ import {
   EXTERNAL_LINK_SELECT,
   NO_PUBLISHED_QUESTIONNAIRE,
   questionsWithAnswers,
+  RECORDING_SELECT,
   VERSION_QUESTIONS_SELECT,
 } from './diagnostic-view';
 
@@ -188,7 +190,19 @@ export class DiagnosticsService {
           },
         },
         // Con el id, que el panel necesita para corregir (PF-39/PF-40).
-        answers: { select: { ...ANSWER_SELECT, id: true } },
+        // La transcripción (PF-88) solo la ve el panel, no el cliente.
+        answers: {
+          select: {
+            ...ANSWER_SELECT,
+            id: true,
+            recording: {
+              select: {
+                ...RECORDING_SELECT,
+                transcription: { select: TRANSCRIPTION_SELECT },
+              },
+            },
+          },
+        },
         externalLinks: {
           select: EXTERNAL_LINK_SELECT,
           orderBy: { platform: 'asc' },
@@ -217,15 +231,24 @@ export class DiagnosticsService {
       review,
       ...rest
     } = diagnostic;
-    const answerIds = new Map(answers.map((a) => [a.questionId, a.id]));
+    const byQuestion = new Map(answers.map((a) => [a.questionId, a]));
     const questions = questionsWithAnswers(version, answers).questions.map(
-      (question) =>
-        question.answer
-          ? {
-              ...question,
-              answer: { id: answerIds.get(question.id), ...question.answer },
-            }
-          : question,
+      (question) => {
+        if (!question.answer) return question;
+        const stored = byQuestion.get(question.id);
+        const { recording } = question.answer;
+        return {
+          ...question,
+          answer: {
+            id: stored?.id,
+            ...question.answer,
+            recording: recording && {
+              ...recording,
+              transcription: stored?.recording?.transcription ?? null,
+            },
+          },
+        };
+      },
     );
     // `summary` conserva el resto de los campos: motivo, enlaces y quién lo generó.
     return {

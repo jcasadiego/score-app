@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { newObjectKey } from '../storage/object-key';
 import { storageHttpError } from '../storage/storage-http';
 import { StorageService } from '../storage/storage.service';
+import { TranscriptionService } from '../transcription/transcription.service';
 import { ClientSession } from './access-links.service';
 import { DiagnosticSessionsService } from './diagnostic-sessions.service';
 import {
@@ -54,6 +55,7 @@ export class AnswerRecordingsService {
     private readonly storage: StorageService,
     private readonly sessions: DiagnosticSessionsService,
     private readonly crm: CrmSyncService,
+    private readonly transcriptions: TranscriptionService,
   ) {}
 
   /** El cliente acepta el uso de su voz. Repetirlo con la misma versión no cambia nada. */
@@ -134,6 +136,7 @@ export class AnswerRecordingsService {
     if (saved.replacedKey) await this.storage.deleteQuietly(saved.replacedKey);
     // Una primera respuesta por voz deja el evento `DIAGNOSTIC_STARTED`.
     this.crm.kick();
+    this.transcriptions.kick();
     return { questionId, ...saved.view };
   }
 
@@ -156,6 +159,7 @@ export class AnswerRecordingsService {
       });
       if (!answer?.recording) return null;
 
+      // La transcripción se borra en cascada con la grabación.
       await tx.answerRecording.delete({ where: { id: answer.recording.id } });
       const answerDeleted = answer.textValue === null;
       if (answerDeleted) {
@@ -299,8 +303,10 @@ export class AnswerRecordingsService {
       where: { answerId: answer.id },
       create: { answerId: answer.id, ...data },
       update: data,
-      select: RECORDING_SELECT,
+      select: { ...RECORDING_SELECT, id: true },
     });
+    // Nueva o reemplazada: el texto anterior ya no corresponde al audio.
+    await this.transcriptions.requestFor(tx, recording.id);
 
     await this.sessions.touch(tx, diagnosticId, diagnostic, true);
     await this.sessions.recordClientEvent(

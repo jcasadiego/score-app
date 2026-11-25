@@ -28,7 +28,7 @@ Content-Type: application/json
 | `name`        | string | sí        | 2–120 caracteres. Se recortan y colapsan los espacios.                  |
 | `email`       | string | sí        | Email válido, máx. 254. Se guarda recortado y en minúsculas.            |
 | `phone`       | string | no        | 7–20 caracteres: dígitos, espacios, `-`, `(`, `)` y `+` inicial.        |
-| `family`      | string | sí        | Uno de `PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`.                     |
+| `family`      | string | sí        | Uno de `PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`, `EVENT`.            |
 | `utmSource`   | string | no        | Máx. 200 caracteres.                                                    |
 | `utmMedium`   | string | no        | Máx. 200 caracteres.                                                    |
 | `utmCampaign` | string | no        | Máx. 200 caracteres.                                                    |

@@ -212,6 +212,21 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
   - En la lista, columna "CRM" (solo marca los que tienen error) y filtro
     `crm` que resuelve la API (`crmSyncStatus`). Con el adaptador simulado,
     aviso en la lista y en el detalle.
+- **Voz** (PF-89, `components/diagnostics/voice-answer.tsx`), ambos roles, en
+  el detalle del diagnóstico y en la revisión:
+  - Cada respuesta con grabación muestra la duración, "Escuchar" y la
+    transcripción con su estado (pendiente, automática o fallida). Una
+    respuesta solo por voz dice "Sin texto: respondió por voz".
+  - La URL firmada del audio se pide con una Server Action al pulsar
+    "Escuchar" (cada pedido queda en la bitácora de la API), nunca en el HTML
+    inicial. Si vence o falla, se descarta y se pide otra; un 404 dice "Este
+    audio ya no está disponible". Sin descarga (`controlsList="nodownload"`).
+    La CSP de `proxy.ts` admite `media-src https://*.r2.cloudflarestorage.com`.
+  - Una transcripción fallida tiene "Reintentar transcripción"; un 409
+    recarga y avisa.
+  - Corregir una respuesta solo por voz (en la revisión) precarga el texto
+    con la transcripción completada; la corrección sigue el flujo de PF-39,
+    con motivo, quién y cuándo.
 - **Cuestionario:**
   - `/questionnaire?family=` muestra una pestaña por familia. En cada una
     se ve el borrador y la última versión publicada (`&view=published`),
@@ -225,6 +240,9 @@ Definido en `../../render.yaml`. Node 22, desde `apps/panel/`:
     dentro: agregar, quitar y reordenar. Se propone el `code`/`value` a
     partir del texto. Si la api rechaza algo, el modal muestra el motivo y
     conserva lo escrito.
+  - Las preguntas de texto libre tienen "Acepta respuesta por voz" (PF-89).
+    Se envía siempre: la api toma la pregunta completa, y si faltara, editar
+    otra cosa le apagaría la voz. La tarjeta muestra "Acepta voz".
   - Publicar pide confirmación. Si falta algo, se muestra la lista `errors`
     de la api.
 - Fechas con `components/local-date.tsx`: se formatean en la zona del

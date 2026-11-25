@@ -49,6 +49,7 @@ interface QuestionFormValues {
   helpText?: string;
   required: boolean;
   maxLength?: number;
+  allowsVoice?: boolean;
   options: { text: string; value: string }[];
 }
 
@@ -104,6 +105,7 @@ export function QuestionModal({
       helpText: values.helpText,
       required: values.required,
       maxLength: isFreeText ? values.maxLength : undefined,
+      allowsVoice: isFreeText && values.allowsVoice === true,
       options: isFreeText ? [] : (values.options ?? []),
     });
     setSaving(false);
@@ -175,6 +177,7 @@ export function QuestionModal({
                 helpText: question.helpText ?? undefined,
                 required: question.required,
                 maxLength: question.maxLength ?? DEFAULT_FREE_TEXT_LENGTH,
+                allowsVoice: question.allowsVoice,
                 options: question.options.map(({ text, value }) => ({
                   text,
                   value,
@@ -184,6 +187,7 @@ export function QuestionModal({
                 type: "SINGLE_CHOICE",
                 required: true,
                 maxLength: DEFAULT_FREE_TEXT_LENGTH,
+                allowsVoice: false,
                 options: [
                   { text: "", value: "" },
                   { text: "", value: "" },
@@ -255,6 +259,17 @@ export function QuestionModal({
               suffix="caracteres"
               style={{ width: 220 }}
             />
+          </Form.Item>
+        )}
+
+        {type === "FREE_TEXT" && (
+          <Form.Item
+            name="allowsVoice"
+            label="Acepta respuesta por voz"
+            valuePropName="checked"
+            extra="El cliente podrá grabar su respuesta, además de escribirla. Antes de grabar acepta el uso de su voz."
+          >
+            <Switch />
           </Form.Item>
         )}
 

@@ -19,6 +19,8 @@ export interface QuestionnaireQuestion {
   helpText: string | null;
   required: boolean;
   maxLength: number | null;
+  /** Solo texto libre: el cliente puede responder por voz (PF-86). */
+  allowsVoice: boolean;
   position: number;
   options: QuestionnaireOption[];
 }
@@ -48,6 +50,8 @@ export interface QuestionInput {
   helpText?: string;
   required: boolean;
   maxLength?: number;
+  /** Se envía siempre: la API toma la pregunta completa y lo apaga si falta. */
+  allowsVoice: boolean;
   options: { text: string; value: string }[];
 }
 

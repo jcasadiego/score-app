@@ -48,6 +48,7 @@ export function QuestionCard({
             {question.type === "FREE_TEXT" && question.maxLength && (
               <Tag>Hasta {question.maxLength} caracteres</Tag>
             )}
+            {question.allowsVoice && <Tag color="geekblue">Acepta voz</Tag>}
             <Typography.Text type="secondary" code>
               {question.code}
             </Typography.Text>

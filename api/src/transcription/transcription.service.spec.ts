@@ -30,6 +30,7 @@ const CLAIMED = {
 describe('TranscriptionService', () => {
   let tx: {
     $queryRaw: Mock;
+    answerRecording: { findFirst: Mock };
     answerTranscription: {
       update: Mock;
       updateMany: Mock;
@@ -74,6 +75,9 @@ describe('TranscriptionService', () => {
   beforeEach(() => {
     tx = {
       $queryRaw: vi.fn().mockResolvedValue([]),
+      answerRecording: {
+        findFirst: vi.fn().mockResolvedValue({ audioDeletedAt: null }),
+      },
       answerTranscription: {
         update: vi.fn(),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -227,6 +231,17 @@ describe('TranscriptionService', () => {
         ConflictException,
       );
       expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('409 si el audio ya se borró por plazo', async () => {
+      tx.answerTranscription.updateMany.mockResolvedValue({ count: 0 });
+      tx.answerTranscription.findFirst.mockResolvedValue(VIEW);
+      tx.answerRecording.findFirst.mockResolvedValue({
+        audioDeletedAt: new Date(),
+      });
+      await expect(build().retry('diag-1', 'q-1', 'u')).rejects.toMatchObject({
+        response: { code: 'TRANSCRIPTION_AUDIO_DELETED' },
+      });
     });
 
     it('404 si la respuesta no tiene grabación', async () => {

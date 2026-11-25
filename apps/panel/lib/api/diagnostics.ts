@@ -41,6 +41,8 @@ export interface AnswerRecording {
   sizeBytes: number;
   durationMs: number;
   updatedAt: string;
+  /** El audio se borró por plazo (PF-90); el registro y el texto quedan. */
+  audioDeletedAt: string | null;
   transcription: Transcription | null;
 }
 

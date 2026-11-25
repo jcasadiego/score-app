@@ -3,12 +3,14 @@ import { Logger } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
+  ObjectPage,
   PutObjectInput,
   SignedReadUrlOptions,
   StorageError,
@@ -113,6 +115,25 @@ export class S3StorageAdapter implements StoragePort {
         { expiresIn: expiresInSeconds },
       ),
     );
+  }
+
+  async list(prefix: string, cursor?: string): Promise<ObjectPage> {
+    const result = await this.run('list', () =>
+      this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: `${prefix}/`,
+          ContinuationToken: cursor,
+          MaxKeys: 1000,
+        }),
+      ),
+    );
+    return {
+      objects: (result.Contents ?? [])
+        .filter((o) => o.Key && o.LastModified)
+        .map((o) => ({ key: o.Key!, lastModified: o.LastModified! })),
+      nextCursor: result.IsTruncated ? result.NextContinuationToken : undefined,
+    };
   }
 
   private async run<T>(operation: string, call: () => Promise<T>): Promise<T> {

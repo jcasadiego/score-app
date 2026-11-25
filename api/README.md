@@ -547,6 +547,20 @@ En QA y PROD la API no se conecta como dueña del esquema:
     activo. Las alertas y el borrador del informe reciben las completadas en
     `voiceTranscripts`, por `code`, marcadas `automatic_transcription`: no
     reemplazan la respuesta escrita y viajan como dato no confiable.
+  - **Conservación** (PF-90, `voice-retention.service.ts`): cada
+    `VOICE_RETENTION_INTERVAL_MS` (6 horas, y al arrancar) borra del bucket el
+    audio a los 90 días de la primera entrega del informe, o de la última
+    actividad si el diagnóstico quedó sin enviar; un caso enviado sin informe
+    entregado lo conserva. La grabación queda con `audioDeletedAt` (registro y
+    transcripción se conservan, lo pendiente pasa a `FAILED` con
+    `AUDIO_DELETED`) y `VOICE_AUDIO_DELETED` en la bitácora, una sola vez.
+    Escucharla responde 410 `RECORDING_AUDIO_DELETED`, y reintentar su
+    transcripción, 409 `TRANSCRIPTION_AUDIO_DELETED`. Si el cliente vuelve a
+    grabar, el audio nuevo vale. También borra los objetos de `voice/` sin
+    grabación con audio que tengan más de 24 horas (`VOICE_ORPHANS_DELETED`,
+    solo la cantidad). Primero borra el objeto y después marca: un fallo se
+    reintenta en la siguiente pasada. Respaldo en el bucket: regla de ciclo de
+    vida a 365 días (`docs/infra/almacenamiento.md`).
   - **Recuperación** (pública): `POST /access-link-recoveries` (`{ email }`)
     responde siempre 202 y envía en segundo plano un enlace nuevo para el
     diagnóstico sin completar más reciente de ese correo, sin revocar el

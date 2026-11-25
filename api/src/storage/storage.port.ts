@@ -31,6 +31,18 @@ export interface SignedReadUrlOptions {
   contentDisposition: 'inline' | 'attachment';
 }
 
+/** Un objeto del bucket, tal como lo lista el proveedor. */
+export interface ListedObject {
+  key: string;
+  lastModified: Date;
+}
+
+/** Una página del listado; `nextCursor` falta en la última. */
+export interface ObjectPage {
+  objects: ListedObject[];
+  nextCursor?: string;
+}
+
 /**
  * `unavailable`: el proveedor falló o el almacenamiento está desactivado (el
  * llamador lo traduce a 503). `not_found`: la clave no existe (404).
@@ -57,4 +69,6 @@ export interface StoragePort {
   /** Idempotente: borrar una clave que no existe no falla. */
   delete(key: string): Promise<void>;
   getSignedReadUrl(key: string, options: SignedReadUrlOptions): Promise<string>;
+  /** Objetos bajo `<prefix>/`, por páginas (para limpiar huérfanos, PF-90). */
+  list(prefix: string, cursor?: string): Promise<ObjectPage>;
 }

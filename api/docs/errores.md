@@ -49,6 +49,8 @@ Un código publicado no cambia de significado.
 | `RECORDING_UNSUPPORTED_TYPE` | 415 | El audio no es WebM (Opus) ni MP4 (AAC), o su contenido no coincide con el tipo declarado. |
 | `RECORDING_NOT_FOUND` | 404 | La respuesta no tiene grabación, o el audio ya no está disponible. |
 | `TRANSCRIPTION_NOT_FOUND` | 404 | Se pidió reintentar la transcripción de una respuesta sin grabación. |
+| `RECORDING_AUDIO_DELETED` | 410 | La grabación existe, pero su audio se borró por plazo (PF-90). La transcripción se conserva. |
+| `TRANSCRIPTION_AUDIO_DELETED` | 409 | Se pidió reintentar una transcripción cuyo audio ya se borró por plazo. |
 | `TRANSCRIPTION_NOT_FAILED` | 409 | Se pidió reintentar una transcripción que no está fallida: está pendiente o ya terminó. |
 | `STORAGE_UNAVAILABLE` | 503 | El almacenamiento de audios no responde; no se guardó nada y se puede reintentar. Las respuestas escritas siguen funcionando. |
 | `NO_CURRENT_CALCULATION` | 404 | El diagnóstico todavía no tiene un cálculo exitoso. |

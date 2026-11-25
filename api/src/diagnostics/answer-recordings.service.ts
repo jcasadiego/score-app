@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  GoneException,
   Injectable,
   NotFoundException,
   UnsupportedMediaTypeException,
@@ -16,6 +17,7 @@ import { TranscriptionService } from '../transcription/transcription.service';
 import { ClientSession } from './access-links.service';
 import { DiagnosticSessionsService } from './diagnostic-sessions.service';
 import {
+  RECORDING_AUDIO_DELETED,
   RECORDING_NOT_FOUND,
   RECORDING_SELECT,
   RECORDING_UNSUPPORTED_TYPE,
@@ -221,12 +223,24 @@ export class AnswerRecordingsService {
   ): Promise<RecordingPlayback> {
     const recording = await this.prisma.answerRecording.findFirst({
       where: { answer: { diagnosticId, questionId } },
-      select: { objectKey: true, format: true, durationMs: true },
+      select: {
+        objectKey: true,
+        format: true,
+        durationMs: true,
+        audioDeletedAt: true,
+      },
     });
     if (!recording) {
       throw new NotFoundException({
         message: 'Esta respuesta no tiene grabación.',
         code: RECORDING_NOT_FOUND,
+      });
+    }
+    // 410: existió y se borró por plazo (PF-90); no se firma una URL a nada.
+    if (recording.audioDeletedAt) {
+      throw new GoneException({
+        message: 'El audio de esta respuesta se borró por plazo.',
+        code: RECORDING_AUDIO_DELETED,
       });
     }
     const contentType = AUDIO_CONTENT_TYPES[recording.format];
@@ -302,7 +316,8 @@ export class AnswerRecordingsService {
     const recording = await tx.answerRecording.upsert({
       where: { answerId: answer.id },
       create: { answerId: answer.id, ...data },
-      update: data,
+      // Un audio nuevo vuelve a tener plazo, aunque el anterior se hubiera borrado.
+      update: { ...data, audioDeletedAt: null },
       select: { ...RECORDING_SELECT, id: true },
     });
     // Nueva o reemplazada: el texto anterior ya no corresponde al audio.

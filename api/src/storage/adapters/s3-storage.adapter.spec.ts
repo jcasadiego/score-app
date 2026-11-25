@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   NoSuchKey,
   PutObjectCommand,
   S3Client,
@@ -49,6 +50,33 @@ describe('S3StorageAdapter', () => {
       ContentType: 'audio/webm',
       ContentLength: 3,
     });
+  });
+
+  it('lista por carpeta y página, con el cursor del proveedor', async () => {
+    const at = new Date('2026-11-01T00:00:00Z');
+    send.mockResolvedValue({
+      Contents: [{ Key: KEY, LastModified: at }, { Key: undefined }],
+      IsTruncated: true,
+      NextContinuationToken: 'siguiente',
+    });
+    const page = await adapter.list('voice', 'anterior');
+
+    const command = send.mock.calls[0][0];
+    expect(command).toBeInstanceOf(ListObjectsV2Command);
+    expect(command.input).toMatchObject({
+      Bucket: 'score-voice-qa',
+      Prefix: 'voice/',
+      ContinuationToken: 'anterior',
+    });
+    expect(page).toEqual({
+      objects: [{ key: KEY, lastModified: at }],
+      nextCursor: 'siguiente',
+    });
+  });
+
+  it('la última página no trae cursor', async () => {
+    send.mockResolvedValue({ Contents: [], IsTruncated: false });
+    expect(await adapter.list('voice')).toEqual({ objects: [] });
   });
 
   it('lee el objeto como stream', async () => {

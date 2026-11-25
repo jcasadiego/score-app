@@ -9,7 +9,7 @@ export const MAX_RECORDING_DURATION_MS = 3 * 60 * 1000;
  * versión nueva del texto se agrega aquí, sin quitar las anteriores (quedan
  * guardadas en diagnósticos ya aceptados).
  */
-export const VOICE_CONSENT_VERSIONS = ['2026-11-24'] as const;
+export const VOICE_CONSENT_VERSIONS = ['2026-11-24', '2026-11-25'] as const;
 
 /** Lo que se sirve al reproducir, sea cual sea el tipo que declaró el navegador. */
 export const AUDIO_CONTENT_TYPES: Record<AudioFormat, string> = {

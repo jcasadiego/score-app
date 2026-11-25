@@ -25,6 +25,7 @@ import { StorageService } from '../storage/storage.service';
 import { OpenAiTranscriptionAdapter } from './adapters/openai-transcription.adapter';
 import { SimulatedTranscriptionAdapter } from './adapters/simulated-transcription.adapter';
 import {
+  TRANSCRIPTION_AUDIO_DELETED,
   TRANSCRIPTION_NOT_FAILED,
   TRANSCRIPTION_NOT_FOUND,
 } from './transcription-codes';
@@ -215,6 +216,7 @@ export class TranscriptionService implements OnModuleDestroy {
         JOIN answer_recordings r ON r.id = t.recording_id
         JOIN answers a ON a.id = r.answer_id
         WHERE t.status = 'PENDING' AND t.next_attempt_at <= now()
+          AND r.audio_deleted_at IS NULL
         ORDER BY t.next_attempt_at, t.created_at, t.id
         LIMIT 1
         FOR UPDATE OF t SKIP LOCKED
@@ -407,7 +409,10 @@ export class TranscriptionService implements OnModuleDestroy {
     const where = { recording: { answer: { diagnosticId, questionId } } };
     const view = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.answerTranscription.updateMany({
-        where: { ...where, status: TranscriptionStatus.FAILED },
+        where: {
+          status: TranscriptionStatus.FAILED,
+          recording: { ...where.recording, audioDeletedAt: null },
+        },
         data: {
           status: TranscriptionStatus.PENDING,
           attempts: 0,
@@ -422,6 +427,18 @@ export class TranscriptionService implements OnModuleDestroy {
         throw new NotFoundException({
           message: 'Esta respuesta no tiene una grabación para transcribir.',
           code: TRANSCRIPTION_NOT_FOUND,
+        });
+      }
+      // Sin audio no hay qué transcribir (PF-90).
+      const audio = await tx.answerRecording.findFirst({
+        where: where.recording,
+        select: { audioDeletedAt: true },
+      });
+      if (audio?.audioDeletedAt) {
+        throw new ConflictException({
+          message:
+            'El audio de esta respuesta se borró por plazo: ya no se puede transcribir.',
+          code: TRANSCRIPTION_AUDIO_DELETED,
         });
       }
       if (count === 0) {

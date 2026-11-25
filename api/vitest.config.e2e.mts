@@ -23,6 +23,8 @@ export default defineConfig({
       CRM_SYNC_INTERVAL_MS: '0',
       // Igual con las transcripciones (PF-88).
       TRANSCRIPTION_INTERVAL_MS: '0',
+      // Y con la conservación de la voz (PF-90): el test la llama a mano.
+      VOICE_RETENTION_INTERVAL_MS: '0',
     },
   },
 });

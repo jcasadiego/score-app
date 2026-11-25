@@ -493,20 +493,68 @@ enum AudioFormat {
 /// cambia la clave del objeto. El audio vive en el almacenamiento
 /// (`src/storage`), nunca en la base.
 model AnswerRecording {
-  id          String      @id @default(cuid())
-  answerId    String      @unique @map("answer_id")
-  answer      Answer      @relation(fields: [answerId], references: [id], onDelete: Restrict)
+  id            String               @id @default(cuid())
+  answerId      String               @unique @map("answer_id")
+  answer        Answer               @relation(fields: [answerId], references: [id], onDelete: Restrict)
   /// Clave opaca del objeto (`voice/<uuid>`), sin datos personales.
-  objectKey   String      @unique @map("object_key") @db.VarChar(64)
-  format      AudioFormat
+  objectKey     String               @unique @map("object_key") @db.VarChar(64)
+  format        AudioFormat
   /// De 1 byte a 5 MB (CHECK en la migración).
-  sizeBytes   Int         @map("size_bytes")
+  sizeBytes     Int                  @map("size_bytes")
   /// Declarada por el navegador; de 1 ms a 3 minutos (CHECK en la migración).
-  durationMs  Int         @map("duration_ms")
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  durationMs    Int                  @map("duration_ms")
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  transcription AnswerTranscription?
 
   @@map("answer_recordings")
+}
+
+/// Estado de la transcripción de una grabación (PF-88).
+enum TranscriptionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+
+  @@map("transcription_status")
+}
+
+/// Por qué falló el último intento. Nunca el mensaje del proveedor.
+enum TranscriptionErrorCode {
+  TIMEOUT
+  RATE_LIMITED
+  PROVIDER_ERROR
+  STORAGE_UNAVAILABLE
+  INVALID_AUDIO
+  AUTH_FAILED
+
+  @@map("transcription_error_code")
+}
+
+/// Texto de una grabación, generado en segundo plano (PF-88). Una por
+/// grabación: al reemplazar el audio vuelve a `PENDING` y pierde el texto. Se
+/// borra en cascada con la grabación (no tiene sentido sin ella, y la voz y
+/// su texto se borran juntos). El texto es un dato del cliente: nunca va a
+/// logs ni a la bitácora.
+model AnswerTranscription {
+  id            String                  @id @default(cuid())
+  recordingId   String                  @unique @map("recording_id")
+  recording     AnswerRecording         @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  status        TranscriptionStatus     @default(PENDING)
+  attempts      Int                     @default(0)
+  nextAttemptAt DateTime                @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  /// Proveedor y modelo del último intento (`simulated`, `openai`).
+  provider      String?                 @db.VarChar(32)
+  model         String?                 @db.VarChar(64)
+  /// Solo con `COMPLETED` (CHECK en la migración).
+  text          String?
+  lastErrorCode TranscriptionErrorCode? @map("last_error_code")
+  completedAt   DateTime?               @map("completed_at") @db.Timestamptz(3)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt])
+  @@map("answer_transcriptions")
 }
 
 model ExternalLink {

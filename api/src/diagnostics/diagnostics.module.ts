@@ -8,6 +8,7 @@ import { FlagsModule } from '../flags/flags.module';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
+import { TranscriptionModule } from '../transcription/transcription.module';
 import { AccessLinkGuard } from './access-link.guard';
 import { AccessLinkRecoveriesController } from './access-link-recoveries.controller';
 import { AccessLinksService } from './access-links.service';
@@ -27,6 +28,7 @@ import { DiagnosticsService } from './diagnostics.service';
     MailModule,
     NotificationsModule,
     StorageModule,
+    TranscriptionModule,
     JwtModule.register({}),
   ],
   controllers: [

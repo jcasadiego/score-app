@@ -1,7 +1,11 @@
 import { z } from 'zod';
-import { CrmSyncErrorCode } from '../../generated/prisma/enums';
+import {
+  CrmSyncErrorCode,
+  TranscriptionErrorCode,
+} from '../../generated/prisma/enums';
 import { CRM_PROVIDERS } from '../crm/crm.port';
 import { STORAGE_DRIVERS } from '../storage/storage.port';
+import { TRANSCRIPTION_PROVIDERS } from '../transcription/transcription.port';
 import { hasEncryptedConnection } from '../prisma/database-roles';
 import { isSecureOrigin, parseCorsOrigins } from './cors';
 
@@ -130,6 +134,27 @@ const EnvSchema = z
       .min(30)
       .max(900)
       .default(300),
+    // Transcripción de la voz (PF-88). `disabled` no transcribe (las pendientes
+    // esperan); `simulated`, texto fijo sin llamadas externas; `openai`, solo
+    // con DPA y retención cero. Vacío = `simulated` en desarrollo y `disabled`
+    // con NODE_ENV=production: nada sale de SCORE sin configurarlo.
+    TRANSCRIPTION_PROVIDER: optional(z.enum(TRANSCRIPTION_PROVIDERS)),
+    TRANSCRIPTION_MODEL: z
+      .string()
+      .min(1)
+      .max(64)
+      .default('gpt-4o-mini-transcribe'),
+    TRANSCRIPTION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(300_000)
+      .default(120_000),
+    // Solo desarrollo y QA: el adaptador simulado falla siempre con este código.
+    TRANSCRIPTION_SIMULATED_FAILURE: optional(z.enum(TranscriptionErrorCode)),
+    // Cada cuánto revisa las pendientes; 0 lo apaga (tests).
+    TRANSCRIPTION_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
+    OPENAI_API_KEY: optional(z.string().min(1)),
   })
   .superRefine((env, ctx) => {
     // Con el mismo secreto, un token del panel serviría como enlace de cliente.
@@ -232,6 +257,20 @@ const EnvSchema = z
         code: 'custom',
         path: ['CRM_PROVIDER'],
         message: 'obligatoria con NODE_ENV=production',
+      });
+    }
+    if (env.TRANSCRIPTION_PROVIDER === 'openai' && !env.OPENAI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPENAI_API_KEY'],
+        message: 'obligatoria con TRANSCRIPTION_PROVIDER=openai',
+      });
+    }
+    if (env.APP_ENV === 'production' && env.TRANSCRIPTION_SIMULATED_FAILURE) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TRANSCRIPTION_SIMULATED_FAILURE'],
+        message: 'no se admite con APP_ENV=production',
       });
     }
     // Un fallo inventado nunca puede frenar los envíos reales.

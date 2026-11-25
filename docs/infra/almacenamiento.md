@@ -23,8 +23,13 @@ privado de **Cloudflare R2**, compatible con S3. La API lo usa a través de
      dominio público. El navegador solo lee con una URL firmada de la API.
    - **CORS**: ninguno por ahora (la subida pasa por la API). Si PF-86 elige
      subida directa, se agrega solo el origen de `apps/diagnostico`.
-   - **Object lifecycle rules** (respaldo de PF-90): borrar objetos con prefijo
-     `voice/` a los **120 días**. La API los borra antes (90 días).
+   - **Object lifecycle rules** (respaldo de PF-90): regla *Delete objects*
+     con prefijo `voice/` a los **365 días** desde la subida. La API borra
+     antes (90 días tras entregar el informe o sin actividad, y los huérfanos
+     al día). La regla cuenta desde la subida y no desde la entrega, por eso
+     es más larga: con 120 días podía borrar antes de tiempo el audio de un
+     caso lento (decidido por José el 2026-11-25). Solo atrapa lo que la
+     aplicación no borró.
 4. R2 cifra en reposo siempre (AES-256); no hay que activarlo.
 5. **R2 → Manage API tokens → Create API token**:
    - Permiso **Object Read & Write**, aplicado **solo** a ese bucket.
@@ -32,6 +37,15 @@ privado de **Cloudflare R2**, compatible con S3. La API lo usa a través de
    - Copiar *Access Key ID*, *Secret Access Key* y el endpoint
      `https://<account-id>.r2.cloudflarestorage.com`. El secreto se muestra
      una sola vez.
+
+## Un bucket por base de datos
+
+La conservación de la voz (PF-90) borra los objetos de `voice/` que su base no
+conoce (huérfanos). Si dos bases comparten un bucket, cada API borraría los
+audios de la otra. Por eso cada ambiente tiene su bucket, y **la API local
+nunca apunta al bucket de QA** con `STORAGE_DRIVER=s3`: en desarrollo se usa
+`memory` (vacío). Para probar contra R2 en local, `pnpm storage:test` (no
+necesita la base) o un bucket propio de desarrollo.
 
 ## Cargar las variables en Render
 
@@ -60,5 +74,6 @@ desplegar** el cambio que las exige.
 ## Al recrear la base de QA (PF-70)
 
 La base se recrea cada mes y pierde los registros de las grabaciones, pero el
-bucket no. Vaciar el bucket de QA en el mismo paso (*R2 → score-voice-qa →
-Delete objects*), o dejar que la regla de 120 días lo haga.
+bucket no. Esos objetos quedan huérfanos y la conservación de la voz (PF-90)
+los borra en la primera pasada pasadas 24 horas. Para no esperar, vaciar el
+bucket de QA en el mismo paso (*R2 → score-voice-qa → Delete objects*).

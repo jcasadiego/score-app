@@ -16,10 +16,11 @@ import { questionIssues } from './questionnaire-rules';
 describe('cuestionario de prueba', () => {
   const families = Object.entries(SAMPLE_QUESTIONNAIRE);
 
-  it('cubre las cuatro familias', () => {
+  it('cubre las cinco familias', () => {
     expect(families.map(([family]) => family).sort()).toEqual([
       'B2B',
       'CATALOG',
+      'EVENT',
       'PROFESSIONAL',
       'PROJECT',
     ]);

@@ -2,7 +2,13 @@
  * Espejo de los enums `DiagnosticFamily` y `LeadStatus` de
  * `api/prisma/schema.prisma`. Si cambian allá, cambian acá.
  */
-export const FAMILIES = ["PROJECT", "B2B", "PROFESSIONAL", "CATALOG"] as const;
+export const FAMILIES = [
+  "PROJECT",
+  "B2B",
+  "PROFESSIONAL",
+  "CATALOG",
+  "EVENT",
+] as const;
 export type DiagnosticFamily = (typeof FAMILIES)[number];
 
 export const LEAD_STATUSES = ["NEW", "CONVERTED"] as const;
@@ -11,8 +17,9 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export const FAMILY_LABELS: Record<DiagnosticFamily, string> = {
   PROJECT: "Artista o proyecto",
   B2B: "Empresa",
-  PROFESSIONAL: "Evento",
+  PROFESSIONAL: "Profesional",
   CATALOG: "Catálogo",
+  EVENT: "Evento",
 };
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {

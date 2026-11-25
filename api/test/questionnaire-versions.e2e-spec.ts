@@ -549,7 +549,7 @@ describe('Versiones del cuestionario (e2e, base propia)', () => {
   });
 
   describe('cuestionario de prueba', () => {
-    it('carga las 4 familias, y cargarlo otra vez no duplica nada', async () => {
+    it('carga las 5 familias, y cargarlo otra vez no duplica nada', async () => {
       // El seed omite una familia con borrador abierto: se descartan primero.
       const drafts = await prisma.questionnaireVersion.findMany({
         where: { status: 'DRAFT' },
@@ -574,6 +574,7 @@ describe('Versiones del cuestionario (e2e, base propia)', () => {
       expect(samples.map((s) => s.family).sort()).toEqual([
         'B2B',
         'CATALOG',
+        'EVENT',
         'PROFESSIONAL',
         'PROJECT',
       ]);

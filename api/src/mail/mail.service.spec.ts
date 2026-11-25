@@ -197,7 +197,7 @@ describe('MailService', () => {
 
     await service.sendDiagnosticCompletedNotice('equipo@mfp.com', {
       leadName: 'Ana Pérez',
-      family: 'PROFESSIONAL',
+      family: 'EVENT',
       link: 'https://panel.example.com/diagnostics/d-1',
     });
 

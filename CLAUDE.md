@@ -41,8 +41,8 @@ cuenta, y todo pasa por PR y revisión antes de llegar a `main`.
   queda detrás de `ScoringEnginePort` (`api/src/scoring-engine/`) para no
   bloquear el resto por esto. Hoy hay un adapter simulado y el modo
   `disabled` (PF-24); el real es PF-26.
-- **Especificación completa del cuestionario** de las cuatro familias
-  (Proyecto, B2B, Profesional, Catálogo), con su lógica. Bloquea el
+- **Especificación completa del cuestionario** de las cinco familias
+  (Proyecto, B2B, Profesional, Catálogo, Evento), con su lógica. Bloquea el
   dominio real de `api` (modelos de diagnóstico/respuestas, detección de
   contradicciones) y el flujo de `apps/diagnostico`.
 
@@ -218,7 +218,7 @@ terminó):
 | TokenRecuperacionContrasena | PasswordResetToken |
 | Sesión del panel | UserSession |
 | Segundo factor / Código de recuperación | MFA / UserRecoveryCode |
-| FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`) |
+| FamiliaDiagnostico | DiagnosticFamily (`PROJECT`, `B2B`, `PROFESSIONAL`, `CATALOG`, `EVENT`) |
 | EstadoLead | LeadStatus (`NEW`, `CONVERTED`) |
 | Envío al CRM / Estado de sincronización | CrmSyncEvent / CrmSyncStatus (`SYNCED`, `PENDING`, `FAILED`) |
 | Diagnóstico / enlace | Diagnostic / AccessLink |

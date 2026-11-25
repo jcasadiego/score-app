@@ -89,6 +89,7 @@ function toQuestionInput(raw: unknown): QuestionInput | null {
     helpText,
     required: q.required,
     maxLength,
+    allowsVoice: isFreeText && q.allowsVoice === true,
     options: isFreeText ? [] : options,
   };
 }

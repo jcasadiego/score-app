@@ -56,12 +56,21 @@ export function CorrectionModal({
   const answer = question.answer;
 
   const effectiveText = current ? current.textValue : (answer?.text ?? null);
+  // Respondida solo por voz: se parte de la transcripción automática para
+  // corregirla. La corrección queda como el texto efectivo de la respuesta.
+  const transcript =
+    answer?.recording?.transcription?.status === "COMPLETED"
+      ? (answer.recording.transcription.text ?? null)
+      : null;
+  const fromTranscript = !effectiveText && !!transcript;
   const effectiveOptions = current
     ? current.options.map(({ id }) => id)
     : (answer?.optionIds ?? []);
   const initialValues: CorrectionValues = {
     reason: "",
-    ...(question.type === "FREE_TEXT" && { text: effectiveText ?? "" }),
+    ...(question.type === "FREE_TEXT" && {
+      text: (fromTranscript ? transcript : effectiveText) ?? "",
+    }),
     ...(question.type === "SINGLE_CHOICE" && { single: effectiveOptions[0] }),
     ...(question.type === "MULTIPLE_CHOICE" && { optionIds: effectiveOptions }),
   };
@@ -136,6 +145,11 @@ export function CorrectionModal({
             <Form.Item
               name="text"
               label="Valor corregido"
+              extra={
+                fromTranscript
+                  ? "Precargado con la transcripción automática del audio: revísalo contra la grabación."
+                  : undefined
+              }
               rules={[
                 { required: true, whitespace: true, message: "Escribe el valor corregido." },
               ]}

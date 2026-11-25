@@ -7,8 +7,11 @@ import { redirectIfSessionExpired } from "@/lib/auth/expire-session";
 import { ApiError } from "@/lib/api/errors";
 import {
   createDiagnostic,
+  getRecordingPlayback,
   resendAccessLink,
+  retryTranscription,
   type IssuedLink,
+  type RecordingPlayback,
 } from "@/lib/api/diagnostics";
 import { getLead, listLeads } from "@/lib/api/leads";
 import {
@@ -320,5 +323,79 @@ export async function flagAnalysisInProgressAction(
   } catch (error) {
     await redirectIfSessionExpired(error);
     return { ok: false };
+  }
+}
+
+/**
+ * URL firmada de vida corta para escuchar una grabación (ambos roles). Se pide
+ * al pulsar escuchar, nunca al cargar la página, y cada pedido queda en la
+ * bitácora. La URL solo viaja al navegador que la pidió.
+ */
+export async function recordingPlaybackAction(
+  diagnosticId: string,
+  questionId: string,
+): Promise<{
+  ok: boolean;
+  playback?: RecordingPlayback;
+  /** 404: el audio ya se borró (por ejemplo, por plazo). */
+  gone?: boolean;
+  error?: string;
+}> {
+  try {
+    const token = await sessionToken();
+    if (!isId(diagnosticId) || !isId(questionId)) {
+      throw new ApiError(400, "Esa grabación no es válida.");
+    }
+    return {
+      ok: true,
+      playback: await getRecordingPlayback(token, diagnosticId, questionId),
+    };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    if (error instanceof ApiError && error.status === 404) {
+      return { ok: false, gone: true, error: "Este audio ya no está disponible." };
+    }
+    return {
+      ok: false,
+      error:
+        error instanceof ApiError
+          ? error.message
+          : "No pudimos cargar el audio. Intenta de nuevo.",
+    };
+  }
+}
+
+/** Vuelve a poner en cola una transcripción fallida (Revisor y Aprobador). */
+export async function retryTranscriptionAction(
+  diagnosticId: string,
+  questionId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const token = await sessionToken();
+    if (!isId(diagnosticId) || !isId(questionId)) {
+      throw new ApiError(400, "Esa grabación no es válida.");
+    }
+    await retryTranscription(token, diagnosticId, questionId);
+    revalidatePath(`/diagnostics/${diagnosticId}`);
+    revalidatePath("/reviews", "layout");
+    return { ok: true };
+  } catch (error) {
+    await redirectIfSessionExpired(error);
+    // 409: otro la reintentó o ya terminó; la pantalla se refresca.
+    if (error instanceof ApiError && error.code === "TRANSCRIPTION_NOT_FAILED") {
+      revalidatePath(`/diagnostics/${diagnosticId}`);
+      revalidatePath("/reviews", "layout");
+      return {
+        ok: false,
+        error: "Esta transcripción ya no está fallida: actualizamos la pantalla.",
+      };
+    }
+    return {
+      ok: false,
+      error:
+        error instanceof ApiError
+          ? error.message
+          : "No pudimos reintentar la transcripción. Intenta de nuevo.",
+    };
   }
 }

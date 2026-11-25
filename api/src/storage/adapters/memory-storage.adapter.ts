@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import {
+  ObjectPage,
   PutObjectInput,
   SignedReadUrlOptions,
   StorageError,
@@ -16,12 +17,16 @@ export class MemoryStorageAdapter implements StoragePort {
   readonly driver = 'memory' as const;
   private readonly objects = new Map<
     string,
-    { body: Buffer; contentType: string }
+    { body: Buffer; contentType: string; lastModified: Date }
   >();
 
   put({ key, body, contentType }: PutObjectInput): Promise<void> {
     // Copia: quien llamó puede reutilizar su buffer.
-    this.objects.set(key, { body: Buffer.from(body), contentType });
+    this.objects.set(key, {
+      body: Buffer.from(body),
+      contentType,
+      lastModified: new Date(),
+    });
     return Promise.resolve();
   }
 
@@ -38,6 +43,20 @@ export class MemoryStorageAdapter implements StoragePort {
   delete(key: string): Promise<void> {
     this.objects.delete(key);
     return Promise.resolve();
+  }
+
+  /** Todo en una página: en memoria nunca son muchos. */
+  list(prefix: string): Promise<ObjectPage> {
+    const objects = [...this.objects.entries()]
+      .filter(([key]) => key.startsWith(`${prefix}/`))
+      .map(([key, { lastModified }]) => ({ key, lastModified }));
+    return Promise.resolve({ objects });
+  }
+
+  /** Solo tests: simula un objeto subido hace tiempo. */
+  backdate(key: string, lastModified: Date): void {
+    const object = this.objects.get(key);
+    if (object) object.lastModified = lastModified;
   }
 
   getSignedReadUrl(

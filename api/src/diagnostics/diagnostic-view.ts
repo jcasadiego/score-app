@@ -18,6 +18,7 @@ export const RECORDING_SELECT = {
   sizeBytes: true,
   durationMs: true,
   updatedAt: true,
+  audioDeletedAt: true,
 } satisfies Prisma.AnswerRecordingSelect;
 
 export const ANSWER_SELECT = {
@@ -44,6 +45,8 @@ export interface RecordingView {
   sizeBytes: number;
   durationMs: number;
   updatedAt: Date;
+  /** El audio se borró por plazo (PF-90); el registro queda. */
+  audioDeletedAt: Date | null;
 }
 
 export interface AnswerView {
@@ -64,6 +67,7 @@ export function recordingView(recording: StoredRecording): RecordingView {
     sizeBytes: recording.sizeBytes,
     durationMs: recording.durationMs,
     updatedAt: recording.updatedAt,
+    audioDeletedAt: recording.audioDeletedAt,
   };
 }
 
@@ -105,3 +109,4 @@ export const VOICE_CONSENT_REQUIRED = 'VOICE_CONSENT_REQUIRED';
 export const RECORDING_TOO_LARGE = 'RECORDING_TOO_LARGE';
 export const RECORDING_UNSUPPORTED_TYPE = 'RECORDING_UNSUPPORTED_TYPE';
 export const RECORDING_NOT_FOUND = 'RECORDING_NOT_FOUND';
+export const RECORDING_AUDIO_DELETED = 'RECORDING_AUDIO_DELETED';

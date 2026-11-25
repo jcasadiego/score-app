@@ -21,6 +21,7 @@ import {
 import { TranscriptionAdapterError } from './../src/transcription/transcription.port';
 import { TranscriptionService } from './../src/transcription/transcription.service';
 import { loadVoiceTranscripts } from './../src/transcription/voice-transcripts';
+import { VoiceRetentionService } from './../src/diagnostics/voice-retention.service';
 
 /**
  * Grabaciones de voz (PF-86). Base propia, como `diagnostics`, porque las
@@ -33,7 +34,7 @@ const DATABASE = `score_voice_${process.pid}`;
 const DIAGNOSTICS = '/api/v1/diagnostics';
 const SESSIONS = '/api/v1/diagnostic-sessions';
 const CURRENT = `${SESSIONS}/current`;
-const CONSENT_VERSION = '2026-11-24';
+const CONSENT_VERSION = '2026-11-25';
 
 const WEBM = Buffer.concat([
   Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01]),
@@ -563,7 +564,13 @@ describe('Grabaciones de voz (e2e, base propia)', () => {
         .answer.recording.transcription;
     };
 
-    afterEach(() => vi.restoreAllMocks());
+    // Solo los espías de cada test: el del límite de peticiones sigue puesto.
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.spyOn(AppThrottlerGuard.prototype, 'canActivate').mockResolvedValue(
+        true,
+      );
+    });
 
     it('con el simulado, toda grabación nueva termina completada', async () => {
       const { id, session } = await started();
@@ -638,7 +645,9 @@ describe('Grabaciones de voz (e2e, base propia)', () => {
 
       const retry = `${DIAGNOSTICS}/${id}/answers/${voice.id}/transcription/retry`;
       await server().post(retry).expect(401);
-      vi.restoreAllMocks();
+      vi.mocked(
+        SimulatedTranscriptionAdapter.prototype.transcribe,
+      ).mockRestore();
       const { body: retried } = await server()
         .post(retry)
         .set(as(reviewer.token))
@@ -700,6 +709,176 @@ describe('Grabaciones de voz (e2e, base propia)', () => {
       expect(transcripts).toEqual({
         story: { source: 'automatic_transcription', text: attack },
       });
+    });
+  });
+
+  describe('conservación (PF-90)', () => {
+    const DAY = 24 * 60 * 60_000;
+    const retention = () => app.get(VoiceRetentionService);
+    const recordingOf = (diagnosticId: string) =>
+      prisma.answerRecording.findFirstOrThrow({
+        where: { answer: { diagnosticId } },
+        include: { transcription: true },
+      });
+    const daysAgo = (days: number) => new Date(Date.now() - days * DAY);
+
+    /** Diagnóstico con una grabación ya transcrita. */
+    async function withVoice() {
+      const { id, session } = await started();
+      await consent(session);
+      await upload(session, voice.id).expect(200);
+      await (
+        app.get(TranscriptionService) as unknown as {
+          running: Promise<void> | null;
+        }
+      ).running;
+      return { id, session };
+    }
+
+    // Solo los espías de cada test: el del límite de peticiones sigue puesto.
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.spyOn(AppThrottlerGuard.prototype, 'canActivate').mockResolvedValue(
+        true,
+      );
+    });
+
+    it('borra el audio de un diagnóstico abandonado y conserva registro y transcripción', async () => {
+      const { id, session } = await withVoice();
+      const recent = await withVoice();
+      await prisma.diagnostic.update({
+        where: { id },
+        data: { lastActivityAt: daysAgo(91) },
+      });
+      const { objectKey } = await recordingOf(id);
+
+      const result = await retention().run();
+      expect(result.expired).toBe(1);
+      expect(storedKeys().has(objectKey)).toBe(false);
+      const after = await recordingOf(id);
+      expect(after.audioDeletedAt).not.toBeNull();
+      expect(after.transcription).toMatchObject({ status: 'COMPLETED' });
+      // El de actividad reciente sigue intacto.
+      expect((await recordingOf(recent.id)).audioDeletedAt).toBeNull();
+
+      const logs = await prisma.auditLog.findMany({
+        where: { action: 'VOICE_AUDIO_DELETED', entityId: after.id },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]).toMatchObject({ actorType: 'SYSTEM' });
+      expect(logs[0].data).toEqual({
+        diagnosticId: id,
+        questionId: voice.id,
+        reason: 'ABANDONED',
+      });
+
+      // Repetir no falla ni duplica la bitácora.
+      expect((await retention().run()).expired).toBe(0);
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'VOICE_AUDIO_DELETED', entityId: after.id },
+        }),
+      ).toBe(1);
+
+      // El panel ve que se borró, y escuchar responde 410.
+      const { body } = await server()
+        .get(`${DIAGNOSTICS}/${id}`)
+        .set(as(reviewer.token))
+        .expect(200);
+      const answer = body.questions.find(
+        (q: { id: string }) => q.id === voice.id,
+      ).answer;
+      expect(answer.recording.audioDeletedAt).not.toBeNull();
+      expect(answer.recording.transcription.status).toBe('COMPLETED');
+      const { body: gone } = await server()
+        .get(`${DIAGNOSTICS}/${id}/answers/${voice.id}/recording`)
+        .set(as(reviewer.token))
+        .expect(410);
+      expect(gone.code).toBe('RECORDING_AUDIO_DELETED');
+
+      // Si el cliente vuelve y graba de nuevo, el audio nuevo vale.
+      await upload(session, voice.id).expect(200);
+      expect((await recordingOf(id)).audioDeletedAt).toBeNull();
+    });
+
+    it('un caso enviado sin informe entregado conserva el audio', async () => {
+      const { id } = await withVoice();
+      await prisma.diagnostic.update({
+        where: { id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: daysAgo(200),
+          lastActivityAt: daysAgo(200),
+        },
+      });
+      await retention().run();
+      expect((await recordingOf(id)).audioDeletedAt).toBeNull();
+    });
+
+    it('lo que no llegó a transcribirse queda fallido y no se puede reintentar', async () => {
+      const { id } = await withVoice();
+      const { id: recordingId } = await recordingOf(id);
+      await prisma.answerTranscription.update({
+        where: { recordingId },
+        data: { status: 'PENDING', text: null, completedAt: null },
+      });
+      await prisma.diagnostic.update({
+        where: { id },
+        data: { lastActivityAt: daysAgo(120) },
+      });
+      await retention().run();
+      expect((await recordingOf(id)).transcription).toMatchObject({
+        status: 'FAILED',
+        lastErrorCode: 'AUDIO_DELETED',
+      });
+      const { body } = await server()
+        .post(`${DIAGNOSTICS}/${id}/answers/${voice.id}/transcription/retry`)
+        .set(as(reviewer.token))
+        .expect(409);
+      expect(body.code).toBe('TRANSCRIPTION_AUDIO_DELETED');
+      // Sigue fallida: el reintento no la dejó pendiente.
+      expect((await recordingOf(id)).transcription?.status).toBe('FAILED');
+    });
+
+    it('si el bucket falla, no marca nada y la siguiente pasada lo borra', async () => {
+      const { id } = await withVoice();
+      await prisma.diagnostic.update({
+        where: { id },
+        data: { lastActivityAt: daysAgo(95) },
+      });
+      vi.spyOn(storage, 'delete').mockRejectedValueOnce(
+        new StorageError('unavailable'),
+      );
+      const first = await retention().run();
+      expect(first.failed).toBeGreaterThanOrEqual(1);
+      expect((await recordingOf(id)).audioDeletedAt).toBeNull();
+
+      await retention().run();
+      expect((await recordingOf(id)).audioDeletedAt).not.toBeNull();
+    });
+
+    it('borra los objetos huérfanos con más de un día, no los recientes ni los vigentes', async () => {
+      const { id } = await withVoice();
+      const { objectKey: live } = await recordingOf(id);
+      const old = 'voice/00000000-0000-4000-8000-0000000000a1';
+      const fresh = 'voice/00000000-0000-4000-8000-0000000000a2';
+      for (const key of [old, fresh]) {
+        await storage.put({ key, body: WEBM, contentType: 'audio/webm' });
+      }
+      storage.backdate(old, daysAgo(2));
+      storage.backdate(live, daysAgo(2));
+
+      const result = await retention().run();
+      expect(result.orphans).toBe(1);
+      expect(storedKeys().has(old)).toBe(false);
+      expect(storedKeys().has(fresh)).toBe(true);
+      expect(storedKeys().has(live)).toBe(true);
+      const log = await prisma.auditLog.findFirst({
+        where: { action: 'VOICE_ORPHANS_DELETED' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(log?.data).toEqual({ count: 1 });
+      expect(JSON.stringify(log)).not.toContain('voice/');
     });
   });
 });

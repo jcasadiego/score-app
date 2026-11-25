@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ValidatedEnv } from '../config/validate-env';
-import { isObjectKey } from './object-key';
+import { isObjectKey, ObjectKeyPrefix } from './object-key';
 import {
+  ObjectPage,
   PutObjectInput,
   STORAGE_PORT,
   SignedReadUrlOptions,
@@ -57,6 +58,12 @@ export class StorageService {
   delete(key: string): Promise<void> {
     assertObjectKey(key);
     return this.port.delete(key);
+  }
+
+  /** Solo las claves con el formato de `newObjectKey`: lo demás no es nuestro. */
+  async list(prefix: ObjectKeyPrefix, cursor?: string): Promise<ObjectPage> {
+    const page = await this.port.list(prefix, cursor);
+    return { ...page, objects: page.objects.filter((o) => isObjectKey(o.key)) };
   }
 
   async getSignedReadUrl(

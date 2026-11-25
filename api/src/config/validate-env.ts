@@ -155,6 +155,13 @@ const EnvSchema = z
     // Cada cuánto revisa las pendientes; 0 lo apaga (tests).
     TRANSCRIPTION_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
     OPENAI_API_KEY: optional(z.string().min(1)),
+    // Conservación de la voz (PF-90): cada cuánto se borran los audios
+    // vencidos y los objetos huérfanos. 6 horas; 0 lo apaga (tests).
+    VOICE_RETENTION_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(6 * 60 * 60_000),
   })
   .superRefine((env, ctx) => {
     // Con el mismo secreto, un token del panel serviría como enlace de cliente.

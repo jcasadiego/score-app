@@ -19,4 +19,8 @@ export class DisabledStorageAdapter implements StoragePort {
   getSignedReadUrl(): Promise<string> {
     return Promise.reject(new StorageError('unavailable'));
   }
+
+  list(): Promise<never> {
+    return Promise.reject(new StorageError('unavailable'));
+  }
 }

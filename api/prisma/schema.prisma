@@ -189,6 +189,7 @@ enum DiagnosticFamily {
   B2B
   PROFESSIONAL
   CATALOG
+  EVENT
 
   @@map("diagnostic_family")
 }

@@ -64,6 +64,19 @@ describe('LeadsController (e2e)', () => {
     expect(lead).toMatchObject({ ...VALID, status: 'NEW' });
   });
 
+  it('acepta la familia Evento', async () => {
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send({ ...VALID, family: 'EVENT' })
+      .expect(201);
+    createdIds.push(response.body.id);
+
+    const lead = await prisma.lead.findUniqueOrThrow({
+      where: { id: response.body.id },
+    });
+    expect(lead.family).toBe('EVENT');
+  });
+
   it('responde los errores con RFC 9457 y conserva `message` para el sitio', async () => {
     const response = await request(app.getHttpServer())
       .post(PATH)

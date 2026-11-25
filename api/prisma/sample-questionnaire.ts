@@ -9,7 +9,7 @@ import type { PrismaClient } from '../generated/prisma/client';
  */
 
 type SampleType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'FREE_TEXT';
-type SampleFamily = 'PROJECT' | 'B2B' | 'PROFESSIONAL' | 'CATALOG';
+type SampleFamily = 'PROJECT' | 'B2B' | 'PROFESSIONAL' | 'CATALOG' | 'EVENT';
 
 export interface SampleQuestion {
   code: string;
@@ -325,6 +325,75 @@ export const SAMPLE_QUESTIONNAIRE: Record<SampleFamily, SampleQuestion[]> = {
       helpText: 'Ejemplo: venderlo, licenciarlo para cine y TV, o ampliarlo.',
       required: true,
       maxLength: 1000,
+    },
+  ],
+  EVENT: [
+    {
+      code: 'event_type',
+      text: '¿Qué tipo de evento organizas?',
+      type: 'SINGLE_CHOICE',
+      helpText: 'Elige el que mejor describa tu evento principal.',
+      required: true,
+      options: [
+        ['festival', 'Festival'],
+        ['concert', 'Concierto o gira'],
+        ['club_night', 'Fiesta o noche de club'],
+        ['private_event', 'Evento privado o corporativo'],
+      ],
+    },
+    {
+      code: 'event_frequency',
+      text: '¿Cada cuánto se realiza el evento?',
+      type: 'SINGLE_CHOICE',
+      helpText: 'Cuenta solo las ediciones confirmadas.',
+      required: true,
+      options: [
+        ['one_off', 'Una sola vez'],
+        ['yearly', 'Una vez al año'],
+        ['several_per_year', 'Varias veces al año'],
+      ],
+    },
+    {
+      code: 'event_revenue_sources',
+      text: '¿De dónde vienen los ingresos del evento?',
+      type: 'MULTIPLE_CHOICE',
+      helpText: 'Marca todas las fuentes que apliquen.',
+      required: true,
+      options: [
+        ['tickets', 'Venta de entradas'],
+        ['sponsorships', 'Patrocinios'],
+        ['food_and_drinks', 'Comida y bebida'],
+        ['merchandise', 'Merchandising'],
+        ['public_funding', 'Fondos públicos o becas'],
+      ],
+    },
+    {
+      code: 'event_attendance',
+      text: '¿Cuántas personas asistieron a la última edición?',
+      type: 'SINGLE_CHOICE',
+      helpText: 'Si es la primera, usa la asistencia esperada.',
+      required: true,
+      options: [
+        ['under_500', 'Menos de 500'],
+        ['from_500_to_5000', 'De 500 a 5.000'],
+        ['over_5000', 'Más de 5.000'],
+      ],
+    },
+    {
+      code: 'event_budget_control',
+      text: '¿Llevas un presupuesto con costos e ingresos por edición?',
+      type: 'SINGLE_CHOICE',
+      helpText: 'En parte: tienes algunos números, pero no el cierre completo.',
+      required: false,
+      options: YES_PARTIAL_NO,
+    },
+    {
+      code: 'event_challenge',
+      text: '¿Cuál es el mayor reto financiero del evento?',
+      type: 'FREE_TEXT',
+      helpText: 'Ejemplo: "cubrir los anticipos a los artistas antes de vender entradas".',
+      required: true,
+      maxLength: 500,
     },
   ],
 };

@@ -28,8 +28,9 @@ export interface DiagnosticCompletedNoticeData {
 export const FAMILY_LABEL: Record<DiagnosticFamily, string> = {
   PROJECT: 'Artista o proyecto',
   B2B: 'Empresa',
-  PROFESSIONAL: 'Evento',
+  PROFESSIONAL: 'Profesional',
   CATALOG: 'Catálogo',
+  EVENT: 'Evento',
 };
 
 const TEAM_NOTICE_FOOTER =

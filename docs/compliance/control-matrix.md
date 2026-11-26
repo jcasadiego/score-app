@@ -16,7 +16,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Límite de peticiones en login y rutas públicas | A.8.5, A.8.6 | CC6.6 | Implementado | `app-throttler.guard.ts`. Contadores en Postgres, compartidos entre instancias (PF-60, `postgres-throttler.storage.ts`, `test/throttle-storage.e2e-spec.ts`); la clave es un HMAC, nunca la IP en claro. Falla cerrado: sin Postgres, las rutas con límite responden 500 en vez de saltarse el límite |
 | Sesión revocable, única y con límite absoluto | A.8.5 | CC6.1 | Implementado | `sessions.service.ts`, `test/auth-refresh.e2e-spec.ts` |
 | Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Lo configura solo quien definió la contraseña con el enlace de su correo: restablecerlo también invalida la contraseña (PF-59) |
-| Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec. Falta rotar la llave (PF-57) |
+| Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec; tag de 16 bytes exigido al descifrar. La llave se rota sin afectar a nadie: id de llave en cada secreto, llaves anteriores solo para descifrar y recifrado al arrancar (`mfa-key-rotation.service.ts`, `test/mfa-key-rotation.e2e-spec.ts`, PF-57) |
 | Vencimiento de sesión por inactividad | A.8.5 | CC6.1 | Parcial | 1 día (`JWT_EXPIRES_IN`). Valorar un plazo menor; decisión de José |
 | Mínimo privilegio y roles | A.5.15, A.5.18, A.8.2, A.8.3 | CC6.3 | Implementado | Revisor y Aprobador validados en cada petición, sin rol por defecto y con un Aprobador activo garantizado. Los avisos por correo llegan solo al rol que actúa (PF-38). `CLAUDE.md` 5.3, `api/test/roles.e2e-spec.ts` |
 | Cambios de rol trazables y con cierre de sesión | A.5.18, A.8.15 | CC6.2, CC7.2 | Implementado | `USER_ROLE_CHANGED` en la misma transacción, con el rol anterior y el nuevo. `users.service.ts` |
@@ -45,10 +45,10 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Cifrado en tránsito: la API no arranca sin `sslmode` ni con enlaces http | A.8.20, A.8.24 | CC6.7 | Implementado | `validate-env.ts` y su spec. TLS público: HSTS en los dos frontends y el proveedor (PF-30) |
 | Correo saliente autenticado: remitente en un subdominio propio con SPF, DKIM y DMARC, y key de Resend solo de envío limitada a ese dominio | A.5.14, A.8.20 | CC6.7 | **Parcial** | QA: `qa.notificaciones.musicfinance.pro` verificado el 2026-11-19, DMARC `p=none` en el subdominio (PF-72). Falta PROD en la cuenta del cliente y subir DMARC a `quarantine` cuando haya reportes limpios |
-| Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Elegir un proveedor que lo garantice (PF-56) |
+| Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Render Postgres declara AES-256 en reposo (`investigacion-despliegue.md` 4.4). Falta confirmarlo en la base de PROD, incluidos los respaldos, y guardar la evidencia del proveedor (`docs/infra/respaldos.md`, PF-56) |
 | Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `common/link-token.ts`: recuperación y activación del panel, y enlace del cliente final |
 | Secretos fuera del repo, con longitud mínima | A.8.24 | CC6.1 | Implementado | `validate-env.ts`, gitleaks en CI |
-| Gestor de secretos y rotación | A.8.24 | CC6.1 | **Pendiente** | Procedimiento de rotación de JWT y API keys (PF-57) |
+| Gestor de secretos y rotación | A.8.24, A.5.17 | CC6.1 | Parcial | Variables de Render por entorno, con valores distintos en cada uno; quién accede, cómo se rota cada secreto y qué hacer si se filtra: `docs/infra/rotacion-secretos.md` (PF-57). Falta probar cada rotación en QA y, en PROD, el workspace del cliente y el respaldo de `MFA_ENCRYPTION_KEY` fuera de Render (PF-74) |
 
 ## Seguridad de la aplicación
 
@@ -100,7 +100,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Datos personales fuera de logs y bitácora | Minimización | A.8.11, A.8.12 | C1.1, P4 | Implementado | `redact-sensitive-data.ts` y su spec |
 | Registro de tratamiento | Registros de tratamiento | A.5.34 | P1, P6 | Parcial | `data-inventory.md`, borrador con huecos marcados |
 | Consentimiento y aviso de privacidad | Consentimiento, información al titular | A.5.34 | P1, P2 | **Pendiente** | PF-49, bloqueada por ley aplicable y texto legal |
-| Conservación y borrado, también en respaldos | Limitación de conservación | A.5.33, A.8.10 | C1.2, P4 | **Pendiente** | PF-49 |
+| Conservación y borrado, también en respaldos | Limitación de conservación | A.5.33, A.8.10 | C1.2, P4 | **Pendiente** | PF-49. Lo borrado sigue hasta 7 días en el PITR, y tras una restauración se vuelven a aplicar los borrados posteriores al punto (`docs/infra/respaldos.md`, PF-56) |
 | Acceso, rectificación, portabilidad y borrado | Derechos del titular | A.5.34 | P5 | **Pendiente** | PF-49. La bitácora ya no guarda nombre, correo ni teléfono |
 | Evaluación de impacto (DPIA) | Evaluación de impacto | A.5.34 | P1 | **Pendiente** | PF-62, antes del release con clientes reales y al sumar IA (PF-32) |
 | Transferencias internacionales | Transferencias | A.5.34 | P6 | **Pendiente** | PF-62; depende de la región de los proveedores |
@@ -111,8 +111,8 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts`. Chequeo externo cada 15 minutos con `.github/workflows/uptime.yml` (`HEALTHCHECK_URLS`), pensado para PROD: falta cargar las URLs (PF-74, PF-77) |
 | Capacidad del correo: un spam del formulario público no agota la cuota que comparten los correos críticos | A.8.6 | A1.1, CC6.6 | Implementado | Cupo global de avisos de lead nuevo por día (`NEW_LEAD_NOTICE_DAILY_LIMIT`, 30 por defecto), contado en Postgres y compartido entre instancias, aparte del límite por IP. Pasado el cupo el lead se registra igual y queda `EMAIL_SUPPRESSED` en la bitácora, sin datos del lead; los correos críticos no pasan por el cupo. `src/notifications/notice-budget.service.ts`, `test/notice-budget.e2e-spec.ts` (PF-36) |
-| Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | PF-56 |
-| Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | PF-56 y PF-63 |
+| Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | Procedimiento y simulacro escritos en `docs/infra/respaldos.md` (PF-56): PITR de 7 días, restauración a una instancia nueva, revisión antes de cambiar la conexión y registro de la duración. Falta la base de PROD (PF-74) y hacer el simulacro |
+| Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | Propuesta en `docs/infra/respaldos.md`: RPO de 1 hora y RTO de 4 horas en horario laboral, por aprobar con el cliente. El plan de continuidad completo es de PF-63 |
 
 ## Organización (fuera de este repo)
 

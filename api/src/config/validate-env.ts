@@ -51,6 +51,22 @@ const EnvSchema = z
         (value) => Buffer.from(value, 'base64').length === 32,
         'debe ser de 32 bytes en base64 (openssl rand -base64 32)',
       ),
+    // Solo durante una rotación (PF-57): las llaves que reemplazó, separadas por
+    // coma. Sirven para descifrar; al arrancar se recifra todo con la actual.
+    MFA_ENCRYPTION_PREVIOUS_KEYS: optional(
+      z.string().refine(
+        (value) =>
+          value
+            .split(',')
+            .map((key) => key.trim())
+            .every(
+              (key) =>
+                /^[A-Za-z0-9+/]+={0,2}$/.test(key) &&
+                Buffer.from(key, 'base64').length === 32,
+            ),
+        'cada llave debe ser de 32 bytes en base64, separadas por coma',
+      ),
+    ),
     THROTTLE_TTL: z.coerce.number().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().default(100),
     // Proxies de confianza delante de la API. De más, un cliente puede inventar
@@ -279,6 +295,18 @@ const EnvSchema = z
         code: 'custom',
         path: ['CRM_PROVIDER'],
         message: 'obligatoria con NODE_ENV=production',
+      });
+    }
+    // La llave actual entre las anteriores suele ser un error al rotar: la
+    // nueva quedó sin poner o se copió mal.
+    const previousMfaKeys = (env.MFA_ENCRYPTION_PREVIOUS_KEYS ?? '')
+      .split(',')
+      .map((key) => key.trim());
+    if (previousMfaKeys.includes(env.MFA_ENCRYPTION_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MFA_ENCRYPTION_PREVIOUS_KEYS'],
+        message: 'no puede incluir la llave actual (MFA_ENCRYPTION_KEY)',
       });
     }
     if (env.TRANSCRIPTION_PROVIDER === 'openai' && !env.OPENAI_API_KEY) {

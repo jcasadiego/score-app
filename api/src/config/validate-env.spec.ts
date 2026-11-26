@@ -496,3 +496,34 @@ describe('validateEnv — alertas de seguridad (PF-55)', () => {
     ).toBe(60_000);
   });
 });
+
+describe('validateEnv — rotación de la llave MFA (PF-57)', () => {
+  const key = (fill: number) => Buffer.alloc(32, fill).toString('base64');
+
+  it('acepta llaves anteriores de 32 bytes separadas por coma', () => {
+    const previous = `${key(2)}, ${key(3)}`;
+    expect(
+      validateEnv({ ...BASE, MFA_ENCRYPTION_PREVIOUS_KEYS: previous })
+        .MFA_ENCRYPTION_PREVIOUS_KEYS,
+    ).toBe(previous);
+    expect(
+      validateEnv({ ...BASE, MFA_ENCRYPTION_PREVIOUS_KEYS: '' })
+        .MFA_ENCRYPTION_PREVIOUS_KEYS,
+    ).toBeUndefined();
+  });
+
+  it('rechaza una llave inválida o la actual entre las anteriores', () => {
+    expect(() =>
+      validateEnv({
+        ...BASE,
+        MFA_ENCRYPTION_PREVIOUS_KEYS: `${key(2)},corta`,
+      }),
+    ).toThrow(/MFA_ENCRYPTION_PREVIOUS_KEYS/);
+    expect(() =>
+      validateEnv({
+        ...BASE,
+        MFA_ENCRYPTION_PREVIOUS_KEYS: `${key(2)},${BASE.MFA_ENCRYPTION_KEY}`,
+      }),
+    ).toThrow(/no puede incluir la llave actual/);
+  });
+});

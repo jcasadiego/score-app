@@ -489,6 +489,9 @@ desde su propio repo, como sitio estático de Render.
 | Cómo restaura | Instancia nueva | En el sitio, instantánea; deja una rama con el estado previo | — | Reemplaza el proyecto | Cluster nuevo |
 | Cifrado en reposo | AES-256 | AES-256 | LUKS | No confirmado | LUKS2 AES-256 |
 
+Procedimiento de respaldo y restauración, simulacro y RTO/RPO propuestos:
+`respaldos.md` (PF-56).
+
 Pendiente de PF-56, con cualquier opción: definir RTO y RPO con el cliente,
 **hacer una restauración de verdad** y anotar cuánto tardó, y decidir si se
 quiere una copia fuera del proveedor (exportación periódica cifrada a un

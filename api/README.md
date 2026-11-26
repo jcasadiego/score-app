@@ -381,11 +381,16 @@ En QA y PROD la API no se conecta como dueña del esquema:
     bitácora ni a los logs. Si el motor falla, el panel ve un mensaje
     genérico.
 - `src/common/app-throttler.guard.ts` — límite de peticiones. Cuenta por usuario
-  si el JWT del panel tiene firma válida, por diagnóstico si trae una sesión de
-  cliente final válida, por la IP que informa el panel o `apps/diagnostico` en
-  rutas sin sesión (`x-client-ip`, solo con `x-panel-secret` igual a
-  `PANEL_API_SECRET` o `x-diagnostic-secret` igual a `DIAGNOSTIC_API_SECRET`) y,
-  si no, por IP de conexión. Cada contador es por ruta y vive en Postgres
+  si trae una sesión del panel vigente (firma y audiencia `panel-session`), por
+  diagnóstico si trae una sesión de cliente final vigente, por la IP que informa
+  el panel o `apps/diagnostico` en rutas sin sesión (`x-client-ip`, solo con
+  `x-panel-secret` igual a `PANEL_API_SECRET` o `x-diagnostic-secret` igual a
+  `DIAGNOSTIC_API_SECRET`), por la IP que pone la plataforma en
+  `CLIENT_IP_HEADER` (en Render, `cf-connecting-ip`) y, si no, por IP de
+  conexión. Un token vencido o de otra audiencia (el desafío MFA) cuenta por IP:
+  quien tenga un token viejo de otro no le gasta los contadores. Contar proxies
+  con `TRUST_PROXY_HOPS` no es estable en Render, y con una cadena más corta el
+  cliente elegiría su IP (auditoría de seguridad, corrida 1). Cada contador es por ruta y vive en Postgres
   (`throttle_counters`, `src/common/postgres-throttler.storage.ts`), así que el
   límite se mantiene con varias instancias (PF-60). La clave es un HMAC con una
   llave derivada de `JWT_SECRET`: nunca guarda la IP en claro. Ventana fija;
@@ -469,7 +474,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   `apps/panel`, rutas públicas: `POST /auth/password-reset/request`
   (`{ email }`, 3/min por IP) responde siempre el mismo mensaje y hace
   el trabajo en segundo plano (misma respuesta y mismo tiempo exista o
-  no el correo); si el usuario existe y está activo, crea un token
+  no el correo). Además, a lo sumo 3 pedidos por usuario y por hora, contados en
+  la bitácora bajo un candado por usuario: desde el cuarto no se envía nada ni
+  se reemplaza el enlace, y queda `PASSWORD_RESET_LIMITED` (igual que la
+  recuperación del enlace del diagnóstico). Si el usuario existe y está activo, crea un token
   aleatorio de un solo uso que vence en 1 hora, borra los pendientes
   anteriores y manda el enlace `PANEL_URL/reset-password?token=`
   por `MailService`. En la base solo queda el SHA-256 del token

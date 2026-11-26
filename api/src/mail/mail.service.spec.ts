@@ -141,6 +141,31 @@ describe('MailService', () => {
     ).resolves.toEqual({ sent: true, providerId: 'em_1' });
   });
 
+  it('un correo suprimido solo queda en la bitácora, con tipo y motivo', async () => {
+    await service.recordSuppressed('NEW_LEAD_NOTICE', 'DAILY_LIMIT', {
+      entity: 'Lead',
+      entityId: 'lead-1',
+    });
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith({
+      actorType: 'SYSTEM',
+      actorId: undefined,
+      action: 'EMAIL_SUPPRESSED',
+      entity: 'Lead',
+      entityId: 'lead-1',
+      data: { type: 'NEW_LEAD_NOTICE', reason: 'DAILY_LIMIT' },
+    });
+  });
+
+  it('si la bitácora falla, registrar un suprimido no lanza', async () => {
+    audit.record.mockRejectedValue(new Error('db caída'));
+
+    await expect(
+      service.recordSuppressed('NEW_LEAD_NOTICE', 'DAILY_LIMIT'),
+    ).resolves.toBeUndefined();
+  });
+
   it('escapa el nombre del destinatario en el HTML', async () => {
     provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
 

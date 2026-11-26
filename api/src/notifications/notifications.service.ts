@@ -6,6 +6,7 @@ import { ValidatedEnv } from '../config/validate-env';
 import { MailService } from '../mail/mail.service';
 import { SendResult } from '../mail/mail.port';
 import { UsersService } from '../users/users.service';
+import { NoticeBudgetService } from './notice-budget.service';
 
 export interface NewLeadNotification {
   id: string;
@@ -48,22 +49,31 @@ export class NotificationsService {
     private readonly users: UsersService,
     private readonly mail: MailService,
     private readonly config: ConfigService<ValidatedEnv, true>,
+    private readonly budget: NoticeBudgetService,
   ) {}
 
+  /**
+   * Lo dispara el formulario público, así que tiene un cupo global por día
+   * (`NEW_LEAD_NOTICE_DAILY_LIMIT`, PF-36): un spam desde muchas IP no puede
+   * agotar la cuota de correo que comparten los correos críticos.
+   */
   notifyNewLead(lead: NewLeadNotification): void {
-    this.notifyTeam('NEW_LEAD', (to) =>
-      this.mail.sendNewLeadNotice(
-        to,
-        {
-          name: lead.name,
-          family: lead.family,
-          utmSource: lead.utmSource,
-          utmMedium: lead.utmMedium,
-          utmCampaign: lead.utmCampaign,
-          link: panelLink(this.config, '/leads').href,
-        },
-        { entity: 'Lead', entityId: lead.id },
-      ),
+    this.notifyTeam(
+      'NEW_LEAD',
+      (to) =>
+        this.mail.sendNewLeadNotice(
+          to,
+          {
+            name: lead.name,
+            family: lead.family,
+            utmSource: lead.utmSource,
+            utmMedium: lead.utmMedium,
+            utmCampaign: lead.utmCampaign,
+            link: panelLink(this.config, '/leads').href,
+          },
+          { entity: 'Lead', entityId: lead.id },
+        ),
+      () => this.withinNewLeadBudget(lead.id),
     );
   }
 
@@ -89,14 +99,51 @@ export class NotificationsService {
   private notifyTeam(
     notice: Notice,
     send: (to: string) => Promise<SendResult>,
+    allowed?: () => Promise<boolean>,
   ): void {
-    void this.sendToRecipients(NOTICE_RECIPIENTS[notice], send).catch(
-      (error: unknown) =>
-        this.logger.error(
-          `Falló el aviso ${notice} al equipo`,
-          error instanceof Error ? error.stack : undefined,
-        ),
+    const run = async () => {
+      if (allowed && !(await allowed())) return;
+      await this.sendToRecipients(NOTICE_RECIPIENTS[notice], send);
+    };
+    void run().catch((error: unknown) =>
+      this.logger.error(
+        `Falló el aviso ${notice} al equipo`,
+        error instanceof Error ? error.stack : undefined,
+      ),
     );
+  }
+
+  /**
+   * Pasado el cupo no se envía y queda `EMAIL_SUPPRESSED` en la bitácora, uno
+   * por lead. Si el contador falla, se envía igual: la protección nunca debe
+   * dejar al equipo sin el aviso de un lead real por un error propio.
+   */
+  private async withinNewLeadBudget(leadId: string): Promise<boolean> {
+    const limit = this.config.get('NEW_LEAD_NOTICE_DAILY_LIMIT', {
+      infer: true,
+    });
+    let count: number;
+    try {
+      count = await this.budget.consume('NEW_LEAD_NOTICE');
+    } catch (error) {
+      this.logger.error(
+        'No se pudo contar el cupo de avisos de lead nuevo; se envía igual',
+        error instanceof Error ? error.stack : undefined,
+      );
+      return true;
+    }
+    if (count <= limit) return true;
+
+    if (count === limit + 1) {
+      this.logger.warn(
+        `Se alcanzó el cupo diario de avisos de lead nuevo (${limit}): los siguientes quedan solo en la bitácora`,
+      );
+    }
+    await this.mail.recordSuppressed('NEW_LEAD_NOTICE', 'DAILY_LIMIT', {
+      entity: 'Lead',
+      entityId: leadId,
+    });
+    return false;
   }
 
   /** Uno por uno y no en paralelo, para no chocar con el límite del proveedor. */

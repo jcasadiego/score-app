@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { MfaService } from './mfa.service';
+import { MfaKeyRotationService } from './mfa/mfa-key-rotation.service';
 import { RolesGuard } from './roles.guard';
 import { SessionsService } from './sessions.service';
 
@@ -25,6 +26,7 @@ import { SessionsService } from './sessions.service';
   providers: [
     AuthService,
     MfaService,
+    MfaKeyRotationService,
     JwtStrategy,
     RolesGuard,
     SessionsService,

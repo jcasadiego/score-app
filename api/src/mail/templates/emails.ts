@@ -269,3 +269,36 @@ export function diagnosticCompletedNoticeEmail(
     brand,
   );
 }
+
+export interface SecurityAlertData {
+  /** Qué se disparó, en texto para quien opera (ej. "Intentos de inicio de sesión fallidos"). */
+  event: string;
+  count: number;
+  threshold: number;
+  /** Inicio y fin de la ventana, en RFC 3339 (UTC). */
+  windowStart: string;
+  windowEnd: string;
+}
+
+/**
+ * Alerta al correo de soporte (PF-55). Solo el hecho y la cantidad: ni
+ * usuarios, ni correos, ni IP. El detalle se ve en la bitácora.
+ */
+export function securityAlertEmail(
+  data: SecurityAlertData,
+  brand?: BrandOptions,
+): RenderedEmail {
+  return renderBaseTemplate(
+    {
+      subject: `Alerta de seguridad en SCORE: ${data.event}`,
+      title: 'Alerta de seguridad',
+      paragraphs: [
+        `${data.event}: ${data.count} entre ${data.windowStart} y ${data.windowEnd} (UTC). El umbral es ${data.threshold}.`,
+        'Revisa la bitácora de auditoría de ese periodo para ver el detalle. Si parece un ataque o un acceso indebido, sigue el plan de respuesta a incidentes.',
+      ],
+      footerReason:
+        'Recibes este aviso porque este correo está configurado como contacto de soporte de SCORE.',
+    },
+    brand,
+  );
+}

@@ -18,6 +18,8 @@ import {
   passwordSetupEmail,
   reportLinkEmail,
   PasswordSetupReason,
+  SecurityAlertData,
+  securityAlertEmail,
   SecurityNoticeData,
   securityNoticeEmail,
 } from './templates/emails';
@@ -32,7 +34,8 @@ export type MailType =
   | 'SECURITY_NOTICE'
   | 'ACCOUNT_LOCKED_NOTICE'
   | 'NEW_LEAD_NOTICE'
-  | 'DIAGNOSTIC_COMPLETED_NOTICE';
+  | 'DIAGNOSTIC_COMPLETED_NOTICE'
+  | 'SECURITY_ALERT';
 
 /** Por qué no se intentó un correo (`EMAIL_SUPPRESSED`). */
 export type MailSuppressedReason = 'DAILY_LIMIT';
@@ -189,6 +192,20 @@ export class MailService {
       'DIAGNOSTIC_COMPLETED_NOTICE',
       to,
       diagnosticCompletedNoticeEmail(data, this.brand()),
+      context,
+    );
+  }
+
+  /** Alerta de seguridad al correo de soporte (PF-55). */
+  sendSecurityAlert(
+    to: string,
+    data: SecurityAlertData,
+    context?: MailContext,
+  ): Promise<SendResult> {
+    return this.send(
+      'SECURITY_ALERT',
+      to,
+      securityAlertEmail(data, this.brand()),
       context,
     );
   }

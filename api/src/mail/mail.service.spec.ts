@@ -166,6 +166,35 @@ describe('MailService', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('la alerta de seguridad lleva el hecho, la cantidad y la ventana', async () => {
+    provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
+
+    await service.sendSecurityAlert(
+      'soporte@example.com',
+      {
+        event: 'Muchos accesos denegados',
+        count: 30,
+        threshold: 20,
+        windowStart: '2026-11-26T10:00:00.000Z',
+        windowEnd: '2026-11-26T10:05:00.000Z',
+      },
+      { entity: 'SecurityAlert', entityId: 'ACCESS_DENIED:x' },
+    );
+
+    const message = provider.send.mock.calls[0][0];
+    expect(message.subject).toBe(
+      'Alerta de seguridad en SCORE: Muchos accesos denegados',
+    );
+    expect(message.text).toContain('30 entre 2026-11-26T10:00:00.000Z');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'EMAIL_SENT',
+        entity: 'SecurityAlert',
+        data: { type: 'SECURITY_ALERT', providerId: 'em_1' },
+      }),
+    );
+  });
+
   it('escapa el nombre del destinatario en el HTML', async () => {
     provider.send.mockResolvedValue({ sent: true, providerId: 'em_1' });
 

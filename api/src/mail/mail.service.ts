@@ -34,6 +34,9 @@ export type MailType =
   | 'NEW_LEAD_NOTICE'
   | 'DIAGNOSTIC_COMPLETED_NOTICE';
 
+/** Por qué no se intentó un correo (`EMAIL_SUPPRESSED`). */
+export type MailSuppressedReason = 'DAILY_LIMIT';
+
 /** A qué se asocia el envío en la bitácora (ej. el Caso que lo pidió). */
 export interface MailContext {
   entity?: string;
@@ -190,6 +193,18 @@ export class MailService {
     );
   }
 
+  /**
+   * Un correo que no se intentó a propósito (ej. el cupo de avisos, PF-36):
+   * solo queda en la bitácora, con el tipo y el motivo.
+   */
+  async recordSuppressed(
+    type: MailType,
+    reason: MailSuppressedReason,
+    context: MailContext = {},
+  ): Promise<void> {
+    await this.recordAudit('EMAIL_SUPPRESSED', { type, reason }, context);
+  }
+
   private brand() {
     return { logoUrl: this.config.get('MAIL_LOGO_URL', { infer: true }) };
   }
@@ -218,33 +233,37 @@ export class MailService {
       this.logger.warn(`No se pudo enviar ${type}: ${result.reason}`);
     }
 
-    await this.recordAudit(type, result, context);
+    await this.recordAudit(
+      result.sent ? 'EMAIL_SENT' : 'EMAIL_FAILED',
+      {
+        type,
+        ...('reason' in result
+          ? { reason: result.reason }
+          : { providerId: result.providerId }),
+      },
+      context,
+    );
     return result;
   }
 
   private async recordAudit(
-    type: MailType,
-    result: SendResult,
+    action: 'EMAIL_SENT' | 'EMAIL_FAILED' | 'EMAIL_SUPPRESSED',
+    data: { type: MailType; reason?: string; providerId?: string },
     context: MailContext,
   ) {
     try {
       await this.audit.record({
         actorType: context.actorType ?? AuditActorType.SYSTEM,
         actorId: context.actorId,
-        action: result.sent ? 'EMAIL_SENT' : 'EMAIL_FAILED',
+        action,
         entity: context.entity ?? 'Email',
         entityId: context.entityId,
-        data: {
-          type,
-          ...('reason' in result
-            ? { reason: result.reason }
-            : { providerId: result.providerId }),
-        },
+        data,
       });
     } catch (error) {
       // La bitácora caída tampoco debe romper la operación que pidió el correo.
       this.logger.error(
-        `No se pudo registrar en la bitácora el envío ${type}`,
+        `No se pudo registrar en la bitácora el envío ${data.type}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

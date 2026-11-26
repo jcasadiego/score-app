@@ -678,6 +678,24 @@ En QA y PROD la API no se conecta como dueña del esquema:
   (`notifyDiagnosticCompleted`, al enviar el diagnóstico). Se procesan en segundo plano, así que ni el tiempo de respuesta ni
   un fallo del correo afectan a la operación que los dispara. Cada envío queda
   en la bitácora asociado al lead o al diagnóstico, sin sus datos personales.
+  - **Cupo de avisos de lead nuevo (PF-36).** El formulario público tiene
+    límite por IP (5/min), pero un spam desde muchas IP no tendría tope, y cada
+    lead manda un correo por Aprobador activo. Todos los correos comparten la
+    cuenta de Resend (plan gratuito en QA y PROD: 100 correos por día), así que
+    agotarla también frenaría el enlace del diagnóstico y las recuperaciones de
+    enlace y de contraseña. Por eso los avisos de lead nuevo tienen un cupo
+    global de **30 por día** (`NEW_LEAD_NOTICE_DAILY_LIMIT`; 0 los apaga): con
+    2 Aprobadores son unos 60 correos y quedan unos 40 para los críticos, y hoy
+    no se esperan más de 30 leads reales en un día. Si cambia el plan de Resend
+    o crece el número de Aprobadores, revisar el número.
+  - Ventana fija de 24 horas desde el primer aviso, contada en
+    `throttle_counters` (`NoticeBudgetService`, throttler `notice-budget`), así
+    que vale con varias instancias; con `THROTTLE_STORAGE=memory` es por proceso.
+    Pasado el cupo, el lead se registra igual, el sitio recibe el mismo 201 y
+    queda un `EMAIL_SUPPRESSED` por lead en la bitácora (tipo y motivo
+    `DAILY_LIMIT`, sin datos del lead); el primer aviso suprimido deja además
+    una advertencia en el log. Si el contador falla, el aviso sale igual. Solo
+    se limita este aviso: el de diagnóstico completado no lo dispara el público.
   Los enlaces salen de `PANEL_URL`.
 - `src/health/` — `GET /health`.
 

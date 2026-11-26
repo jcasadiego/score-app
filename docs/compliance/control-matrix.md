@@ -100,7 +100,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Datos personales fuera de logs y bitácora | Minimización | A.8.11, A.8.12 | C1.1, P4 | Implementado | `redact-sensitive-data.ts` y su spec |
 | Registro de tratamiento | Registros de tratamiento | A.5.34 | P1, P6 | Parcial | `data-inventory.md`, borrador con huecos marcados |
 | Consentimiento y aviso de privacidad | Consentimiento, información al titular | A.5.34 | P1, P2 | **Pendiente** | PF-49, bloqueada por ley aplicable y texto legal |
-| Conservación y borrado, también en respaldos | Limitación de conservación | A.5.33, A.8.10 | C1.2, P4 | **Pendiente** | PF-49 |
+| Conservación y borrado, también en respaldos | Limitación de conservación | A.5.33, A.8.10 | C1.2, P4 | **Pendiente** | PF-49. Lo borrado sigue hasta 7 días en el PITR, y tras una restauración se vuelven a aplicar los borrados posteriores al punto (`docs/infra/respaldos.md`, PF-56) |
 | Acceso, rectificación, portabilidad y borrado | Derechos del titular | A.5.34 | P5 | **Pendiente** | PF-49. La bitácora ya no guarda nombre, correo ni teléfono |
 | Evaluación de impacto (DPIA) | Evaluación de impacto | A.5.34 | P1 | **Pendiente** | PF-62, antes del release con clientes reales y al sumar IA (PF-32) |
 | Transferencias internacionales | Transferencias | A.5.34 | P6 | **Pendiente** | PF-62; depende de la región de los proveedores |

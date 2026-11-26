@@ -1,0 +1,56 @@
+name: Disponibilidad
+
+# Revisa cada 15 minutos que respondan los `/health` de la variable de
+# repositorio `HEALTHCHECK_URLS` (separados por espacio), y falla si alguno no
+# responde 200 (PF-55). GitHub avisa por correo de una corrida programada
+# fallida a quien modificó por última vez este cron.
+#
+# Sin la variable no revisa nada. No apuntarlo a QA en el plan gratuito de
+# Render: despertar la API cada 15 minutos gasta las horas gratis del workspace.
+# Pensado para PROD (PF-74, PF-77).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Revisar /health
+        env:
+          HEALTHCHECK_URLS: ${{ vars.HEALTHCHECK_URLS }}
+        run: |
+          if [ -z "$HEALTHCHECK_URLS" ]; then
+            echo "Sin HEALTHCHECK_URLS: no hay nada que revisar."
+            exit 0
+          fi
+          failed=0
+          for url in $HEALTHCHECK_URLS; do
+            case "$url" in
+              https://*) ;;
+              *) echo "::error::Solo se revisan URLs https: $url"; failed=1; continue ;;
+            esac
+            # Tres intentos con espera: un arranque en frío no es una caída.
+            status=000
+            for attempt in 1 2 3; do
+              status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || true)
+              [ "$status" = "200" ] && break
+              sleep 20
+            done
+            if [ "$status" = "200" ]; then
+              echo "OK $url"
+            else
+              echo "::error::$url respondió $status"
+              failed=1
+            fi
+          done
+          exit $failed

@@ -36,7 +36,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Registro de quién consulta datos personales | A.8.15 | CC7.2, P6 | Parcial | Leads, con `LEADS_LISTED` y `LEAD_VIEWED`, y su historial de envíos al CRM con `CRM_SYNC_EVENTS_LISTED` (PF-80). Cada módulo nuevo con datos personales debe declararlo |
 | Id de petición en respuesta, log y bitácora | A.8.15 | CC7.2 | Implementado | `api/src/common/request-context.ts` |
 | Logs en JSON, sin URLs ni valores de consultas | A.8.11, A.8.15 | CC7.2, C1.1 | Implementado | `main.ts`, `problem-details.ts` |
-| Alertas sobre eventos de seguridad | A.8.16 | CC7.2, CC7.3 | **Pendiente** | Requiere la plataforma de producción (PF-55) |
+| Alertas sobre eventos de seguridad | A.8.16 | CC7.2, CC7.3 | Parcial | Sin proveedor nuevo (decisión de José del 2026-11-26): la API cuenta en la bitácora, por ventanas de 5 minutos, intentos fallidos, accesos denegados, bloqueos, errores 5xx y cada `MFA_RESET`, y avisa solo al correo de soporte (`SECURITY_ALERT_EMAIL`) con el hecho y la cantidad, sin usuarios ni datos personales. Una sola alerta por ventana aunque haya varias instancias. `src/security-alerts/`, `test/security-alerts.e2e-spec.ts`. Caídas: health check de Render y `.github/workflows/uptime.yml` (`HEALTHCHECK_URLS`). Falta probar la ráfaga en QA, cargar el correo de soporte y, en PROD, las URLs y las notificaciones de Render (PF-74, PF-77). Si la API está caída, la alerta de la bitácora no sale: la cubre el chequeo de disponibilidad |
 | Conservación de logs y bitácora | A.8.15 | CC7.2 | **Pendiente** | Plazo por definir (PF-49 y PF-55) |
 
 ## Criptografía y secretos

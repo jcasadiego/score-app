@@ -73,6 +73,12 @@ const EnvSchema = z
     // su IP con `X-Forwarded-For` y saltarse el límite de login; de menos, todos
     // los clientes comparten un contador.
     TRUST_PROXY_HOPS: optional(z.coerce.number().int().min(0)),
+    // Encabezado con la IP del cliente que pone la plataforma y que el cliente no
+    // puede falsificar (en Render, `cf-connecting-ip`). Si viene, el límite de
+    // peticiones lo usa antes que `X-Forwarded-For` (auditoría, corrida 1).
+    CLIENT_IP_HEADER: optional(
+      z.string().regex(/^[A-Za-z0-9-]+$/, 'debe ser un nombre de encabezado'),
+    ),
     // Con este secreto, el panel informa la IP real de quien inicia sesión.
     PANEL_API_SECRET: optional(
       z.string().min(32, 'debe tener al menos 32 caracteres'),

@@ -66,6 +66,11 @@ services:
       # login; con más, el cliente puede inventar su IP.
       - key: TRUST_PROXY_HOPS
         value: "3"
+      # Contar proxies no es estable en Render (lo vieron los frontends): el
+      # límite de peticiones usa primero este encabezado, que Cloudflare
+      # sobrescribe. Cargarlo a mano: el deploy no sincroniza el Blueprint.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
       # https://<diagnóstico de QA>,https://<sitio de QA>
       - key: CORS_ORIGINS
         sync: false

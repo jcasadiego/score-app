@@ -16,7 +16,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Límite de peticiones en login y rutas públicas | A.8.5, A.8.6 | CC6.6 | Implementado | `app-throttler.guard.ts`. Contadores en Postgres, compartidos entre instancias (PF-60, `postgres-throttler.storage.ts`, `test/throttle-storage.e2e-spec.ts`); la clave es un HMAC, nunca la IP en claro. Falla cerrado: sin Postgres, las rutas con límite responden 500 en vez de saltarse el límite |
 | Sesión revocable, única y con límite absoluto | A.8.5 | CC6.1 | Implementado | `sessions.service.ts`, `test/auth-refresh.e2e-spec.ts` |
 | Segundo factor (TOTP) obligatorio en el panel, con códigos de recuperación y aviso por correo | A.8.2, A.8.5 | CC6.1 | Implementado | `api/src/auth/mfa.service.ts`, `test/mfa.e2e-spec.ts`. Lo configura solo quien definió la contraseña con el enlace de su correo: restablecerlo también invalida la contraseña (PF-59) |
-| Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec. Falta rotar la llave (PF-57) |
+| Secreto TOTP cifrado (AES-256-GCM); códigos de recuperación como hash | A.8.24 | CC6.1 | Implementado | `api/src/auth/mfa/secret-cipher.ts` y su spec; tag de 16 bytes exigido al descifrar. La llave se rota sin afectar a nadie: id de llave en cada secreto, llaves anteriores solo para descifrar y recifrado al arrancar (`mfa-key-rotation.service.ts`, `test/mfa-key-rotation.e2e-spec.ts`, PF-57) |
 | Vencimiento de sesión por inactividad | A.8.5 | CC6.1 | Parcial | 1 día (`JWT_EXPIRES_IN`). Valorar un plazo menor; decisión de José |
 | Mínimo privilegio y roles | A.5.15, A.5.18, A.8.2, A.8.3 | CC6.3 | Implementado | Revisor y Aprobador validados en cada petición, sin rol por defecto y con un Aprobador activo garantizado. Los avisos por correo llegan solo al rol que actúa (PF-38). `CLAUDE.md` 5.3, `api/test/roles.e2e-spec.ts` |
 | Cambios de rol trazables y con cierre de sesión | A.5.18, A.8.15 | CC6.2, CC7.2 | Implementado | `USER_ROLE_CHANGED` en la misma transacción, con el rol anterior y el nuevo. `users.service.ts` |
@@ -48,7 +48,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Elegir un proveedor que lo garantice (PF-56) |
 | Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `common/link-token.ts`: recuperación y activación del panel, y enlace del cliente final |
 | Secretos fuera del repo, con longitud mínima | A.8.24 | CC6.1 | Implementado | `validate-env.ts`, gitleaks en CI |
-| Gestor de secretos y rotación | A.8.24 | CC6.1 | **Pendiente** | Procedimiento de rotación de JWT y API keys (PF-57) |
+| Gestor de secretos y rotación | A.8.24, A.5.17 | CC6.1 | Parcial | Variables de Render por entorno, con valores distintos en cada uno; quién accede, cómo se rota cada secreto y qué hacer si se filtra: `docs/infra/rotacion-secretos.md` (PF-57). Falta probar cada rotación en QA y, en PROD, el workspace del cliente y el respaldo de `MFA_ENCRYPTION_KEY` fuera de Render (PF-74) |
 
 ## Seguridad de la aplicación
 

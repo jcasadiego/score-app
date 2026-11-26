@@ -80,6 +80,10 @@ services:
       # 32 bytes en base64: `openssl rand -base64 32`.
       - key: MFA_ENCRYPTION_KEY
         sync: false
+      # Solo durante una rotación de la llave MFA (docs/infra/rotacion-secretos.md):
+      # vacía el resto del tiempo.
+      - key: MFA_ENCRYPTION_PREVIOUS_KEYS
+        sync: false
       - key: PANEL_API_SECRET
         generateValue: true
       - key: DIAGNOSTIC_API_SECRET

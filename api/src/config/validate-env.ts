@@ -102,6 +102,13 @@ const EnvSchema = z
     MAIL_FROM: optional(z.string()),
     MAIL_REPLY_TO: optional(z.email()),
     MAIL_LOGO_URL: optional(z.url()),
+    // Cupo global de avisos de lead nuevo por día (PF-36): pasado este número,
+    // el lead se registra pero el aviso no sale. 0 los apaga.
+    // Vacía cuenta como no puesta: `coerce` la convertiría en 0.
+    NEW_LEAD_NOTICE_DAILY_LIMIT: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.coerce.number().int().min(0).default(30),
+    ),
     // Contraseñas filtradas (PF-60): `hibp` consulta Pwned Passwords con
     // k-anonimato además de la lista local; `local`, solo la lista (tests).
     BREACHED_PASSWORDS_PROVIDER: z.enum(['hibp', 'local']).default('hibp'),

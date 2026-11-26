@@ -452,3 +452,26 @@ describe('validateEnv · almacenamiento', () => {
     ).toThrow(/STORAGE_SIGNED_URL_TTL_SECONDS/);
   });
 });
+
+describe('validateEnv — cupo de avisos de lead nuevo (PF-36)', () => {
+  it('sin la variable, o vacía, el cupo es 30 por día', () => {
+    expect(validateEnv(BASE).NEW_LEAD_NOTICE_DAILY_LIMIT).toBe(30);
+    expect(
+      validateEnv({ ...BASE, NEW_LEAD_NOTICE_DAILY_LIMIT: '' })
+        .NEW_LEAD_NOTICE_DAILY_LIMIT,
+    ).toBe(30);
+  });
+
+  it('acepta otro número, incluido 0, y rechaza los inválidos', () => {
+    expect(
+      validateEnv({ ...BASE, NEW_LEAD_NOTICE_DAILY_LIMIT: '0' })
+        .NEW_LEAD_NOTICE_DAILY_LIMIT,
+    ).toBe(0);
+    expect(() =>
+      validateEnv({ ...BASE, NEW_LEAD_NOTICE_DAILY_LIMIT: '-1' }),
+    ).toThrow(/NEW_LEAD_NOTICE_DAILY_LIMIT/);
+    expect(() =>
+      validateEnv({ ...BASE, NEW_LEAD_NOTICE_DAILY_LIMIT: 'muchos' }),
+    ).toThrow(/NEW_LEAD_NOTICE_DAILY_LIMIT/);
+  });
+});

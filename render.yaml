@@ -93,6 +93,10 @@ services:
         sync: false
       - key: MAIL_REPLY_TO
         sync: false
+      # Correo de soporte que recibe las alertas de seguridad (PF-55). Sin él,
+      # la API arranca pero no alerta.
+      - key: SECURITY_ALERT_EMAIL
+        sync: false
       - key: SCORING_ENGINE_DRIVER
         value: stub
       - key: AI_PROVIDER

@@ -109,7 +109,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 
 | Control | ISO 27001 | SOC 2 | Estado | Evidencia o qué falta |
 |---|---|---|---|---|
-| Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts` |
+| Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts`. Chequeo externo cada 15 minutos con `.github/workflows/uptime.yml` (`HEALTHCHECK_URLS`), pensado para PROD: falta cargar las URLs (PF-74, PF-77) |
 | Capacidad del correo: un spam del formulario público no agota la cuota que comparten los correos críticos | A.8.6 | A1.1, CC6.6 | Implementado | Cupo global de avisos de lead nuevo por día (`NEW_LEAD_NOTICE_DAILY_LIMIT`, 30 por defecto), contado en Postgres y compartido entre instancias, aparte del límite por IP. Pasado el cupo el lead se registra igual y queda `EMAIL_SUPPRESSED` en la bitácora, sin datos del lead; los correos críticos no pasan por el cupo. `src/notifications/notice-budget.service.ts`, `test/notice-budget.e2e-spec.ts` (PF-36) |
 | Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | PF-56 |
 | Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | PF-56 y PF-63 |

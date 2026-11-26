@@ -1,11 +1,13 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditActorType, UserRole } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from '../mail/mail.service';
 import {
   newLinkToken,
   PasswordLinkService,
@@ -49,9 +51,26 @@ const REVOKE_RESET_LINKS = {
   passwordResetTokens: { deleteMany: { usedAt: null } },
 } satisfies Prisma.UserUpdateInput;
 
+/**
+ * Al cambiar el correo: los enlaces de recuperación enviados al anterior dejan
+ * de servir y se cierran las sesiones, así quien tomó una sesión no sigue
+ * adentro con la cuenta ya desviada a otro buzón.
+ */
+const EMAIL_CHANGE_DATA = {
+  ...REVOKE_RESET_LINKS,
+  sessionVersion: { increment: 1 },
+  sessions: { deleteMany: {} },
+} satisfies Prisma.UserUpdateInput;
+
 export type PublicUser = Prisma.UserGetPayload<{
   select: typeof PUBLIC_SELECT;
 }>;
+
+/** Nombre y correo de la cuenta antes de cambiarle el correo. */
+interface PreviousContact {
+  name: string;
+  email: string;
+}
 
 interface CreateUserParams {
   name: string;
@@ -87,10 +106,13 @@ interface UpdateUserParams {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly passwordLinks: PasswordLinkService,
+    private readonly mail: MailService,
   ) {}
 
   /** Correos de los usuarios activos con alguno de esos roles (avisos al equipo). */
@@ -323,26 +345,41 @@ export class UsersService {
     { role, ...data }: UpdateUserParams,
     requesterId: string,
   ): Promise<PublicUser> {
-    const revokeResetLinks = await this.emailChanges(id, data.email);
-
+    let result: { user: PublicUser; previous: PreviousContact | null };
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      result = await this.prisma.$transaction(async (tx) => {
+        const previous = await this.emailChange(tx, id, data.email);
         const roleData = role
           ? await this.roleChangeData(tx, id, role, requesterId)
           : {};
-        return tx.user.update({
+        if (previous) {
+          await this.audit.record(
+            {
+              actorType: AuditActorType.PANEL_USER,
+              actorId: requesterId,
+              action: 'USER_EMAIL_CHANGED',
+              entity: 'User',
+              entityId: id,
+            },
+            tx,
+          );
+        }
+        const user = await tx.user.update({
           where: { id },
           data: {
             ...data,
             ...roleData,
-            ...(revokeResetLinks ? REVOKE_RESET_LINKS : {}),
+            ...(previous ? EMAIL_CHANGE_DATA : {}),
           },
           select: PUBLIC_SELECT,
         });
+        return { user, previous };
       });
     } catch (error) {
       throw this.mapPrismaError(error, data.email, id);
     }
+    if (result.previous) this.notifyEmailChanged(id, result.previous);
+    return result.user;
   }
 
   async deactivate(id: string, requesterId?: string): Promise<PublicUser> {
@@ -446,14 +483,41 @@ export class UsersService {
     }
   }
 
-  /** El panel manda el correo en cada edición, aunque no haya cambiado. */
-  private async emailChanges(id: string, email?: string): Promise<boolean> {
-    if (!email) return false;
-    const current = await this.prisma.user.findUnique({
+  /**
+   * El correo y el nombre anteriores si el correo cambia, o `null`. El panel
+   * manda el correo en cada edición, aunque no haya cambiado. Se lee dentro de
+   * la transacción del cambio.
+   */
+  private async emailChange(
+    tx: Prisma.TransactionClient,
+    id: string,
+    email?: string,
+  ): Promise<PreviousContact | null> {
+    if (!email) return null;
+    const current = await tx.user.findUnique({
       where: { id },
-      select: { email: true },
+      select: { name: true, email: true },
     });
-    return current?.email !== email;
+    return current && current.email !== email ? current : null;
+  }
+
+  /**
+   * Avisa al correo anterior, sin decir cuál es el nuevo: si no fue el dueño,
+   * se entera y pide ayuda. `MailService` no lanza; el aviso no frena el cambio.
+   */
+  private notifyEmailChanged(id: string, previous: PreviousContact): void {
+    void this.mail
+      .sendSecurityNotice(
+        previous.email,
+        { name: previous.name, event: 'EMAIL_CHANGED' },
+        { entity: 'User', entityId: id },
+      )
+      .catch((error: unknown) =>
+        this.logger.error(
+          'No se pudo avisar el cambio de correo',
+          error instanceof Error ? error.stack : undefined,
+        ),
+      );
   }
 
   private mapPrismaError(error: unknown, email?: string, id?: string): Error {

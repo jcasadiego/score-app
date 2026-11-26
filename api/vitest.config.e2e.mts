@@ -25,6 +25,8 @@ export default defineConfig({
       TRANSCRIPTION_INTERVAL_MS: '0',
       // Y con la conservación de la voz (PF-90): el test la llama a mano.
       VOICE_RETENTION_INTERVAL_MS: '0',
+      // Y con las alertas de seguridad (PF-55): el test llama a `check` a mano.
+      SECURITY_ALERT_INTERVAL_MS: '0',
     },
   },
 });

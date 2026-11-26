@@ -45,7 +45,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Cifrado en tránsito: la API no arranca sin `sslmode` ni con enlaces http | A.8.20, A.8.24 | CC6.7 | Implementado | `validate-env.ts` y su spec. TLS público: HSTS en los dos frontends y el proveedor (PF-30) |
 | Correo saliente autenticado: remitente en un subdominio propio con SPF, DKIM y DMARC, y key de Resend solo de envío limitada a ese dominio | A.5.14, A.8.20 | CC6.7 | **Parcial** | QA: `qa.notificaciones.musicfinance.pro` verificado el 2026-11-19, DMARC `p=none` en el subdominio (PF-72). Falta PROD en la cuenta del cliente y subir DMARC a `quarantine` cuando haya reportes limpios |
-| Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Elegir un proveedor que lo garantice (PF-56) |
+| Cifrado en reposo de base y respaldos | A.8.24 | CC6.1, C1.1 | **Pendiente** | Render Postgres declara AES-256 en reposo (`investigacion-despliegue.md` 4.4). Falta confirmarlo en la base de PROD, incluidos los respaldos, y guardar la evidencia del proveedor (`docs/infra/respaldos.md`, PF-56) |
 | Tokens guardados solo como hash | A.8.24 | CC6.1 | Implementado | `common/link-token.ts`: recuperación y activación del panel, y enlace del cliente final |
 | Secretos fuera del repo, con longitud mínima | A.8.24 | CC6.1 | Implementado | `validate-env.ts`, gitleaks en CI |
 | Gestor de secretos y rotación | A.8.24 | CC6.1 | **Pendiente** | Procedimiento de rotación de JWT y API keys (PF-57) |
@@ -111,8 +111,8 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 |---|---|---|---|---|
 | Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts` |
 | Capacidad del correo: un spam del formulario público no agota la cuota que comparten los correos críticos | A.8.6 | A1.1, CC6.6 | Implementado | Cupo global de avisos de lead nuevo por día (`NEW_LEAD_NOTICE_DAILY_LIMIT`, 30 por defecto), contado en Postgres y compartido entre instancias, aparte del límite por IP. Pasado el cupo el lead se registra igual y queda `EMAIL_SUPPRESSED` en la bitácora, sin datos del lead; los correos críticos no pasan por el cupo. `src/notifications/notice-budget.service.ts`, `test/notice-budget.e2e-spec.ts` (PF-36) |
-| Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | PF-56 |
-| Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | PF-56 y PF-63 |
+| Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | Procedimiento y simulacro escritos en `docs/infra/respaldos.md` (PF-56): PITR de 7 días, restauración a una instancia nueva, revisión antes de cambiar la conexión y registro de la duración. Falta la base de PROD (PF-74) y hacer el simulacro |
+| Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | Propuesta en `docs/infra/respaldos.md`: RPO de 1 hora y RTO de 4 horas en horario laboral, por aprobar con el cliente. El plan de continuidad completo es de PF-63 |
 
 ## Organización (fuera de este repo)
 

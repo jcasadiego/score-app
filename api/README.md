@@ -454,7 +454,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   contraseña vigente, cierra sus sesiones y le manda un enlace nuevo; también
   sirve para reenviar el de activación. `PATCH /users/:id/reset-mfa` hace lo
   mismo además de quitar el MFA. Las tres respuestas traen `linkSent`: si el
-  correo falló, el panel lo avisa. El login rechaza una cuenta con
+  correo falló, el panel lo avisa. Cambiarle el correo a una cuenta invalida sus
+  enlaces de recuperación pendientes, cierra sus sesiones, registra
+  `USER_EMAIL_CHANGED` (sin correos) y avisa al correo anterior sin decir cuál
+  es el nuevo. El login rechaza una cuenta con
   `passwordSetAt` nulo. Cambiar la contraseña cierra todas las sesiones
   abiertas: el JWT lleva `ver` (`User.sessionVersion`), y `JwtStrategy`
   rechaza los tokens de una versión anterior. Los enlaces salen de
@@ -613,8 +616,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un
   `Lead` en estado `NEW` con la familia ya elegida y los UTM; responde
-  solo `{ id, status }`. Los datos personales (`name`, `email`,
-  `phone`) no entran a la bitácora: `@AuditRoute()` solo guarda lo declarado.
+  solo `{ id, status }`. A la bitácora solo va `family`: ni los datos
+  personales (`name`, `email`, `phone`) ni los UTM, que son texto libre de
+  cualquiera (`@AuditRoute()` solo guarda lo declarado). Nombre y UTM se
+  guardan sin saltos de línea ni espacios repetidos.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):

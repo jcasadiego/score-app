@@ -87,7 +87,7 @@ describe('Flags (e2e, base propia)', () => {
       .get(JwtService)
       .signAsync(
         { sub: user.id, ver: user.sessionVersion, sid: session.id },
-        { secret: process.env.JWT_SECRET },
+        { secret: process.env.JWT_SECRET, audience: 'panel-session' },
       );
     return { id: user.id, token };
   }
@@ -517,6 +517,33 @@ describe('Flags (e2e, base propia)', () => {
       .set(as(reviewer.token))
       .send({ status: 'REVIEWED' })
       .expect(200);
+  });
+
+  it('en un caso aprobado no se reintenta el análisis de IA (409) hasta reabrirlo', async () => {
+    aiError = new AiProviderError('timeout');
+    const { id, calculation } = await flagged();
+    aiError = null;
+    // Aprobado con excepción de IA: se aprueba directo en la base.
+    await prisma.review.update({
+      where: { diagnosticId: id },
+      data: { status: 'APPROVED' },
+    });
+    const route = `/api/v1/calculations/${calculation.id}/flag-analysis`;
+    for (const user of [reviewer, approver]) {
+      const { body } = await server()
+        .post(route)
+        .set(as(user.token))
+        .expect(409);
+      expect(body.code).toBe('REVIEW_APPROVED');
+    }
+    expect((await analyzed(calculation.id)).status).toBe('FAILED');
+
+    await prisma.review.update({
+      where: { diagnosticId: id },
+      data: { status: 'PENDING' },
+    });
+    await server().post(route).set(as(reviewer.token)).expect(202);
+    expect((await analyzed(calculation.id)).status).toBe('SUCCEEDED');
   });
 
   it('el listado de diagnósticos trae los flags abiertos del cálculo vigente', async () => {

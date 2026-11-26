@@ -141,11 +141,19 @@ export class VoiceRetentionService implements OnModuleDestroy {
     }
   }
 
-  /** `false` si otra pasada ya la había marcado: no duplica la bitácora. */
+  /**
+   * `false` si otra pasada ya la había marcado (no duplica la bitácora) o si
+   * el cliente regrabó entre la consulta y la marca: el audio nuevo tiene otra
+   * clave y no se toca.
+   */
   private markDeleted(recording: ExpiredRecording, now: Date) {
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.answerRecording.updateMany({
-        where: { id: recording.id, audioDeletedAt: null },
+        where: {
+          id: recording.id,
+          objectKey: recording.objectKey,
+          audioDeletedAt: null,
+        },
         data: { audioDeletedAt: now },
       });
       if (count === 0) return false;

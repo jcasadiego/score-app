@@ -20,6 +20,7 @@ import {
 } from '../users/users.service';
 import type { SessionUser } from './jwt.strategy';
 import { MfaService } from './mfa.service';
+import { PANEL_SESSION_AUDIENCE } from './session-audience';
 import { SessionsService } from './sessions.service';
 
 /**
@@ -221,6 +222,7 @@ export class AuthService {
     const sign = (expiresIn: string | number | undefined) =>
       this.jwt.signAsync(payload, {
         secret: process.env.JWT_SECRET,
+        audience: PANEL_SESSION_AUDIENCE,
         expiresIn,
       } as JwtSignOptions);
 

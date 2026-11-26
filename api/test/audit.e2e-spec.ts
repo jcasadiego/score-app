@@ -159,7 +159,11 @@ describe('Bitácora de auditoría (e2e)', () => {
     // ADMIN es el único rol que existe: la negativa se simula en el guard.
     const token = new JwtService().sign(
       { sub: user.id, sid: session.id, ver: 0 },
-      { secret: process.env.JWT_SECRET, expiresIn: '1m' },
+      {
+        secret: process.env.JWT_SECRET,
+        audience: 'panel-session',
+        expiresIn: '1m',
+      },
     );
     const { RolesGuard } = await import('./../src/auth/roles.guard');
     const canActivate = vi

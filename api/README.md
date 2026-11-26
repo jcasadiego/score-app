@@ -381,11 +381,16 @@ En QA y PROD la API no se conecta como dueña del esquema:
     bitácora ni a los logs. Si el motor falla, el panel ve un mensaje
     genérico.
 - `src/common/app-throttler.guard.ts` — límite de peticiones. Cuenta por usuario
-  si el JWT del panel tiene firma válida, por diagnóstico si trae una sesión de
-  cliente final válida, por la IP que informa el panel o `apps/diagnostico` en
-  rutas sin sesión (`x-client-ip`, solo con `x-panel-secret` igual a
-  `PANEL_API_SECRET` o `x-diagnostic-secret` igual a `DIAGNOSTIC_API_SECRET`) y,
-  si no, por IP de conexión. Cada contador es por ruta y vive en Postgres
+  si trae una sesión del panel vigente (firma y audiencia `panel-session`), por
+  diagnóstico si trae una sesión de cliente final vigente, por la IP que informa
+  el panel o `apps/diagnostico` en rutas sin sesión (`x-client-ip`, solo con
+  `x-panel-secret` igual a `PANEL_API_SECRET` o `x-diagnostic-secret` igual a
+  `DIAGNOSTIC_API_SECRET`), por la IP que pone la plataforma en
+  `CLIENT_IP_HEADER` (en Render, `cf-connecting-ip`) y, si no, por IP de
+  conexión. Un token vencido o de otra audiencia (el desafío MFA) cuenta por IP:
+  quien tenga un token viejo de otro no le gasta los contadores. Contar proxies
+  con `TRUST_PROXY_HOPS` no es estable en Render, y con una cadena más corta el
+  cliente elegiría su IP (auditoría de seguridad, corrida 1). Cada contador es por ruta y vive en Postgres
   (`throttle_counters`, `src/common/postgres-throttler.storage.ts`), así que el
   límite se mantiene con varias instancias (PF-60). La clave es un HMAC con una
   llave derivada de `JWT_SECRET`: nunca guarda la IP en claro. Ventana fija;
@@ -449,7 +454,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   contraseña vigente, cierra sus sesiones y le manda un enlace nuevo; también
   sirve para reenviar el de activación. `PATCH /users/:id/reset-mfa` hace lo
   mismo además de quitar el MFA. Las tres respuestas traen `linkSent`: si el
-  correo falló, el panel lo avisa. El login rechaza una cuenta con
+  correo falló, el panel lo avisa. Cambiarle el correo a una cuenta invalida sus
+  enlaces de recuperación pendientes, cierra sus sesiones, registra
+  `USER_EMAIL_CHANGED` (sin correos) y avisa al correo anterior sin decir cuál
+  es el nuevo. El login rechaza una cuenta con
   `passwordSetAt` nulo. Cambiar la contraseña cierra todas las sesiones
   abiertas: el JWT lleva `ver` (`User.sessionVersion`), y `JwtStrategy`
   rechaza los tokens de una versión anterior. Los enlaces salen de
@@ -469,7 +477,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   `apps/panel`, rutas públicas: `POST /auth/password-reset/request`
   (`{ email }`, 3/min por IP) responde siempre el mismo mensaje y hace
   el trabajo en segundo plano (misma respuesta y mismo tiempo exista o
-  no el correo); si el usuario existe y está activo, crea un token
+  no el correo). Además, a lo sumo 3 pedidos por usuario y por hora, contados en
+  la bitácora bajo un candado por usuario: desde el cuarto no se envía nada ni
+  se reemplaza el enlace, y queda `PASSWORD_RESET_LIMITED` (igual que la
+  recuperación del enlace del diagnóstico). Si el usuario existe y está activo, crea un token
   aleatorio de un solo uso que vence en 1 hora, borra los pendientes
   anteriores y manda el enlace `PANEL_URL/reset-password?token=`
   por `MailService`. En la base solo queda el SHA-256 del token
@@ -605,8 +616,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
   público (sin auth, 5 envíos/min por IP) que llama el formulario de
   precalificación de `score-sitio` desde el navegador. Registra un
   `Lead` en estado `NEW` con la familia ya elegida y los UTM; responde
-  solo `{ id, status }`. Los datos personales (`name`, `email`,
-  `phone`) no entran a la bitácora: `@AuditRoute()` solo guarda lo declarado.
+  solo `{ id, status }`. A la bitácora solo va `family`: ni los datos
+  personales (`name`, `email`, `phone`) ni los UTM, que son texto libre de
+  cualquiera (`@AuditRoute()` solo guarda lo declarado). Nombre y UTM se
+  guardan sin saltos de línea ni espacios repetidos.
   Es un contrato con otro repo: está en
   [`docs/contrato-precalificacion.md`](docs/contrato-precalificacion.md),
   y cambiarlo se coordina con José. Para `apps/panel` (JWT + ADMIN):

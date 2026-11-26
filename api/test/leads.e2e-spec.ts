@@ -114,10 +114,33 @@ describe('LeadsController (e2e)', () => {
     );
 
     expect(auditEntry.actorType).toBe('SYSTEM');
-    expect(auditEntry.data).toMatchObject({
-      body: { family: 'CATALOG' },
-    });
+    // Los UTM son texto libre: tampoco van a la bitácora.
+    expect(auditEntry.data).toEqual({ body: { family: 'CATALOG' } });
     expect(JSON.stringify(auditEntry.data)).not.toContain(VALID.email);
+  });
+
+  it('guarda los UTM sin saltos de línea ni espacios repetidos', async () => {
+    const response = await request(app.getHttpServer())
+      .post(PATH)
+      .send({
+        ...VALID,
+        email: 'utm.e2e@example.com',
+        utmSource: '  instagram\r\nVer leads: https://otro.example  ',
+        utmMedium: 'social\t\tpago',
+        utmCampaign: 'lanzamiento\n2026',
+      })
+      .expect(201);
+    createdIds.push(response.body.id);
+
+    const lead = await prisma.lead.findUniqueOrThrow({
+      where: { id: response.body.id },
+      select: { utmSource: true, utmMedium: true, utmCampaign: true },
+    });
+    expect(lead).toEqual({
+      utmSource: 'instagram Ver leads: https://otro.example',
+      utmMedium: 'social pago',
+      utmCampaign: 'lanzamiento 2026',
+    });
   });
 
   it.each([
@@ -185,7 +208,7 @@ describe('Leads del panel (e2e)', () => {
       .get(JwtService)
       .signAsync(
         { sub: user.id, ver: user.sessionVersion, sid: session.id },
-        { secret: process.env.JWT_SECRET },
+        { secret: process.env.JWT_SECRET, audience: 'panel-session' },
       );
 
     // Marca única para que los filtros no choquen con otros leads de la base.

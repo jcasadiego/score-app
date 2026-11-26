@@ -527,3 +527,16 @@ describe('validateEnv — rotación de la llave MFA (PF-57)', () => {
     ).toThrow(/no puede incluir la llave actual/);
   });
 });
+
+describe('validateEnv — encabezado de IP de la plataforma', () => {
+  it('es opcional y solo acepta un nombre de encabezado', () => {
+    expect(validateEnv(BASE).CLIENT_IP_HEADER).toBeUndefined();
+    expect(
+      validateEnv({ ...BASE, CLIENT_IP_HEADER: 'cf-connecting-ip' })
+        .CLIENT_IP_HEADER,
+    ).toBe('cf-connecting-ip');
+    expect(() =>
+      validateEnv({ ...BASE, CLIENT_IP_HEADER: 'x-ip: 1.2.3.4' }),
+    ).toThrow(/CLIENT_IP_HEADER/);
+  });
+});

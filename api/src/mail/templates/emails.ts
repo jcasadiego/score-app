@@ -173,12 +173,15 @@ export interface SecurityNoticeData {
   event: SecurityNoticeEvent;
 }
 
-export type SecurityNoticeEvent = 'MFA_ENROLLED' | 'MFA_RECOVERY_CODE_USED';
+export type SecurityNoticeEvent =
+  'MFA_ENROLLED' | 'MFA_RECOVERY_CODE_USED' | 'EMAIL_CHANGED';
 
 const SECURITY_NOTICE_TEXT: Record<SecurityNoticeEvent, string> = {
   MFA_ENROLLED: 'Se activó la verificación en dos pasos en tu cuenta.',
   MFA_RECOVERY_CODE_USED:
     'Se inició sesión en tu cuenta con un código de recuperación.',
+  EMAIL_CHANGED:
+    'Se cambió el correo de tu cuenta. Este correo ya no sirve para entrar ni para recuperar el acceso.',
 };
 
 export function securityNoticeEmail(

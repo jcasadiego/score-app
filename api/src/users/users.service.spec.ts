@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from '../mail/mail.service';
 import { PasswordLinkService } from '../password-reset/password-link.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
@@ -19,6 +20,7 @@ function createPrismaError(code: string) {
 describe('UsersService', () => {
   const argon2HashMock = argon2.hash as Mock;
   let audit: { record: Mock };
+  let mail: { sendSecurityNotice: Mock };
   let passwordLinks: { revokePassword: Mock; send: Mock };
   let prisma: {
     $queryRaw: Mock;
@@ -54,6 +56,7 @@ describe('UsersService', () => {
       },
     };
     audit = { record: vi.fn() };
+    mail = { sendSecurityNotice: vi.fn().mockResolvedValue({ sent: true }) };
     passwordLinks = {
       revokePassword: vi.fn().mockResolvedValue('token-en-claro'),
       send: vi.fn().mockResolvedValue(true),
@@ -62,6 +65,7 @@ describe('UsersService', () => {
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
       passwordLinks as unknown as PasswordLinkService,
+      mail as unknown as MailService,
     );
   });
 
@@ -257,19 +261,59 @@ describe('UsersService', () => {
   describe('update · enlaces de recuperación', () => {
     const REVOKE = { passwordResetTokens: { deleteMany: { usedAt: null } } };
 
+    const CLOSE_SESSIONS = {
+      sessionVersion: { increment: 1 },
+      sessions: { deleteMany: {} },
+    };
+
     beforeEach(() => {
       prisma.user.update.mockResolvedValue({ id: '1' });
-      prisma.user.findUnique.mockResolvedValue({ email: 'ana@example.com' });
+      prisma.user.findUnique.mockResolvedValue({
+        name: 'Ana',
+        email: 'ana@example.com',
+      });
     });
 
-    it('cambiar el correo invalida los enlaces pendientes', async () => {
+    it('cambiar el correo invalida los enlaces pendientes y cierra las sesiones', async () => {
       await service.update('1', { email: 'nuevo@example.com' }, 'admin');
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { email: 'nuevo@example.com', ...REVOKE },
+          data: { email: 'nuevo@example.com', ...REVOKE, ...CLOSE_SESSIONS },
         }),
       );
+    });
+
+    it('cambiar el correo avisa al anterior, sin decir el nuevo, y lo registra sin correos', async () => {
+      await service.update('1', { email: 'nuevo@example.com' }, 'admin');
+
+      expect(mail.sendSecurityNotice).toHaveBeenCalledWith(
+        'ana@example.com',
+        { name: 'Ana', event: 'EMAIL_CHANGED' },
+        { entity: 'User', entityId: '1' },
+      );
+      expect(JSON.stringify(mail.sendSecurityNotice.mock.calls)).not.toContain(
+        'nuevo@example.com',
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        {
+          actorType: 'PANEL_USER',
+          actorId: 'admin',
+          action: 'USER_EMAIL_CHANGED',
+          entity: 'User',
+          entityId: '1',
+        },
+        prisma,
+      );
+    });
+
+    it('si el cambio falla, no avisa', async () => {
+      prisma.user.update.mockRejectedValue(createPrismaError('P2002'));
+
+      await expect(
+        service.update('1', { email: 'nuevo@example.com' }, 'admin'),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mail.sendSecurityNotice).not.toHaveBeenCalled();
     });
 
     it('reenviar el mismo correo los conserva', async () => {
@@ -284,6 +328,8 @@ describe('UsersService', () => {
           data: { name: 'Ana', email: 'ana@example.com' },
         }),
       );
+      expect(mail.sendSecurityNotice).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 

@@ -15,6 +15,13 @@ export { hashToken };
 
 export const RESET_LINK_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * Pedidos por usuario y por hora (auditoría de seguridad, corrida 1): igual que
+ * la recuperación del enlace del diagnóstico, para que nadie pueda llenarle la
+ * bandeja a un usuario del panel ni reemplazarle el enlace a cada rato.
+ */
+export const RESET_REQUESTS_PER_HOUR = 3;
+
 export const REQUEST_MESSAGE =
   'Si el correo está registrado, te enviamos un enlace para restablecer la contraseña.';
 
@@ -64,23 +71,52 @@ export class PasswordResetService {
     }
 
     const { token, record } = newLinkToken(RESET_LINK_TTL_MS);
-    // Borrar los pendientes y crear el nuevo juntos: pedir un enlace nuevo
-    // invalida el anterior.
-    await this.prisma.$transaction([
-      this.prisma.passwordResetToken.deleteMany({
-        where: { userId: user.id, usedAt: null },
-      }),
-      this.prisma.passwordResetToken.create({
-        data: { userId: user.id, ...record },
-      }),
-    ]);
+    const issued = await this.prisma.$transaction(async (tx) => {
+      // Serializa los pedidos del mismo usuario: el tope no se salta en paralelo.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`password-reset:${user.id}`}))`;
 
-    await this.audit.record({
-      actorType: AuditActorType.SYSTEM,
-      action: 'PASSWORD_RESET_REQUESTED',
-      entity: 'User',
-      entityId: user.id,
+      // Se cuenta en la bitácora y no en los tokens: cada pedido borra los anteriores.
+      const recent = await tx.auditLog.count({
+        where: {
+          entity: 'User',
+          entityId: user.id,
+          action: 'PASSWORD_RESET_REQUESTED',
+          createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+        },
+      });
+      if (recent >= RESET_REQUESTS_PER_HOUR) {
+        await this.audit.record(
+          {
+            actorType: AuditActorType.SYSTEM,
+            action: 'PASSWORD_RESET_LIMITED',
+            entity: 'User',
+            entityId: user.id,
+          },
+          tx,
+        );
+        return false;
+      }
+
+      // Borrar los pendientes y crear el nuevo juntos: pedir un enlace nuevo
+      // invalida el anterior.
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: user.id, usedAt: null },
+      });
+      await tx.passwordResetToken.create({
+        data: { userId: user.id, ...record },
+      });
+      await this.audit.record(
+        {
+          actorType: AuditActorType.SYSTEM,
+          action: 'PASSWORD_RESET_REQUESTED',
+          entity: 'User',
+          entityId: user.id,
+        },
+        tx,
+      );
+      return true;
     });
+    if (!issued) return;
 
     const link = panelLink(this.config, '/reset-password');
     link.searchParams.set('token', token);

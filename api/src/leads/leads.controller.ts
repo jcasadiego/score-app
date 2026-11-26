@@ -40,11 +40,13 @@ export class LeadsController {
   // Límite propio por IP, más estricto que el global, contra spam del
   // formulario público.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  // Los datos personales del lead ya viven en su tabla: no se duplican.
+  // Los datos del lead ya viven en su tabla: no se duplican. Los UTM tampoco
+  // van, porque son texto libre de cualquiera y la bitácora no se borra: ahí
+  // podría quedar un dato personal escrito en ellos.
   @AuditRoute({
     action: 'LEAD_CREATED',
     entity: 'Lead',
-    fields: ['family', 'utmSource', 'utmMedium', 'utmCampaign'],
+    fields: ['family'],
   })
   create(@Body() dto: CreateLeadDto) {
     return this.leads.create(dto);

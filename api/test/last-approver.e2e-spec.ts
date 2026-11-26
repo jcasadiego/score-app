@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { AuditService } from './../src/audit/audit.service';
+import { MailService } from './../src/mail/mail.service';
 import { PasswordLinkService } from './../src/password-reset/password-link.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { UsersService } from './../src/users/users.service';
@@ -56,11 +57,12 @@ describe('Último Aprobador activo (e2e, base propia)', () => {
       adapter: new PrismaPg({ connectionString: databaseUrl(DATABASE) }),
     });
     const service = prisma as unknown as PrismaService;
-    // Estas pruebas no mandan enlaces de contraseña.
+    // Estas pruebas no mandan enlaces de contraseña ni correos.
     users = new UsersService(
       service,
       new AuditService(service),
       {} as PasswordLinkService,
+      {} as MailService,
     );
   }, 60_000);
 

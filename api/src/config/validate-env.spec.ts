@@ -475,3 +475,24 @@ describe('validateEnv — cupo de avisos de lead nuevo (PF-36)', () => {
     ).toThrow(/NEW_LEAD_NOTICE_DAILY_LIMIT/);
   });
 });
+
+describe('validateEnv — alertas de seguridad (PF-55)', () => {
+  it('el correo de soporte es opcional y debe ser válido', () => {
+    expect(validateEnv(BASE).SECURITY_ALERT_EMAIL).toBeUndefined();
+    expect(
+      validateEnv({ ...BASE, SECURITY_ALERT_EMAIL: 'soporte@example.com' })
+        .SECURITY_ALERT_EMAIL,
+    ).toBe('soporte@example.com');
+    expect(() =>
+      validateEnv({ ...BASE, SECURITY_ALERT_EMAIL: 'no-es-correo' }),
+    ).toThrow(/SECURITY_ALERT_EMAIL/);
+  });
+
+  it('sin intervalo, o vacío, revisa cada minuto', () => {
+    expect(validateEnv(BASE).SECURITY_ALERT_INTERVAL_MS).toBe(60_000);
+    expect(
+      validateEnv({ ...BASE, SECURITY_ALERT_INTERVAL_MS: '' })
+        .SECURITY_ALERT_INTERVAL_MS,
+    ).toBe(60_000);
+  });
+});

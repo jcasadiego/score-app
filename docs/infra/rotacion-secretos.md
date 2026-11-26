@@ -1,6 +1,7 @@
 # Secretos: dónde viven, quién los ve y cómo se rotan (PF-57)
 
-Ningún secreto vive en el repo, que es público: `render.yaml` solo declara las
+Ningún secreto vive en el repo, que es público (decisión de José del
+2026-11-04, `docs/compliance/control-matrix.md`): `render.yaml` solo declara las
 variables (`sync: false` o `generateValue`) y gitleaks lo revisa en cada PR.
 
 ## Dónde viven y quién tiene acceso
@@ -14,7 +15,9 @@ variables (`sync: false` o `generateValue`) y gitleaks lo revisa en cada PR.
 - Cada entorno tiene **sus propios valores**: nunca se copia un secreto de QA a PROD.
 - `MFA_ENCRYPTION_KEY` de PROD además se respalda **fuera de Render**, en el
   lugar acordado con José (PF-74): si se pierde, todos deben reconfigurar su MFA.
-- Ver un secreto en Render queda en la bitácora de accesos del workspace (Pro).
+- En PROD, ver un secreto en Render debe quedar en la bitácora de accesos del
+  workspace, que trae el plan Pro: se activa y se comprueba con PF-74. La cuenta
+  de QA no la tiene.
 
 ## Antes de rotar
 

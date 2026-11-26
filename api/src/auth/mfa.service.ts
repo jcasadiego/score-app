@@ -110,10 +110,17 @@ export class MfaService {
     }
 
     const secret = generateTotpSecret();
-    await this.prisma.user.update({
-      where: { id: user.id },
+    // Condicional: si otra petición activó el MFA entre la lectura y esta
+    // escritura, no se pisa el secreto recién activado.
+    const { count } = await this.prisma.user.updateMany({
+      where: { id: user.id, mfaEnabledAt: null },
       data: { mfaSecret: encryptMfaSecret(secret, user.id) },
     });
+    if (count === 0) {
+      throw new ConflictException(
+        'La verificación en dos pasos ya está activa.',
+      );
+    }
     return {
       secret: toBase32(secret),
       otpauthUri: totpUri(secret, user.email),

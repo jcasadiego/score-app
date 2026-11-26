@@ -9,6 +9,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
 import { NOTICE_BUDGET_THROTTLER } from './../src/notifications/notice-budget.service';
+import { SECURITY_ALERT_THROTTLER } from './../src/security-alerts/security-alerts.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 const LOGIN_LIMIT = 5;
@@ -38,9 +39,12 @@ describe('Límite de peticiones compartido (e2e)', () => {
     prisma = apps[0].get(PrismaService);
   });
 
-  // Solo los del límite de peticiones: el cupo de avisos (PF-36) tiene su
-  // propio e2e, que corre en paralelo sobre la misma tabla.
-  const ownCounters = { throttler: { not: NOTICE_BUDGET_THROTTLER } };
+  // Solo los del límite de peticiones: el cupo de avisos (PF-36) y las marcas
+  // de alertas (PF-55) tienen sus propios e2e, que corren en paralelo sobre la
+  // misma tabla.
+  const ownCounters = {
+    throttler: { notIn: [NOTICE_BUDGET_THROTTLER, SECURITY_ALERT_THROTTLER] },
+  };
 
   beforeEach(async () => {
     await prisma.throttleCounter.deleteMany({ where: ownCounters });

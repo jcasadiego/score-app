@@ -11,8 +11,8 @@ sección. Datos de los proveedores: `investigacion-despliegue.md`, sección 4.4.
 |---|---|---|
 | Base de datos: leads, diagnósticos, respuestas, informes, usuarios, `audit_logs` | Render Postgres (PROD, workspace del cliente) | Tendrá restauración a un punto en el tiempo (PITR) de Render, de 7 días con el plan Pro previsto (PF-74) |
 | Audio de las respuestas por voz | Bucket de R2 | **Sin respaldo:** si se borra, se pierde. La regla de ciclo de vida de 365 días es un borrado, no una copia (PF-90) |
-| `MFA_ENCRYPTION_KEY` | Variable de la API | Respaldo fuera de Render, en el lugar que acuerde José (PF-74). Sin ella, un respaldo de la base restaura los usuarios, pero nadie puede usar su MFA |
-| Resto de los secretos | Variables de Render | No se respaldan: se generan de nuevo. Procedimiento pendiente de PF-57 (`investigacion-despliegue.md` 11.5 mientras tanto) |
+| `MFA_ENCRYPTION_KEY` | Variable de la API | Respaldo fuera de Render, en el lugar que acuerde José (PF-74, `rotacion-secretos.md`). Sin ella, un respaldo de la base restaura los usuarios, pero nadie puede usar su MFA |
+| Resto de los secretos | Variables de Render | No se respaldan: se generan de nuevo (`rotacion-secretos.md`) |
 | Exportación lógica manual (`pg_dump`) antes de una migración *contract* (`investigacion-despliegue.md` 4.2) | La exportación de Render, que la guarda 7 días | Se hace desde Render y queda ahí. Nunca se descarga a GitHub, QA ni un equipo personal. Si hiciera falta guardarla más tiempo, va a un destino cifrado del cliente que antes se anota en `data-inventory.md` |
 
 **Los respaldos contienen datos personales y la bitácora:** se tratan igual que

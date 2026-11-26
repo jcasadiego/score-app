@@ -36,7 +36,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 | Registro de quién consulta datos personales | A.8.15 | CC7.2, P6 | Parcial | Leads, con `LEADS_LISTED` y `LEAD_VIEWED`, y su historial de envíos al CRM con `CRM_SYNC_EVENTS_LISTED` (PF-80). Cada módulo nuevo con datos personales debe declararlo |
 | Id de petición en respuesta, log y bitácora | A.8.15 | CC7.2 | Implementado | `api/src/common/request-context.ts` |
 | Logs en JSON, sin URLs ni valores de consultas | A.8.11, A.8.15 | CC7.2, C1.1 | Implementado | `main.ts`, `problem-details.ts` |
-| Alertas sobre eventos de seguridad | A.8.16 | CC7.2, CC7.3 | **Pendiente** | Requiere la plataforma de producción (PF-55) |
+| Alertas sobre eventos de seguridad | A.8.16 | CC7.2, CC7.3 | Parcial | Sin proveedor nuevo (decisión de José del 2026-11-26): la API cuenta en la bitácora, por ventanas de 5 minutos, intentos fallidos, accesos denegados, bloqueos, errores 5xx y cada `MFA_RESET`, y avisa solo al correo de soporte (`SECURITY_ALERT_EMAIL`) con el hecho y la cantidad, sin usuarios ni datos personales. Una sola alerta por ventana aunque haya varias instancias. `src/security-alerts/`, `test/security-alerts.e2e-spec.ts`. Caídas: health check de Render y `.github/workflows/uptime.yml` (`HEALTHCHECK_URLS`). Falta probar la ráfaga en QA, cargar el correo de soporte y, en PROD, las URLs y las notificaciones de Render (PF-74, PF-77). Si la API está caída, la alerta de la bitácora no sale: la cubre el chequeo de disponibilidad |
 | Conservación de logs y bitácora | A.8.15 | CC7.2 | **Pendiente** | Plazo por definir (PF-49 y PF-55) |
 
 ## Criptografía y secretos
@@ -109,7 +109,7 @@ ISO 27001 cita el Anexo A de la edición 2022; SOC 2, los Trust Services Criteri
 
 | Control | ISO 27001 | SOC 2 | Estado | Evidencia o qué falta |
 |---|---|---|---|---|
-| Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts` |
+| Salud de la API y apagado ordenado | A.8.6, A.8.14 | A1.1 | Implementado | `health.controller.ts`, `main.ts`. Chequeo externo cada 15 minutos con `.github/workflows/uptime.yml` (`HEALTHCHECK_URLS`), pensado para PROD: falta cargar las URLs (PF-74, PF-77) |
 | Capacidad del correo: un spam del formulario público no agota la cuota que comparten los correos críticos | A.8.6 | A1.1, CC6.6 | Implementado | Cupo global de avisos de lead nuevo por día (`NEW_LEAD_NOTICE_DAILY_LIMIT`, 30 por defecto), contado en Postgres y compartido entre instancias, aparte del límite por IP. Pasado el cupo el lead se registra igual y queda `EMAIL_SUPPRESSED` en la bitácora, sin datos del lead; los correos críticos no pasan por el cupo. `src/notifications/notice-budget.service.ts`, `test/notice-budget.e2e-spec.ts` (PF-36) |
 | Respaldos con restauración probada | A.8.13 | A1.2, A1.3 | **Pendiente** | Procedimiento y simulacro escritos en `docs/infra/respaldos.md` (PF-56): PITR de 7 días, restauración a una instancia nueva, revisión antes de cambiar la conexión y registro de la duración. Falta la base de PROD (PF-74) y hacer el simulacro |
 | Plan de continuidad y recuperación (RTO/RPO) | A.5.29, A.5.30 | A1.3, CC7.5 | **Pendiente** | Propuesta en `docs/infra/respaldos.md`: RPO de 1 hora y RTO de 4 horas en horario laboral, por aprobar con el cliente. El plan de continuidad completo es de PF-63 |

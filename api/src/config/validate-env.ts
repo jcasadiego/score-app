@@ -118,6 +118,14 @@ const EnvSchema = z
     MAIL_FROM: optional(z.string()),
     MAIL_REPLY_TO: optional(z.email()),
     MAIL_LOGO_URL: optional(z.url()),
+    // Alertas de seguridad (PF-55): solo a este correo de soporte, nunca a los
+    // usuarios del panel. Sin él, no se envían (y se avisa en el log).
+    SECURITY_ALERT_EMAIL: optional(z.email()),
+    // Cada cuánto se revisa la bitácora; 0 la apaga (tests).
+    SECURITY_ALERT_INTERVAL_MS: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.coerce.number().int().min(0).default(60_000),
+    ),
     // Cupo global de avisos de lead nuevo por día (PF-36): pasado este número,
     // el lead se registra pero el aviso no sale. 0 los apaga.
     // Vacía cuenta como no puesta: `coerce` la convertiría en 0.

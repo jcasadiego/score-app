@@ -658,6 +658,18 @@ En QA y PROD la API no se conecta como dueña del esquema:
     `CRM_SYNC_RETRIED` con quien lo pidió; solo ids, tipo y código.
   - `CRM_SIMULATED_FAILURE` hace fallar al simulado con un código, para
     probar reintentos y el panel (no con `APP_ENV=production`).
+- `src/security-alerts/` — alertas de seguridad (PF-55). Cada
+  `SECURITY_ALERT_INTERVAL_MS` (60 s; 0 la apaga) cuenta en `audit_logs` las
+  últimas tres ventanas de 5 minutos, alineadas al reloj, y avisa a
+  `SECURITY_ALERT_EMAIL` (solo ese correo de soporte, nunca a los usuarios del
+  panel) cuando una pasa su umbral (`security-alert-rules.ts`): 20
+  `AUTHENTICATION_FAILED`, 20 `ACCESS_DENIED`, 3 `ACCOUNT_LOCKED`, 10
+  `REQUEST_FAILED` (5xx) o cualquier `MFA_RESET`. El correo lleva el hecho, la
+  cantidad y la ventana; el detalle se mira en la bitácora. Cada alerta sale una
+  vez: la marca va en `throttle_counters` (throttler `security-alert`), y si el
+  envío falla se suelta para reintentarlo. Sin `SECURITY_ALERT_EMAIL` no corre
+  (en producción lo avisa el log al arrancar). Las caídas de la API las cubren
+  el health check de Render y `.github/workflows/uptime.yml`.
 - `src/mail/` — correo transaccional. Los módulos llaman a
   `MailService` (`sendDiagnosticLink`, `sendLinkRecovery`, `sendPasswordReset`, `sendPasswordSetup`),
   nunca al proveedor: detrás está `MailPort` (`mail.port.ts`), con

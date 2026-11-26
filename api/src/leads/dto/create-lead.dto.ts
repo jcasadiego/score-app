@@ -13,7 +13,11 @@ import { DiagnosticFamily } from '../../../generated/prisma/enums';
 import { EMAIL_MAX, NAME_MAX } from '../../users/dto/limits';
 import { NormalizeText, Trim } from '../../users/dto/normalize-text';
 
-/** Largo máximo de cada parámetro UTM. */
+/**
+ * Largo máximo de cada parámetro UTM. Los UTM son texto libre del formulario
+ * público: se normalizan (sin saltos de línea ni espacios repetidos) para que no
+ * agreguen líneas al texto plano de los avisos al equipo.
+ */
 export const UTM_MAX = 200;
 
 /**
@@ -57,21 +61,21 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional({ maxLength: UTM_MAX, example: 'instagram' })
   @IsOptional()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MaxLength(UTM_MAX)
   utmSource?: string;
 
   @ApiPropertyOptional({ maxLength: UTM_MAX, example: 'social' })
   @IsOptional()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MaxLength(UTM_MAX)
   utmMedium?: string;
 
   @ApiPropertyOptional({ maxLength: UTM_MAX, example: 'lanzamiento-2026' })
   @IsOptional()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MaxLength(UTM_MAX)
   utmCampaign?: string;

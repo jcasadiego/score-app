@@ -12,6 +12,7 @@ import {
   hashToken,
   REQUEST_MESSAGE,
   PasswordResetService,
+  RESET_REQUESTS_PER_HOUR,
 } from './password-reset.service';
 
 vi.mock('argon2');
@@ -26,6 +27,8 @@ const USER = {
 describe('PasswordResetService', () => {
   let prisma: {
     $transaction: Mock;
+    $executeRaw: Mock;
+    auditLog: { count: Mock };
     passwordResetToken: {
       create: Mock;
       deleteMany: Mock;
@@ -44,6 +47,8 @@ describe('PasswordResetService', () => {
     (argon2.hash as Mock).mockResolvedValue('hash-nuevo');
     prisma = {
       $transaction: vi.fn(),
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      auditLog: { count: vi.fn().mockResolvedValue(0) },
       passwordResetToken: {
         create: vi.fn().mockReturnValue('crear'),
         deleteMany: vi.fn().mockReturnValue('borrar'),
@@ -116,6 +121,46 @@ describe('PasswordResetService', () => {
       expect(ttlMs).toBeGreaterThan(59 * 60 * 1000);
       expect(ttlMs).toBeLessThanOrEqual(60 * 60 * 1000);
       expect(JSON.stringify(audit.record.mock.calls)).not.toContain(token);
+    });
+
+    it('cuenta los pedidos de la última hora bajo un candado por usuario', async () => {
+      users.findByEmail.mockResolvedValue(USER);
+
+      await service.processRequest(USER.email);
+
+      expect(prisma.$executeRaw).toHaveBeenCalledOnce();
+      expect(prisma.auditLog.count).toHaveBeenCalledWith({
+        where: {
+          entity: 'User',
+          entityId: 'u1',
+          action: 'PASSWORD_RESET_REQUESTED',
+          createdAt: { gte: expect.any(Date) },
+        },
+      });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PASSWORD_RESET_REQUESTED' }),
+        prisma,
+      );
+    });
+
+    it(`desde el pedido ${RESET_REQUESTS_PER_HOUR + 1} en una hora no envía ni reemplaza el enlace`, async () => {
+      users.findByEmail.mockResolvedValue(USER);
+      prisma.auditLog.count.mockResolvedValue(RESET_REQUESTS_PER_HOUR);
+
+      await service.processRequest(USER.email);
+
+      expect(prisma.passwordResetToken.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+      expect(mail.sendPasswordReset).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        {
+          actorType: 'SYSTEM',
+          action: 'PASSWORD_RESET_LIMITED',
+          entity: 'User',
+          entityId: 'u1',
+        },
+        prisma,
+      );
     });
 
     it('con correo inexistente o usuario inactivo no envía nada', async () => {

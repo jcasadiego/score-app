@@ -840,6 +840,34 @@ describe('Grabaciones de voz (e2e, base propia)', () => {
       expect((await recordingOf(id)).transcription?.status).toBe('FAILED');
     });
 
+    it('si el cliente regraba mientras se borra el audio vencido, el audio nuevo se conserva', async () => {
+      const { id, session } = await withVoice();
+      await prisma.diagnostic.update({
+        where: { id },
+        data: { lastActivityAt: daysAgo(91) },
+      });
+      const { objectKey: oldKey } = await recordingOf(id);
+      const original = storage.delete.bind(storage);
+      // Regraba justo después de que la pasada eligió la grabación vieja.
+      vi.spyOn(storage, 'delete').mockImplementationOnce(async (key) => {
+        await upload(session, voice.id).expect(200);
+        return original(key);
+      });
+
+      const result = await retention().run();
+      expect(result.expired).toBe(0);
+      const after = await recordingOf(id);
+      expect(after.objectKey).not.toBe(oldKey);
+      expect(after.audioDeletedAt).toBeNull();
+      expect(storedKeys().has(after.objectKey)).toBe(true);
+      expect(storedKeys().has(oldKey)).toBe(false);
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'VOICE_AUDIO_DELETED', entityId: after.id },
+        }),
+      ).toBe(0);
+    });
+
     it('si el bucket falla, no marca nada y la siguiente pasada lo borra', async () => {
       const { id } = await withVoice();
       await prisma.diagnostic.update({

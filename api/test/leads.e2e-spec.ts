@@ -185,7 +185,7 @@ describe('Leads del panel (e2e)', () => {
       .get(JwtService)
       .signAsync(
         { sub: user.id, ver: user.sessionVersion, sid: session.id },
-        { secret: process.env.JWT_SECRET },
+        { secret: process.env.JWT_SECRET, audience: 'panel-session' },
       );
 
     // Marca única para que los filtros no choquen con otros leads de la base.

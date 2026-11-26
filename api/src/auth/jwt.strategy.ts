@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PANEL_SESSION_AUDIENCE } from './session-audience';
 import { SessionsService } from './sessions.service';
 
 interface JwtPayload {
@@ -31,6 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET,
       algorithms: ['HS256'],
+      audience: PANEL_SESSION_AUDIENCE,
     });
   }
 

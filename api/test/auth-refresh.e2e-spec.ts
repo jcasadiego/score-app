@@ -170,12 +170,14 @@ describe('Renovación de sesión (e2e)', () => {
     it('rechaza un token firmado sin sesión', async () => {
       const token = await login();
       const { sub, email, role, ver, authAt } = decode(token);
-      const noSession = await app
-        .get(JwtService)
-        .signAsync(
-          { sub, email, role, ver, authAt },
-          { secret: process.env.JWT_SECRET, expiresIn: '1h' },
-        );
+      const noSession = await app.get(JwtService).signAsync(
+        { sub, email, role, ver, authAt },
+        {
+          secret: process.env.JWT_SECRET,
+          audience: 'panel-session',
+          expiresIn: '1h',
+        },
+      );
 
       await checkSession(noSession).expect(401);
     });

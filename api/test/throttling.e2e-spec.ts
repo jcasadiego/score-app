@@ -171,14 +171,15 @@ describe('Límite de peticiones (e2e)', () => {
         );
       await listUsers(forged).expect(401);
 
-      // Un token vencido con firma válida sigue contando para su usuario.
+      // Un token vencido ya no cuenta para su usuario (auditoría, corrida 1):
+      // cuenta por IP, así que no le toca el contador agotado de A.
       const expired = await app
         .get(JwtService)
         .signAsync(
           { sub, exp: Math.floor(Date.now() / 1000) - 60 },
-          { secret: process.env.JWT_SECRET },
+          { secret: process.env.JWT_SECRET, audience: 'panel-session' },
         );
-      await listUsers(expired).expect(429);
+      await listUsers(expired).expect(401);
     });
   });
 });

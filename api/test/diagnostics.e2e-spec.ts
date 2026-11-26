@@ -83,7 +83,7 @@ describe('Diagnósticos (e2e, base propia)', () => {
       .get(JwtService)
       .signAsync(
         { sub: user.id, ver: user.sessionVersion, sid: session.id },
-        { secret: process.env.JWT_SECRET },
+        { secret: process.env.JWT_SECRET, audience: 'panel-session' },
       );
     return { id: user.id, token };
   }

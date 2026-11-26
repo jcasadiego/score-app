@@ -400,6 +400,27 @@ export class FlagsService implements OnApplicationBootstrap {
       });
     }
     const analysisId = await this.prisma.$transaction(async (tx) => {
+      // Un caso aprobado no cambia sus alertas hasta que un Aprobador lo
+      // reabra (PF-64): un análisis nuevo agregaría alertas abiertas que nadie
+      // puede revisar y trabaría la entrega. Se bloquea la revisión antes que
+      // el cálculo, en el mismo orden que la aprobación.
+      const owner = await tx.calculation.findUnique({
+        where: { id: calculationId },
+        select: { diagnosticId: true },
+      });
+      if (!owner) throw this.calculationNotFound(calculationId);
+      const [review] = await tx.$queryRaw<{ status: ReviewStatus }[]>`
+        SELECT status FROM reviews
+        WHERE diagnostic_id = ${owner.diagnosticId}
+        FOR UPDATE
+      `;
+      if (review?.status === ReviewStatus.APPROVED) {
+        throw new ConflictException({
+          message:
+            'El caso está aprobado. Un Aprobador debe reabrirlo antes de volver a analizarlo.',
+          code: REVIEW_APPROVED,
+        });
+      }
       const [calculation] = await tx.$queryRaw<
         { status: CalculationStatus; diagnosticId: string }[]
       >`

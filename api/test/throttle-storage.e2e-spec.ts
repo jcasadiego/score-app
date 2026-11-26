@@ -8,6 +8,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/bootstrap';
+import { NOTICE_BUDGET_THROTTLER } from './../src/notifications/notice-budget.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 const LOGIN_LIMIT = 5;
@@ -37,12 +38,16 @@ describe('Límite de peticiones compartido (e2e)', () => {
     prisma = apps[0].get(PrismaService);
   });
 
+  // Solo los del límite de peticiones: el cupo de avisos (PF-36) tiene su
+  // propio e2e, que corre en paralelo sobre la misma tabla.
+  const ownCounters = { throttler: { not: NOTICE_BUDGET_THROTTLER } };
+
   beforeEach(async () => {
-    await prisma.throttleCounter.deleteMany();
+    await prisma.throttleCounter.deleteMany({ where: ownCounters });
   });
 
   afterAll(async () => {
-    await prisma?.throttleCounter.deleteMany();
+    await prisma?.throttleCounter.deleteMany({ where: ownCounters });
     await Promise.all(apps.map((app) => app.close()));
   });
 

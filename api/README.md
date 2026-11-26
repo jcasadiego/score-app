@@ -71,8 +71,14 @@ autenticador y los códigos necesita que **otro** ADMIN use
 `PATCH /users/:id/reset-mfa`. Si el único ADMIN queda fuera, se restablece en la
 base con acceso de operación, y se deja constancia del motivo.
 
-`MFA_ENCRYPTION_KEY` es obligatoria en todo entorno. Sin rotación todavía:
-perderla o cambiarla obliga a restablecer el MFA de todos.
+`MFA_ENCRYPTION_KEY` es obligatoria en todo entorno. Perderla obliga a
+restablecer el MFA de todos, pero se puede **rotar** sin afectar a nadie
+(PF-57): cada secreto guarda el id de la llave que lo cifró (formato `v2`), la
+API descifra también con `MFA_ENCRYPTION_PREVIOUS_KEYS` y al arrancar recifra
+todo con la llave actual (`MfaKeyRotationService`, `MFA_SECRETS_REENCRYPTED` en
+la bitácora, solo con cantidades). Los del formato `v1` pasan a `v2` en el primer
+arranque. Procedimiento y el resto de los secretos:
+`docs/infra/rotacion-secretos.md`.
 
 ## Scripts
 

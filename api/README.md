@@ -645,8 +645,8 @@ En QA y PROD la API no se conecta como dueña del esquema:
     el bucket rechaza el acceso sin firma. No necesita Postgres.
 - `src/crm/` — sincronización SCORE → CRM, en una sola dirección (PF-80).
   Puerto `CrmAdapter` (`crm.port.ts`) con el adaptador elegido por
-  `CRM_PROVIDER`: hoy solo `simulated`, que no llama a nada externo (el de
-  Funnel Up es PF-82). Al CRM solo van contacto, familia, UTM y el estado
+  `CRM_PROVIDER`: `simulated`, que no llama a nada externo, o `funnelup`
+  (PF-82). Al CRM solo van contacto, familia, UTM y el estado
   SCORE con sus etiquetas (`crm.types.ts`); nunca respuestas, resultados, el
   informe ni su enlace.
   - Bandeja de salida `crm_sync_events`: lead creado, diagnóstico activado
@@ -671,6 +671,23 @@ En QA y PROD la API no se conecta como dueña del esquema:
     `CRM_SYNC_RETRIED` con quien lo pidió; solo ids, tipo y código.
   - `CRM_SIMULATED_FAILURE` hace fallar al simulado con un código, para
     probar reintentos y el panel (no con `APP_ENV=production`).
+  - **Funnel Up** (`adapters/funnelup-crm.adapter.ts`, PF-82): HighLevel con
+    otra marca, API `https://services.leadconnectorhq.com` con `Version: v3`
+    (fuentes: `marketplace.gohighlevel.com/docs`, contactos, etiquetas y
+    límites). Crea o actualiza el contacto por correo (`POST
+    /contacts/upsert`) y escribe los campos `contact.estado_score`,
+    `contact.familia_score` y `contact.utm_*` por su clave; un cambio de
+    estado solo toca "Estado SCORE" (`PUT /contacts/:id`). Las etiquetas van
+    por `POST /contacts/:id/tags`, que suma sin borrar: el arreglo `tags` del
+    upsert reemplazaría las del equipo comercial. 401/403 → `AUTH_FAILED`;
+    429 → `RATE_LIMITED`, con la espera de los encabezados `X-RateLimit-*`
+    (no trae `Retry-After`); 408 o sin respuesta en 10 s → `TIMEOUT`; otro
+    4xx → `INVALID_DATA`; 5xx → `PROVIDER_ERROR`. Variables:
+    `CRM_FUNNELUP_TOKEN`, `CRM_FUNNELUP_LOCATION_ID` y `CRM_EXTRA_TAG`
+    (`score-qa` en QA).
+  - **Prueba de conexión:** `pnpm crm:check` comprueba, solo con lecturas,
+    token, subcuenta, los cinco campos con su tipo y opciones, y que el token
+    no lea calendarios ni usuarios. No imprime el token ni crea contactos.
 - `src/security-alerts/` — alertas de seguridad (PF-55). Cada
   `SECURITY_ALERT_INTERVAL_MS` (60 s; 0 la apaga) cuenta en `audit_logs` las
   últimas tres ventanas de 5 minutos, alineadas al reloj, y avisa a

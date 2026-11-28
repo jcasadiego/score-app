@@ -110,9 +110,18 @@ services:
         value: stub
       - key: AI_PROVIDER
         value: stub
-      # CRM simulado (PF-80): los datos no salen de SCORE hasta el real (PF-82).
+      # CRM (PF-80/PF-82): `simulated` no saca datos de SCORE. Para enviar a
+      # Funnel Up, `funnelup` con token y subcuenta (cargados a mano: el deploy
+      # no sincroniza el Blueprint). La subcuenta es la real de MFP: en QA cada
+      # contacto lleva la etiqueta `score-qa`.
       - key: CRM_PROVIDER
         value: simulated
+      - key: CRM_FUNNELUP_TOKEN
+        sync: false
+      - key: CRM_FUNNELUP_LOCATION_ID
+        sync: false
+      - key: CRM_EXTRA_TAG
+        value: score-qa
       # Transcripción simulada (PF-88): el audio no sale de SCORE. Sin esta
       # variable, la API arranca igual pero no transcribe (disabled).
       - key: TRANSCRIPTION_PROVIDER

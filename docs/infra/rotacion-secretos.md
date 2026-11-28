@@ -41,6 +41,7 @@ servicios", cambiarlos en la misma ventana de tiempo.
 | `DIAGNOSTIC_API_SECRET` | api y diagnóstico | Igual que el anterior, para `apps/diagnostico` |
 | `RESEND_API_KEY` | api | Crear la key nueva en Resend (solo envío, limitada al dominio), cargarla, comprobar un envío (`EMAIL_SENT` en la bitácora) y **después** revocar la vieja en Resend |
 | `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY` | api | Igual que Resend: token nuevo de R2 limitado al bucket, cargar los dos valores, comprobar (`pnpm storage:test` o una grabación) y revocar el viejo |
+| `CRM_FUNNELUP_TOKEN` | api | Cada 90 días (lo recomienda Funnel Up). En Funnel Up, Settings → Private Integrations → la integración → **Rotate and expire this token later**: el viejo sigue sirviendo 7 días. Cargar el nuevo, comprobar con `pnpm crm:check` y un lead de prueba, y si se filtró, **Rotate and expire this token now**. Mientras el token no sirve, los envíos fallan con `AUTH_FAILED` y quedan para reintentar desde el panel |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | api | Igual que Resend: key nueva, cargar, comprobar, revocar la vieja |
 | `DATABASE_URL`, `MIGRATION_DATABASE_URL` | api | Cambiar la contraseña del rol en Postgres (`ALTER ROLE ... PASSWORD`) y actualizar la URL en la misma ventana: entre medio, la API no conecta |
 

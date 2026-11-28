@@ -145,9 +145,20 @@ const EnvSchema = z
     // Contadores del límite de peticiones (PF-60): `postgres` los comparte entre
     // instancias; `memory` es por proceso (tests).
     THROTTLE_STORAGE: z.enum(['postgres', 'memory']).default('postgres'),
-    // CRM (PF-80): `simulated` no llama a nada externo (el real llega con
-    // PF-82). Obligatorio con NODE_ENV=production.
+    // CRM (PF-80): `simulated` no llama a nada externo; `funnelup` envía a
+    // Funnel Up (PF-82). Obligatorio con NODE_ENV=production.
     CRM_PROVIDER: optional(z.enum(CRM_PROVIDERS)),
+    // Funnel Up (PF-82): token de una integración privada con mínimo
+    // privilegio y la subcuenta. Obligatorios con CRM_PROVIDER=funnelup.
+    CRM_FUNNELUP_TOKEN: optional(z.string().min(1)),
+    // Va en la ruta de la API: solo letras y números.
+    CRM_FUNNELUP_LOCATION_ID: optional(
+      z.string().regex(/^[A-Za-z0-9]{10,40}$/, 'id de subcuenta inválido'),
+    ),
+    // Etiqueta que se suma a todo contacto enviado (p. ej. `score-qa` en QA).
+    CRM_EXTRA_TAG: optional(
+      z.string().regex(/^[a-z0-9-]{1,40}$/, 'minúsculas, números y guiones'),
+    ),
     // Solo desarrollo y QA: el CRM simulado falla siempre con este código, para
     // probar los reintentos y el panel.
     CRM_SIMULATED_FAILURE: optional(z.enum(CrmSyncErrorCode)),
@@ -302,6 +313,20 @@ const EnvSchema = z
         path: ['CRM_PROVIDER'],
         message: 'obligatoria con NODE_ENV=production',
       });
+    }
+    if (env.CRM_PROVIDER === 'funnelup') {
+      for (const key of [
+        'CRM_FUNNELUP_TOKEN',
+        'CRM_FUNNELUP_LOCATION_ID',
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'obligatoria con CRM_PROVIDER=funnelup',
+          });
+        }
+      }
     }
     // La llave actual entre las anteriores suele ser un error al rotar: la
     // nueva quedó sin poner o se copió mal.

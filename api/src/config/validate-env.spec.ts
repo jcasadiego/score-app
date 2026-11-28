@@ -307,7 +307,7 @@ describe('validateEnv · CRM', () => {
       ...BASE,
       CRM_PROVIDER: 'funnelup',
       CRM_FUNNELUP_TOKEN: 'pit-x',
-      CRM_FUNNELUP_LOCATION_ID: 'ykL5DgCE0MpotFRHL9mu',
+      CRM_FUNNELUP_LOCATION_ID: 'loc123ABC456def',
       CRM_EXTRA_TAG: 'score-qa',
     });
     expect(env.CRM_PROVIDER).toBe('funnelup');

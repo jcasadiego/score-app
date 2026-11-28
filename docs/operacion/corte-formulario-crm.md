@@ -125,8 +125,9 @@ etiqueta `score-qa`. Usar un correo propio, nunca uno de un cliente.
 
 1. Abrir el formulario del sitio en QA con UTM de prueba (por ejemplo
    `?utm_source=prueba&utm_medium=qa&utm_campaign=corte-crm`) y enviarlo.
-2. En el panel de SCORE de QA (Leads), abrir el lead: la sección CRM debe decir
-   **Enviado** en menos de un minuto.
+2. En el panel de SCORE de QA (Leads), abrir el lead: en menos de un minuto la
+   sección CRM debe decir **Sincronizado**, con el envío "Lead recibido" en
+   **Enviado**.
 3. En Funnel Up, buscar el contacto por correo y revisar:
    - nombre y apellido, correo, teléfono;
    - "Estado SCORE" = Lead, "Familia SCORE" y los tres UTM;
@@ -149,7 +150,7 @@ ticket.
 |---|---|---|---|
 | 1 | Confirmar que la lista 3.4 está completa | José | Todo marcado |
 | 2 | Publicar el sitio nuevo con el formulario conectado a SCORE | Responsable del sitio | El formulario carga en la dirección pública |
-| 3 | Enviar un lead de prueba real con un correo propio | José | Sección CRM del lead en el panel = Enviado; contacto en Funnel Up con `score-lead` |
+| 3 | Enviar un lead de prueba real con un correo propio | José | Sección CRM del lead en el panel = Sincronizado; contacto en Funnel Up con `score-lead` |
 | 4 | Confirmar que la automatización se disparó con ese lead | José y equipo comercial | Llegó el aviso al equipo, igual que antes |
 | 5 | Activar la redirección de `/form-aplic-3026` | Proveedor | Abrir la dirección vieja en una ventana privada: termina en el formulario nuevo |
 | 6 | Avisar al equipo comercial que el cambio está hecho | José | Mensaje enviado |
@@ -164,15 +165,19 @@ formulario viejo sigue funcionando y no se pierde nada.
 Una vez al día, José:
 
 1. En el panel de SCORE (Leads), filtrar por **Con error** en el CRM. Si hay
-   alguno, abrirlo, ver el código y usar **Reintentar**. Anotar la causa en
-   PF-83 (solo el tipo de error, nunca datos del lead). Si el panel dice que
+   alguno, abrirlo, leer el mensaje de error y usar **Reintentar**, salvo que
+   sea de una persona cuyos datos ya se borraron del CRM por un pedido suyo
+   (sección 8): ese no se reintenta. Anotar en PF-83 el tipo de error según el
+   mensaje, nunca datos del lead. Si el panel dice que
    "SCORE no pudo conectarse con el CRM", el token de Funnel Up venció o se
    rotó: ver `docs/infra/rotacion-secretos.md`.
 2. Comparar la **cantidad** de leads nuevos del día en SCORE con la de
-   contactos nuevos con la etiqueta `score-lead` en Funnel Up. Deben coincidir
-   (un lead que repite su correo actualiza el mismo contacto en vez de crear
-   otro). Se comparan cantidades y fechas, sin exportar listas con datos
-   personales.
+   contactos nuevos con la etiqueta `score-lead` en Funnel Up. SCORE puede tener
+   más: si alguien envía el formulario dos veces, o ya estaba en el CRM por el
+   formulario viejo, SCORE guarda otro lead pero Funnel Up actualiza el mismo
+   contacto. Lo que no debe haber son leads **Con error** ni **Pendiente** de
+   más de una hora. Se comparan cantidades y fechas, sin exportar listas con
+   datos personales.
 3. Preguntar al equipo comercial si recibió los avisos como siempre.
 
 Al terminar la semana sin diferencias, se cierra PF-83.
@@ -201,8 +206,13 @@ una persona pide ver, corregir o borrar sus datos:
   solo, porque la sincronización va en una sola dirección.
 - En Funnel Up lo hace el equipo de Music Finance Pro o el proveedor, a mano,
   buscando el contacto por su correo.
-- Si se borra en Funnel Up pero sigue en SCORE, un cambio de estado posterior
-  lo volvería a crear: primero se resuelve en SCORE.
+- Si se borra en Funnel Up pero sigue en SCORE, el siguiente cambio de estado
+  de ese lead queda **Con error** en el panel (el contacto ya no existe) y no
+  se debe reintentar. Si la persona vuelve a enviar el formulario, el contacto
+  se crea de nuevo, porque es un pedido nuevo suyo.
+- Hoy SCORE no tiene una función para borrar un lead: hasta que exista (PF-49),
+  un pedido de borrado se le pasa a José, que lo atiende a mano en la base de
+  SCORE y lo anota.
 - Se anota la solicitud y la fecha en que quedó atendida en los dos sistemas,
   sin copiar los datos de la persona en el registro.
 

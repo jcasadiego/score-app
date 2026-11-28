@@ -8,6 +8,7 @@ import {
 } from '../../generated/prisma/enums';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { FunnelUpCrmAdapter } from './adapters/funnelup-crm.adapter';
 import { SimulatedCrmAdapter } from './adapters/simulated-crm.adapter';
 import {
   BACKOFF_MS,
@@ -142,6 +143,32 @@ describe('CrmSyncService', () => {
       tags: ['score-informe-entregado'],
     });
     expect(tx.lead.update).not.toHaveBeenCalled();
+    updateStatus.mockRestore();
+  });
+
+  it('con el CRM real, un id del simulado no se usa: crea el contacto y guarda el id nuevo', async () => {
+    env = {
+      CRM_PROVIDER: 'funnelup',
+      CRM_FUNNELUP_TOKEN: 'pit-x',
+      CRM_FUNNELUP_LOCATION_ID: 'loc123ABC456',
+    };
+    tx.lead.findUniqueOrThrow.mockResolvedValue({
+      ...LEAD,
+      crmContactId: 'sim_abc',
+    });
+    const upsert = vi
+      .spyOn(FunnelUpCrmAdapter.prototype, 'upsertContact')
+      .mockResolvedValue({ contactId: 'real123' });
+    const updateStatus = vi.spyOn(FunnelUpCrmAdapter.prototype, 'updateStatus');
+
+    await sendOne(build(), event(CrmSyncEventType.REPORT_DELIVERED));
+
+    expect(upsert).toHaveBeenCalled();
+    expect(updateStatus).not.toHaveBeenCalled();
+    expect(tx.lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { crmContactId: 'real123' } }),
+    );
+    upsert.mockRestore();
     updateStatus.mockRestore();
   });
 

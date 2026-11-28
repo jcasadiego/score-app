@@ -17,7 +17,10 @@ import { AuditService } from '../audit/audit.service';
 import type { ValidatedEnv } from '../config/validate-env';
 import { PrismaService } from '../prisma/prisma.service';
 import { FunnelUpCrmAdapter } from './adapters/funnelup-crm.adapter';
-import { SimulatedCrmAdapter } from './adapters/simulated-crm.adapter';
+import {
+  SIMULATED_CONTACT_PREFIX,
+  SimulatedCrmAdapter,
+} from './adapters/simulated-crm.adapter';
 import { CRM_SYNC_EVENT_NOT_FAILED } from './crm-codes';
 import { CrmAdapter, CrmAdapterError, CrmProviderName } from './crm.port';
 import { CRM_STATUS_BY_EVENT, CrmSyncStatus, syncStatusOf } from './crm.types';
@@ -219,8 +222,14 @@ export class CrmSyncService implements OnModuleDestroy {
     try {
       const { crmContactId, ...contact } = lead;
       // El lead nuevo siempre refresca el contacto; un cambio de estado de un
-      // lead que nunca llegó al CRM también lo crea.
-      let contactId = crmContactId;
+      // lead que nunca llegó al CRM también lo crea. Un id del simulado no
+      // existe en el CRM real (leads de QA de antes de activarlo): también.
+      let contactId =
+        crmContactId &&
+        (this.adapter.simulated ||
+          !crmContactId.startsWith(SIMULATED_CONTACT_PREFIX))
+          ? crmContactId
+          : null;
       if (event.type === CrmSyncEventType.LEAD_CREATED || !contactId) {
         ({ contactId } = await this.adapter.upsertContact(contact, update));
       } else {

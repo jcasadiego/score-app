@@ -25,7 +25,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.mts",
     "mail:test": "ts-node scripts/send-test-email.ts",
     "ai:test": "ts-node scripts/ai-smoke.ts",
-    "storage:test": "ts-node scripts/storage-smoke.ts"
+    "storage:test": "ts-node scripts/storage-smoke.ts",
+    "crm:check": "ts-node scripts/crm-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

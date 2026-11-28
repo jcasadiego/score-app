@@ -299,6 +299,30 @@ describe('validateEnv · CRM', () => {
     ).toThrow(/CRM_SIMULATED_FAILURE: no se admite con APP_ENV=production/);
   });
 
+  it('con funnelup exige token y subcuenta', () => {
+    expect(() => validateEnv({ ...BASE, CRM_PROVIDER: 'funnelup' })).toThrow(
+      /CRM_FUNNELUP_TOKEN: obligatoria con CRM_PROVIDER=funnelup/,
+    );
+    const env = validateEnv({
+      ...BASE,
+      CRM_PROVIDER: 'funnelup',
+      CRM_FUNNELUP_TOKEN: 'pit-x',
+      CRM_FUNNELUP_LOCATION_ID: 'ykL5DgCE0MpotFRHL9mu',
+      CRM_EXTRA_TAG: 'score-qa',
+    });
+    expect(env.CRM_PROVIDER).toBe('funnelup');
+    expect(env.CRM_EXTRA_TAG).toBe('score-qa');
+  });
+
+  it('rechaza una subcuenta o una etiqueta extra con caracteres raros', () => {
+    expect(() =>
+      validateEnv({ ...BASE, CRM_FUNNELUP_LOCATION_ID: '../contacts' }),
+    ).toThrow(/CRM_FUNNELUP_LOCATION_ID/);
+    expect(() => validateEnv({ ...BASE, CRM_EXTRA_TAG: 'Score QA' })).toThrow(
+      /CRM_EXTRA_TAG/,
+    );
+  });
+
   it('rechaza un proveedor o un código de fallo desconocidos', () => {
     expect(() => validateEnv({ ...BASE, CRM_PROVIDER: 'hubspot' })).toThrow(
       /CRM_PROVIDER/,

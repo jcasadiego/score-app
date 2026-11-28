@@ -3,8 +3,8 @@ import type {
   DiagnosticFamily,
 } from '../../generated/prisma/enums';
 
-/** Proveedores de CRM disponibles. El real (Funnel Up) llega con PF-82. */
-export const CRM_PROVIDERS = ['simulated'] as const;
+/** Proveedores de CRM: el simulado (PF-80) y Funnel Up (PF-82). */
+export const CRM_PROVIDERS = ['simulated', 'funnelup'] as const;
 export type CrmProviderName = (typeof CRM_PROVIDERS)[number];
 
 /**

@@ -16,6 +16,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import type { ValidatedEnv } from '../config/validate-env';
 import { PrismaService } from '../prisma/prisma.service';
+import { FunnelUpCrmAdapter } from './adapters/funnelup-crm.adapter';
 import { SimulatedCrmAdapter } from './adapters/simulated-crm.adapter';
 import { CRM_SYNC_EVENT_NOT_FAILED } from './crm-codes';
 import { CrmAdapter, CrmAdapterError, CrmProviderName } from './crm.port';
@@ -101,10 +102,7 @@ export class CrmSyncService implements OnModuleDestroy {
     private readonly audit: AuditService,
     config: ConfigService<ValidatedEnv, true>,
   ) {
-    this.adapter = createAdapter(
-      config.get('CRM_PROVIDER', { infer: true }) ?? 'simulated',
-      config.get('CRM_SIMULATED_FAILURE', { infer: true }),
-    );
+    this.adapter = createAdapter(config);
   }
 
   /** Qué CRM está configurado, sin token ni ids de la cuenta. */
@@ -457,13 +455,21 @@ export function leadSyncStatusWhere(
   }
 }
 
-function createAdapter(
-  provider: CrmProviderName,
-  forcedFailure: CrmSyncErrorCode | undefined,
-): CrmAdapter {
+function createAdapter(config: ConfigService<ValidatedEnv, true>): CrmAdapter {
+  const provider: CrmProviderName =
+    config.get('CRM_PROVIDER', { infer: true }) ?? 'simulated';
   switch (provider) {
     case 'simulated':
-      return new SimulatedCrmAdapter(forcedFailure);
+      return new SimulatedCrmAdapter(
+        config.get('CRM_SIMULATED_FAILURE', { infer: true }),
+      );
+    case 'funnelup':
+      // validateEnv exige token y subcuenta con este proveedor.
+      return new FunnelUpCrmAdapter({
+        token: config.get('CRM_FUNNELUP_TOKEN', { infer: true })!,
+        locationId: config.get('CRM_FUNNELUP_LOCATION_ID', { infer: true })!,
+        extraTag: config.get('CRM_EXTRA_TAG', { infer: true }),
+      });
   }
 }
 

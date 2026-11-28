@@ -8,6 +8,9 @@ import {
   CrmStatusUpdate,
 } from '../crm.port';
 
+/** Prefijo de los ids que inventa el simulado: no existen en ningún CRM real. */
+export const SIMULATED_CONTACT_PREFIX = 'sim_';
+
 /**
  * CRM de mentira (PF-80): no llama a nada externo. Devuelve un id de contacto
  * aleatorio y, si se configura, falla siempre con el código dado para
@@ -27,7 +30,7 @@ export class SimulatedCrmAdapter implements CrmAdapter {
     this.failIfForced();
     // Aleatorio: un hash del correo sería un seudónimo que se puede vincular
     // al lead. El procesador lo guarda en el lead tras el primer envío.
-    const contactId = `sim_${randomBytes(12).toString('hex')}`;
+    const contactId = `${SIMULATED_CONTACT_PREFIX}${randomBytes(12).toString('hex')}`;
     // Sin el id de contacto: el log solo dice qué estado habría salido.
     this.logger.log(
       `CRM simulado: contacto creado o actualizado (estado ${update.status})`,

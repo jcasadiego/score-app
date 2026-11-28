@@ -25,14 +25,16 @@ const CONTACT_SOURCE = 'SCORE';
 /**
  * Campos personalizados del contacto que escribe SCORE, por su clave. Los crea
  * el equipo de Music Finance Pro en la subcuenta; `pnpm crm:check` comprueba
- * que existen con el tipo y las opciones que se esperan.
+ * que existen con el tipo y las opciones que se esperan. La API los recibe
+ * sin el prefijo `contact.` de la clave que muestra Funnel Up: con el prefijo
+ * los ignora sin dar error (probado el 2026-11-28).
  */
 export const FUNNELUP_FIELDS = {
-  status: 'contact.estado_score',
-  family: 'contact.familia_score',
-  utmSource: 'contact.utm_source',
-  utmMedium: 'contact.utm_medium',
-  utmCampaign: 'contact.utm_campaign',
+  status: 'estado_score',
+  family: 'familia_score',
+  utmSource: 'utm_source',
+  utmMedium: 'utm_medium',
+  utmCampaign: 'utm_campaign',
 } as const;
 
 export interface FunnelUpOptions {

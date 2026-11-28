@@ -675,9 +675,10 @@ En QA y PROD la API no se conecta como dueña del esquema:
     otra marca, API `https://services.leadconnectorhq.com` con `Version: v3`
     (fuentes: `marketplace.gohighlevel.com/docs`, contactos, etiquetas y
     límites). Crea o actualiza el contacto por correo (`POST
-    /contacts/upsert`) y escribe los campos `contact.estado_score`,
-    `contact.familia_score` y `contact.utm_*` por su clave; un cambio de
-    estado solo toca "Estado SCORE" (`PUT /contacts/:id`). Las etiquetas van
+    /contacts/upsert`) y escribe los campos `estado_score`, `familia_score` y
+    `utm_*` por su clave, sin el prefijo `contact.` (con él la API los ignora
+    sin error); un cambio de estado solo toca "Estado SCORE" (`PUT
+    /contacts/:id`, que deja los demás campos como están). Las etiquetas van
     por `POST /contacts/:id/tags`, que suma sin borrar: el arreglo `tags` del
     upsert reemplazaría las del equipo comercial. 401/403 → `AUTH_FAILED`;
     429 → `RATE_LIMITED`, con la espera de los encabezados `X-RateLimit-*`

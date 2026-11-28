@@ -110,7 +110,10 @@ async function main() {
   const all =
     (fields.body as { customFields?: CustomField[] } | null)?.customFields ??
     [];
-  const byKey = new Map(all.map((field) => [field.fieldKey, field]));
+  // Funnel Up muestra la clave con el prefijo `contact.`; el adaptador la envía sin él.
+  const byKey = new Map(
+    all.map((field) => [field.fieldKey.replace(/^contact\./, ''), field]),
+  );
 
   const expectOptions = (
     key: string,

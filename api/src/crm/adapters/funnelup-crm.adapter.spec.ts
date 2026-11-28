@@ -87,10 +87,10 @@ describe('FunnelUpCrmAdapter', () => {
       phone: '+573001234567',
       source: 'SCORE',
       customFields: [
-        { key: 'contact.estado_score', fieldValue: 'Lead' },
-        { key: 'contact.familia_score', fieldValue: 'Artista o proyecto' },
-        { key: 'contact.utm_source', fieldValue: 'instagram' },
-        { key: 'contact.utm_campaign', fieldValue: 'lanzamiento' },
+        { key: 'estado_score', fieldValue: 'Lead' },
+        { key: 'familia_score', fieldValue: 'Artista o proyecto' },
+        { key: 'utm_source', fieldValue: 'instagram' },
+        { key: 'utm_campaign', fieldValue: 'lanzamiento' },
       ],
     });
 
@@ -121,7 +121,7 @@ describe('FunnelUpCrmAdapter', () => {
     );
     expect(update.init.method).toBe('PUT');
     expect(update.body).toEqual({
-      customFields: [{ key: 'contact.estado_score', fieldValue: 'Entregado' }],
+      customFields: [{ key: 'estado_score', fieldValue: 'Entregado' }],
     });
     expect(call(1).body).toEqual({ tags: ['score-informe-entregado'] });
   });
